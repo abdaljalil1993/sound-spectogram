@@ -27,18 +27,11 @@
         <section class="left-panel">
           <section id="historyPanel" class="tab-panel active">
             <h2 id="selectedDeviceTitle">Select a device</h2>
-            <form id="historyRangeForm" class="inline-form">
-              <label for="queryDate">Day</label>
-              <input id="queryDate" name="queryDate" type="date" required />
-              <label for="fromTime">From</label>
-              <input id="fromTime" name="fromTime" type="time" step="60" required />
-              <label for="toTime">To</label>
-              <input id="toTime" name="toTime" type="time" step="60" required />
-              <button type="submit">Load Range</button>
+            <div class="inline-form range-actions-row">
               <button id="latest24Btn" type="button">Latest 24h</button>
               <button id="loadExampleBtn" type="button">Load Example</button>
               <button id="resetViewBtn" type="button">Reset View</button>
-            </form>
+            </div>
 
             <div class="spectro-toolbar" id="spectroToolbar">
               <button id="panLeftBtn" type="button" class="ghost-btn" title="Pan left (Arrow Left)">Pan Left</button>
@@ -151,10 +144,30 @@
         </section>
 
         <aside class="right-panel">
-          <h3>Device Info</h3>
-          <p id="sideDeviceInfo" class="history-info">No selected device.</p>
-          <h3>Devices</h3>
-          <ul id="deviceList" class="device-list"></ul>
+          <div class="side-card">
+            <h3>Device Info</h3>
+            <p id="sideDeviceInfo" class="history-info">No selected device.</p>
+          </div>
+
+          <div class="side-card">
+            <h3>Devices</h3>
+            <div class="device-list-scroll">
+              <ul id="deviceList" class="device-list"></ul>
+            </div>
+          </div>
+
+          <div class="side-card">
+            <h3>Load Range</h3>
+            <form id="historyRangeForm" class="side-range-form">
+              <label for="queryDate">Day</label>
+              <input id="queryDate" name="queryDate" type="date" required />
+              <label for="fromTime">From</label>
+              <input id="fromTime" name="fromTime" type="time" step="60" required />
+              <label for="toTime">To</label>
+              <input id="toTime" name="toTime" type="time" step="60" required />
+              <button type="submit">Load Range</button>
+            </form>
+          </div>
         </aside>
       </div>
     </main>

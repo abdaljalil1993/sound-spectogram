@@ -442,14 +442,7 @@
       return;
     }
 
-    var visiblePackets = currentPackets.filter(function (packet) {
-      var packetStart = getPacketStartMs(packet);
-      var packetEnd = getPacketEndMs(packet);
-      if (!Number.isFinite(packetStart) || !Number.isFinite(packetEnd)) {
-        return false;
-      }
-      return packetEnd >= fromMs && packetStart <= toMs;
-    });
+    var visiblePackets = getVisiblePackets(fromMs, toMs);
 
     var minFrequency = null;
     var maxFrequency = null;
@@ -672,6 +665,58 @@
     }
 
     return { startMs: startMs, endMs: endMs };
+  }
+
+  function findFirstVisiblePacketIndex(packets, fromMs) {
+    var low = 0;
+    var high = packets.length - 1;
+    var result = packets.length;
+
+    while (low <= high) {
+      var mid = Math.floor((low + high) / 2);
+      var packetEnd = getPacketEndMs(packets[mid]);
+      if (!Number.isFinite(packetEnd) || packetEnd >= fromMs) {
+        result = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    return result;
+  }
+
+  function findLastVisiblePacketIndex(packets, toMs) {
+    var low = 0;
+    var high = packets.length - 1;
+    var result = -1;
+
+    while (low <= high) {
+      var mid = Math.floor((low + high) / 2);
+      var packetStart = getPacketStartMs(packets[mid]);
+      if (!Number.isFinite(packetStart) || packetStart <= toMs) {
+        result = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    return result;
+  }
+
+  function getVisiblePackets(fromMs, toMs) {
+    if (!currentPackets.length) {
+      return [];
+    }
+
+    var startIndex = findFirstVisiblePacketIndex(currentPackets, fromMs);
+    var endIndex = findLastVisiblePacketIndex(currentPackets, toMs);
+    if (startIndex > endIndex || startIndex >= currentPackets.length || endIndex < 0) {
+      return [];
+    }
+
+    return currentPackets.slice(startIndex, endIndex + 1);
   }
 
   function fitViewportToPackets() {

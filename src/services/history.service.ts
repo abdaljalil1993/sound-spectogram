@@ -145,6 +145,35 @@ export class HistoryService {
   async saveIncomingDeviceData(payload: unknown): Promise<DeviceDataBroadcastPayload> {
     const normalized = await this.normalizeIncomingPayload(payload);
 
+    const existing = await this.historyRepo.findOne({
+      where: {
+        deviceId: normalized.resolvedDeviceId,
+        startTime: normalized.parsedStartDate,
+        endTime: normalized.parsedEndDate
+      }
+    });
+
+    if (existing) {
+      console.info("[HistoryService] Duplicate packet skipped", {
+        deviceId: normalized.resolvedDeviceId,
+        deviceName: normalized.resolvedDeviceName,
+        startTime: normalized.parsedStartDate.toISOString(),
+        endTime: normalized.parsedEndDate.toISOString(),
+        existingHistoryId: existing.id
+      });
+
+      return {
+        deviceId: existing.deviceId,
+        deviceName: normalized.resolvedDeviceName,
+        sourceDeviceId: normalized.parsed.deviceId,
+        timestamp: existing.timestamp.toISOString(),
+        startTime: (existing.startTime || normalized.parsedStartDate).toISOString(),
+        endTime: (existing.endTime || normalized.parsedEndDate).toISOString(),
+        data: normalized.parsed.data,
+        persisted: true
+      };
+    }
+
     const entity = this.historyRepo.create({
       deviceId: normalized.resolvedDeviceId,
       timestamp: normalized.parsedEndDate,
@@ -154,6 +183,14 @@ export class HistoryService {
     });
 
     const saved = await this.historyRepo.save(entity);
+
+    console.info("[HistoryService] Packet inserted", {
+      deviceId: saved.deviceId,
+      deviceName: normalized.resolvedDeviceName,
+      startTime: normalized.parsedStartDate.toISOString(),
+      endTime: normalized.parsedEndDate.toISOString(),
+      historyId: saved.id
+    });
 
     return {
       deviceId: saved.deviceId,

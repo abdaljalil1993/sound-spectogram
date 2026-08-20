@@ -11,6 +11,7 @@ import { StoredDeviceMatrix } from "../utils/types";
 
 @Entity({ name: "device_histories" })
 @Index(["deviceId", "timestamp"])
+@Index(["deviceId", "startTime", "endTime"], { unique: true })
 export class DeviceHistory {
   @PrimaryGeneratedColumn()
   id!: number;
