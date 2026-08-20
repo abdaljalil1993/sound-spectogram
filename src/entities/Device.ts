@@ -12,6 +12,12 @@ export class Device {
   @Column({ type: "varchar", length: 255, nullable: true })
   description!: string | null;
 
+  @Column({ type: "double", nullable: true })
+  minFrequency!: number | null;
+
+  @Column({ type: "double", nullable: true })
+  maxFrequency!: number | null;
+
   @OneToMany(() => DeviceHistory, (history) => history.device)
   histories!: DeviceHistory[];
 }

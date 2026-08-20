@@ -124,6 +124,10 @@
               <input id="deviceName" name="name" type="text" required />
               <label for="deviceDescription">Description</label>
               <input id="deviceDescription" name="description" type="text" />
+              <label for="deviceMinFrequency">Min Frequency (Hz)</label>
+              <input id="deviceMinFrequency" name="minFrequency" type="number" min="0" step="0.01" />
+              <label for="deviceMaxFrequency">Max Frequency (Hz)</label>
+              <input id="deviceMaxFrequency" name="maxFrequency" type="number" min="0" step="0.01" />
               <div class="form-actions">
                 <button type="submit" id="deviceSaveBtn">Add Device</button>
                 <button type="button" id="deviceCancelBtn">Cancel</button>
@@ -138,6 +142,7 @@
                     <th>ID</th>
                     <th>Name</th>
                     <th>Description</th>
+                    <th>Freq Range</th>
                     <th class="admin-only">Actions</th>
                   </tr>
                 </thead>

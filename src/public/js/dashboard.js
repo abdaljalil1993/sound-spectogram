@@ -22,6 +22,8 @@
   var selectedDeviceId = null;
   var selectedDeviceName = "";
   var selectedDeviceKey = "";
+  var selectedDeviceMinFrequency = null;
+  var selectedDeviceMaxFrequency = null;
   var currentPackets = [];
   var activeTimeStepMs = 1000;
   var activeRangeMode = "latest24";
@@ -89,6 +91,8 @@
   var deviceIdInput = document.getElementById("deviceId");
   var deviceNameInput = document.getElementById("deviceName");
   var deviceDescriptionInput = document.getElementById("deviceDescription");
+  var deviceMinFrequencyInput = document.getElementById("deviceMinFrequency");
+  var deviceMaxFrequencyInput = document.getElementById("deviceMaxFrequency");
   var deviceSaveBtn = document.getElementById("deviceSaveBtn");
   var deviceCancelBtn = document.getElementById("deviceCancelBtn");
   var deviceFormMessage = document.getElementById("deviceFormMessage");
@@ -137,6 +141,8 @@
     !deviceIdInput ||
     !deviceNameInput ||
     !deviceDescriptionInput ||
+    !deviceMinFrequencyInput ||
+    !deviceMaxFrequencyInput ||
     !deviceSaveBtn ||
     !deviceCancelBtn ||
     !deviceFormMessage ||
@@ -162,6 +168,16 @@
   function setSpectrogramLoading(isLoading) {
     spectrogramLoaderEl.classList.toggle("hidden", !isLoading);
     canvas.setAttribute("aria-busy", isLoading ? "true" : "false");
+  }
+
+  function parseOptionalNumberInput(value) {
+    var raw = String(value || "").trim();
+    if (!raw) {
+      return null;
+    }
+
+    var parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   var activeColorMap = "magma";
@@ -480,6 +496,16 @@
         maxFrequency = packetSampleRate / 2;
         break;
       }
+    }
+
+    if (
+      (!Number.isFinite(minFrequency) || !Number.isFinite(maxFrequency) || maxFrequency <= minFrequency) &&
+      Number.isFinite(selectedDeviceMinFrequency) &&
+      Number.isFinite(selectedDeviceMaxFrequency) &&
+      selectedDeviceMaxFrequency > selectedDeviceMinFrequency
+    ) {
+      minFrequency = selectedDeviceMinFrequency;
+      maxFrequency = selectedDeviceMaxFrequency;
     }
 
     var renderResult = window.Spectrogram.renderSpectrogram({
@@ -904,6 +930,8 @@
     selectedDeviceId = device.id;
     selectedDeviceName = device.name;
     selectedDeviceKey = normalizeDeviceKey(device.name);
+    selectedDeviceMinFrequency = Number.isFinite(device.minFrequency) ? device.minFrequency : null;
+    selectedDeviceMaxFrequency = Number.isFinite(device.maxFrequency) ? device.maxFrequency : null;
     selectedDeviceTitleEl.textContent = "Selected Device: " + device.name;
     sideDeviceInfoEl.textContent =
       "ID: " +
@@ -911,7 +939,11 @@
       " | Name: " +
       device.name +
       " | Description: " +
-      (device.description || "-");
+      (device.description || "-") +
+      " | Freq Range: " +
+      (Number.isFinite(selectedDeviceMinFrequency) && Number.isFinite(selectedDeviceMaxFrequency)
+        ? selectedDeviceMinFrequency + " Hz -> " + selectedDeviceMaxFrequency + " Hz"
+        : "not configured");
     setActiveDevice(device.id);
     await loadDeviceHistory(device.id);
   }
@@ -971,6 +1003,8 @@
     deviceIdInput.value = "";
     deviceNameInput.value = "";
     deviceDescriptionInput.value = "";
+    deviceMinFrequencyInput.value = "";
+    deviceMaxFrequencyInput.value = "";
     deviceSaveBtn.textContent = "Add Device";
     deviceFormMessage.textContent = "";
   }
@@ -1057,6 +1091,10 @@
         device.name +
         "</td><td>" +
         (device.description || "") +
+        "</td><td>" +
+        (Number.isFinite(device.minFrequency) && Number.isFinite(device.maxFrequency)
+          ? device.minFrequency + " - " + device.maxFrequency + " Hz"
+          : "-") +
         "</td>";
 
       if (isAdmin) {
@@ -1072,6 +1110,8 @@
           deviceIdInput.value = String(device.id);
           deviceNameInput.value = device.name;
           deviceDescriptionInput.value = device.description || "";
+          deviceMinFrequencyInput.value = Number.isFinite(device.minFrequency) ? String(device.minFrequency) : "";
+          deviceMaxFrequencyInput.value = Number.isFinite(device.maxFrequency) ? String(device.maxFrequency) : "";
           deviceSaveBtn.textContent = "Update Device";
           deviceFormMessage.textContent = "Editing device #" + device.id;
         });
@@ -1171,8 +1211,19 @@
 
     var payload = {
       name: deviceNameInput.value.trim(),
-      description: deviceDescriptionInput.value.trim()
+      description: deviceDescriptionInput.value.trim(),
+      minFrequency: parseOptionalNumberInput(deviceMinFrequencyInput.value),
+      maxFrequency: parseOptionalNumberInput(deviceMaxFrequencyInput.value)
     };
+
+    if (
+      Number.isFinite(payload.minFrequency) &&
+      Number.isFinite(payload.maxFrequency) &&
+      payload.maxFrequency <= payload.minFrequency
+    ) {
+      setGlobalMessage("Max Frequency must be greater than Min Frequency", true);
+      return;
+    }
 
     try {
       if (editingDeviceId) {

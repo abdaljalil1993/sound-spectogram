@@ -7,11 +7,15 @@ import { DeviceIdentifier } from "../utils/types";
 interface CreateDeviceInput {
   name: string;
   description?: string;
+  minFrequency?: number | null;
+  maxFrequency?: number | null;
 }
 
 interface UpdateDeviceInput {
   name?: string;
   description?: string | null;
+  minFrequency?: number | null;
+  maxFrequency?: number | null;
 }
 
 export class DeviceService {
@@ -24,7 +28,9 @@ export class DeviceService {
   async createDevice(input: CreateDeviceInput): Promise<Device> {
     const device = this.deviceRepo.create({
       name: input.name,
-      description: input.description ?? null
+      description: input.description ?? null,
+      minFrequency: input.minFrequency ?? null,
+      maxFrequency: input.maxFrequency ?? null
     });
 
     return this.deviceRepo.save(device);
@@ -51,6 +57,14 @@ export class DeviceService {
 
     if (input.description !== undefined) {
       device.description = input.description;
+    }
+
+    if (input.minFrequency !== undefined) {
+      device.minFrequency = input.minFrequency;
+    }
+
+    if (input.maxFrequency !== undefined) {
+      device.maxFrequency = input.maxFrequency;
     }
 
     return this.deviceRepo.save(device);
