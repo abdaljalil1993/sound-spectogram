@@ -74,6 +74,25 @@ export function validateIncomingDevicePayload(payload: unknown): {
 
   const matrixRows = (raw.data as unknown[]).length;
 
+  const intensityTypeRaw =
+    typeof raw.intensityType === "string" ? raw.intensityType.trim().toLowerCase() : undefined;
+  let parsedIntensityType: IncomingDeviceDataPayload["intensityType"];
+  if (intensityTypeRaw) {
+    if (
+      intensityTypeRaw !== "normalized" &&
+      intensityTypeRaw !== "uint8" &&
+      intensityTypeRaw !== "magnitude" &&
+      intensityTypeRaw !== "db"
+    ) {
+      return {
+        valid: false,
+        message: "intensityType must be one of normalized, uint8, magnitude, db"
+      };
+    }
+
+    parsedIntensityType = intensityTypeRaw;
+  }
+
   const rawFrequencyBins = raw.frequencyBins ?? raw.freq ?? raw.frequencies;
   let parsedFrequencyBins: number[] | undefined;
   if (rawFrequencyBins !== undefined) {
@@ -131,7 +150,8 @@ export function validateIncomingDevicePayload(payload: unknown): {
       startTime,
       endTime,
       data: raw.data as number[][],
-      frequencyBins: parsedFrequencyBins
+      frequencyBins: parsedFrequencyBins,
+      intensityType: parsedIntensityType
     }
   };
 }

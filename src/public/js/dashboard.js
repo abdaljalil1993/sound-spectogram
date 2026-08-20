@@ -81,6 +81,16 @@
   var pctLowInput = document.getElementById("pctLowInput");
   var pctHighInput = document.getElementById("pctHighInput");
   var applyIntensityBtn = document.getElementById("applyIntensityBtn");
+  var compareViewSelect = document.getElementById("compareViewSelect");
+  var noiseSuppressionEnabledInput = document.getElementById("noiseSuppressionEnabledInput");
+  var noiseFloorPercentileInput = document.getElementById("noiseFloorPercentileInput");
+  var noiseThresholdInput = document.getElementById("noiseThresholdInput");
+  var isolatedPixelRemovalEnabledInput = document.getElementById("isolatedPixelRemovalEnabledInput");
+  var minActiveNeighborsInput = document.getElementById("minActiveNeighborsInput");
+  var neighborhoodSizeSelect = document.getElementById("neighborhoodSizeSelect");
+  var bucketAggregationSelect = document.getElementById("bucketAggregationSelect");
+  var debugStatsEnabledInput = document.getElementById("debugStatsEnabledInput");
+  var applyNoiseBtn = document.getElementById("applyNoiseBtn");
 
   var usersTableBody = document.getElementById("usersTableBody");
   var userForm = document.getElementById("userForm");
@@ -140,6 +150,16 @@
     !pctLowInput ||
     !pctHighInput ||
     !applyIntensityBtn ||
+    !compareViewSelect ||
+    !noiseSuppressionEnabledInput ||
+    !noiseFloorPercentileInput ||
+    !noiseThresholdInput ||
+    !isolatedPixelRemovalEnabledInput ||
+    !minActiveNeighborsInput ||
+    !neighborhoodSizeSelect ||
+    !bucketAggregationSelect ||
+    !debugStatsEnabledInput ||
+    !applyNoiseBtn ||
     !usersTableBody ||
     !userForm ||
     !userIdInput ||
@@ -242,6 +262,76 @@
   var activeDbMax = -20;
   var activePercentileLow = 5;
   var activePercentileHigh = 99;
+  var activeCompareView = "denoised";
+  var activeNoiseSuppressionEnabled = true;
+  var activeNoiseFloorPercentile = 72;
+  var activeNoiseThreshold = 0.06;
+  var activeIsolatedPixelRemovalEnabled = true;
+  var activeMinActiveNeighbors = 1;
+  var activeNeighborhoodSize = 3;
+  var activeBucketAggregation = "max";
+  var activeDebugStatsEnabled = false;
+
+  function parseBoolInput(input, fallback) {
+    if (!(input instanceof HTMLInputElement)) {
+      return fallback;
+    }
+    return !!input.checked;
+  }
+
+  function applyNoiseSettings() {
+    var compareView = String(compareViewSelect.value || "denoised").toLowerCase();
+    if (compareView !== "original" && compareView !== "thresholded" && compareView !== "denoised") {
+      compareView = "denoised";
+    }
+
+    var floorPercentile = Number(noiseFloorPercentileInput.value);
+    if (!Number.isFinite(floorPercentile)) {
+      floorPercentile = 72;
+    }
+    floorPercentile = clamp(floorPercentile, 1, 99);
+
+    var threshold = Number(noiseThresholdInput.value);
+    if (!Number.isFinite(threshold)) {
+      threshold = 0.06;
+    }
+    threshold = clamp(threshold, 0, 1);
+
+    var minNeighbors = Math.round(Number(minActiveNeighborsInput.value));
+    if (!Number.isFinite(minNeighbors)) {
+      minNeighbors = 1;
+    }
+    minNeighbors = clamp(minNeighbors, 0, 24);
+
+    var neighborhoodSize = Math.round(Number(neighborhoodSizeSelect.value));
+    if (neighborhoodSize !== 5) {
+      neighborhoodSize = 3;
+    }
+
+    var aggregation = String(bucketAggregationSelect.value || "max").toLowerCase();
+    if (aggregation !== "hybrid") {
+      aggregation = "max";
+    }
+
+    activeCompareView = compareView;
+    activeNoiseSuppressionEnabled = parseBoolInput(noiseSuppressionEnabledInput, true);
+    activeNoiseFloorPercentile = floorPercentile;
+    activeNoiseThreshold = threshold;
+    activeIsolatedPixelRemovalEnabled = parseBoolInput(isolatedPixelRemovalEnabledInput, true);
+    activeMinActiveNeighbors = minNeighbors;
+    activeNeighborhoodSize = neighborhoodSize;
+    activeBucketAggregation = aggregation;
+    activeDebugStatsEnabled = parseBoolInput(debugStatsEnabledInput, false);
+
+    compareViewSelect.value = activeCompareView;
+    noiseFloorPercentileInput.value = String(activeNoiseFloorPercentile);
+    noiseThresholdInput.value = String(activeNoiseThreshold);
+    minActiveNeighborsInput.value = String(activeMinActiveNeighbors);
+    neighborhoodSizeSelect.value = String(activeNeighborhoodSize);
+    bucketAggregationSelect.value = activeBucketAggregation;
+
+    scheduleRender({ skipTable: true });
+  }
 
   function updateIntensityControlsState() {
     var mode = String(activeIntensityMode || "linear");
@@ -592,8 +682,12 @@
     var minFrequency = null;
     var maxFrequency = null;
     var frequencyBins = null;
+    var intensityType = null;
     for (var i = 0; i < visiblePackets.length; i += 1) {
       var packet = visiblePackets[i];
+      if (!intensityType && typeof packet.intensityType === "string") {
+        intensityType = packet.intensityType;
+      }
       var packetBins = getPacketFrequencyBins(packet);
       if (packetBins && packetBins.length > 1) {
         frequencyBins = packetBins;
@@ -654,6 +748,16 @@
       dbMax: activeDbMax,
       percentileLow: activePercentileLow,
       percentileHigh: activePercentileHigh,
+      compareView: activeCompareView,
+      noiseSuppressionEnabled: activeNoiseSuppressionEnabled,
+      noiseFloorPercentile: activeNoiseFloorPercentile,
+      noiseThreshold: activeNoiseThreshold,
+      isolatedPixelRemovalEnabled: activeIsolatedPixelRemovalEnabled,
+      minActiveNeighbors: activeMinActiveNeighbors,
+      neighborhoodSize: activeNeighborhoodSize,
+      bucketAggregation: activeBucketAggregation,
+      debugStatsEnabled: activeDebugStatsEnabled,
+      intensityType: intensityType,
       frequencyBins: frequencyBins,
       minFrequency: minFrequency,
       maxFrequency: maxFrequency
@@ -695,6 +799,37 @@
       historyInfoEl.textContent = historyInfoEl.textContent + " | Frequency axis: Hz";
     } else {
       historyInfoEl.textContent = historyInfoEl.textContent + " | Frequency axis: bands only (add sampleRate / minFrequency / maxFrequency for Hz labels)";
+    }
+
+    if (activeDebugStatsEnabled && renderResult && renderResult.debugStats) {
+      var s = renderResult.debugStats;
+      historyInfoEl.textContent =
+        historyInfoEl.textContent +
+        " | Stage=" +
+        (renderResult.compareView || activeCompareView) +
+        " | min=" +
+        s.min.toFixed(4) +
+        " max=" +
+        s.max.toFixed(4) +
+        " mean=" +
+        s.mean.toFixed(4) +
+        " median=" +
+        s.median.toFixed(4) +
+        " p50=" +
+        s.p50.toFixed(4) +
+        " p75=" +
+        s.p75.toFixed(4) +
+        " p90=" +
+        s.p90.toFixed(4) +
+        " p95=" +
+        s.p95.toFixed(4) +
+        " p99=" +
+        s.p99.toFixed(4) +
+        " thr=" +
+        s.selectedNoiseThreshold.toFixed(4) +
+        " removed=" +
+        s.removedPercent.toFixed(2) +
+        "%";
     }
 
     historyTableBody.innerHTML = "";
@@ -1534,6 +1669,26 @@
     });
   });
 
+  applyNoiseBtn.addEventListener("click", function () {
+    applyNoiseSettings();
+  });
+
+  [
+    compareViewSelect,
+    noiseSuppressionEnabledInput,
+    noiseFloorPercentileInput,
+    noiseThresholdInput,
+    isolatedPixelRemovalEnabledInput,
+    minActiveNeighborsInput,
+    neighborhoodSizeSelect,
+    bucketAggregationSelect,
+    debugStatsEnabledInput
+  ].forEach(function (el) {
+    el.addEventListener("change", function () {
+      applyNoiseSettings();
+    });
+  });
+
   canvas.style.cursor = "grab";
 
   canvas.addEventListener("mousedown", function (event) {
@@ -2031,7 +2186,17 @@
     dbMin: -95,
     dbMax: -20,
     percentileLow: 5,
-    percentileHigh: 99
+    percentileHigh: 99,
+    noiseSuppressionEnabled: true,
+    noiseFloorPercentile: 72,
+    noiseThreshold: 0.06,
+    isolatedPixelRemovalEnabled: true,
+    minActiveNeighbors: 1,
+    neighborhoodSize: 3,
+    morphologyEnabled: true,
+    compareView: "denoised",
+    bucketAggregation: "max",
+    debugStatsEnabled: false
   });
   activeColorMap = "magma";
   updateColorMapButtonLabel();
@@ -2040,7 +2205,17 @@
   dbMaxInput.value = String(activeDbMax);
   pctLowInput.value = String(activePercentileLow);
   pctHighInput.value = String(activePercentileHigh);
+  compareViewSelect.value = activeCompareView;
+  noiseSuppressionEnabledInput.checked = activeNoiseSuppressionEnabled;
+  noiseFloorPercentileInput.value = String(activeNoiseFloorPercentile);
+  noiseThresholdInput.value = String(activeNoiseThreshold);
+  isolatedPixelRemovalEnabledInput.checked = activeIsolatedPixelRemovalEnabled;
+  minActiveNeighborsInput.value = String(activeMinActiveNeighbors);
+  neighborhoodSizeSelect.value = String(activeNeighborhoodSize);
+  bucketAggregationSelect.value = activeBucketAggregation;
+  debugStatsEnabledInput.checked = activeDebugStatsEnabled;
   updateIntensityControlsState();
+  applyNoiseSettings();
   window.Spectrogram.drawLegend(legendCanvas);
 
   setupSocket();

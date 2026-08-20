@@ -51,6 +51,41 @@
               <input id="pctLowInput" class="toolbar-number" type="number" min="0" max="99" step="1" value="5" title="Percentile low" />
               <input id="pctHighInput" class="toolbar-number" type="number" min="1" max="100" step="1" value="99" title="Percentile high" />
               <button id="applyIntensityBtn" type="button" class="ghost-btn" title="Apply intensity scaling">Apply Scale</button>
+              <select id="compareViewSelect" class="toolbar-select" title="Compare processing stage">
+                <option value="denoised">View: denoised</option>
+                <option value="original">View: original</option>
+                <option value="thresholded">View: thresholded</option>
+              </select>
+              <label class="toolbar-check" title="Enable adaptive noise suppression">
+                <input id="noiseSuppressionEnabledInput" type="checkbox" checked /> Noise Gate
+              </label>
+              <input
+                id="noiseFloorPercentileInput"
+                class="toolbar-number"
+                type="number"
+                min="1"
+                max="99"
+                step="1"
+                value="72"
+                title="Noise floor percentile"
+              />
+              <input id="noiseThresholdInput" class="toolbar-number" type="number" min="0" max="1" step="0.01" value="0.06" title="Minimum normalized threshold" />
+              <label class="toolbar-check" title="Remove isolated active pixels using neighborhood test">
+                <input id="isolatedPixelRemovalEnabledInput" type="checkbox" checked /> De-speckle
+              </label>
+              <input id="minActiveNeighborsInput" class="toolbar-number" type="number" min="0" max="8" step="1" value="1" title="Minimum active neighbors" />
+              <select id="neighborhoodSizeSelect" class="toolbar-select" title="Neighborhood size">
+                <option value="3" selected>3x3</option>
+                <option value="5">5x5</option>
+              </select>
+              <select id="bucketAggregationSelect" class="toolbar-select" title="Column aggregation when compressed">
+                <option value="max" selected>Bucket: max</option>
+                <option value="hybrid">Bucket: hybrid</option>
+              </select>
+              <label class="toolbar-check" title="Show render statistics for current visible data">
+                <input id="debugStatsEnabledInput" type="checkbox" /> Stats
+              </label>
+              <button id="applyNoiseBtn" type="button" class="ghost-btn" title="Apply noise suppression settings">Apply Noise</button>
             </div>
             <p class="spectro-hint">
               Drag to pan. Mouse wheel zooms at cursor. Shift + wheel pans horizontally. Alt + wheel gives fine zoom.

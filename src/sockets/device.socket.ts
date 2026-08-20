@@ -97,7 +97,8 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
       end_time: raw.end_time,
       rows: maybeMatrix ? maybeMatrix.length : undefined,
       cols: maybeMatrix && Array.isArray(maybeMatrix[0]) ? maybeMatrix[0].length : undefined,
-      freq: raw.frequencies
+      freq: raw.frequencies,
+      intensityType: raw.intensityType
     });
 
     await handleIncomingDeviceData(io, data, ack);

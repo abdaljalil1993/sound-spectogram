@@ -379,6 +379,23 @@ select:focus-visible {
   width: 86px;
 }
 
+.toolbar-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.toolbar-check input {
+  margin: 0;
+}
+
 .spectro-hint {
   margin: 0 0 10px;
   font-size: 12px;

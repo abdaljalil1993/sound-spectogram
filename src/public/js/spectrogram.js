@@ -9,6 +9,16 @@
     dbMax: -20,
     percentileLow: 5,
     percentileHigh: 99,
+    noiseSuppressionEnabled: true,
+    noiseFloorPercentile: 72,
+    noiseThreshold: 0.06,
+    isolatedPixelRemovalEnabled: true,
+    minActiveNeighbors: 1,
+    neighborhoodSize: 3,
+    morphologyEnabled: true,
+    compareView: "denoised",
+    debugStatsEnabled: false,
+    bucketAggregation: "max",
     gamma: 1.0,
     smoothVertical: true,
     axisMinFrequency: 30,
@@ -284,10 +294,15 @@
     return samples;
   }
 
-  function buildIntensityMapper(options, blocks) {
+  function buildIntensityMapper(options, blocks, intensityType) {
     var modeRaw = (options && options.intensityMode) || DEFAULT_CONFIG.intensityMode;
     var mode = String(modeRaw || "linear").toLowerCase();
     if (mode !== "db-fixed" && mode !== "db-percentile") {
+      mode = "linear";
+    }
+
+    var allowsDb = intensityType === "magnitude" || intensityType === "db";
+    if (!allowsDb && mode !== "linear") {
       mode = "linear";
     }
 
@@ -298,9 +313,9 @@
           return normalizeIntensity(value);
         },
         legend: {
-          lowLabel: "Low 0",
-          highLabel: "High 255",
-          title: "Linear"
+          lowLabel: "Low",
+          highLabel: "High",
+          title: allowsDb ? "Linear" : "Image"
         }
       };
     }
@@ -367,6 +382,403 @@
         highLabel: Math.round(dbMax) + " dB",
         title: mode === "db-percentile" ? "dB (percentile)" : "dB (fixed)"
       }
+    };
+  }
+
+  function normalizeScalarByType(value, intensityType) {
+    var n = Number(value);
+    if (!Number.isFinite(n)) {
+      return 0;
+    }
+
+    if (intensityType === "normalized") {
+      return clamp01(n);
+    }
+
+    if (intensityType === "uint8") {
+      return clamp01(n / 255);
+    }
+
+    if (intensityType === "db") {
+      var dbMin = Number(DEFAULT_CONFIG.dbMin);
+      var dbMax = Number(DEFAULT_CONFIG.dbMax);
+      if (!Number.isFinite(dbMin)) dbMin = -95;
+      if (!Number.isFinite(dbMax) || dbMax <= dbMin) dbMax = dbMin + 75;
+      return clamp01((n - dbMin) / (dbMax - dbMin));
+    }
+
+    return normalizeIntensity(n);
+  }
+
+  function inferImageIntensityType(blocks) {
+    for (var bi = 0; bi < blocks.length; bi += 1) {
+      var matrix = blocks[bi] && blocks[bi].data;
+      if (!Array.isArray(matrix) || matrix.length === 0 || !Array.isArray(matrix[0]) || matrix[0].length === 0) {
+        continue;
+      }
+
+      var dims = getMatrixDimensions(matrix);
+      var rows = dims.rows;
+      var cols = dims.cols;
+      var maxValue = Number.NEGATIVE_INFINITY;
+      for (var r = 0; r < rows; r += Math.max(1, Math.floor(rows / 24))) {
+        for (var c = 0; c < cols; c += Math.max(1, Math.floor(cols / 24))) {
+          var value = getMatrixValue(matrix, r, c);
+          if (Number.isFinite(value) && value > maxValue) {
+            maxValue = value;
+          }
+        }
+      }
+
+      if (Number.isFinite(maxValue)) {
+        return maxValue <= 1.5 ? "normalized" : "uint8";
+      }
+    }
+
+    return "uint8";
+  }
+
+  function resolveIntensityType(options, blocks) {
+    var candidate = options && typeof options.intensityType === "string" ? options.intensityType.toLowerCase() : "";
+    if (candidate === "normalized" || candidate === "uint8" || candidate === "magnitude" || candidate === "db") {
+      return candidate;
+    }
+
+    return inferImageIntensityType(blocks);
+  }
+
+  function buildStatsFromSorted(sortedValues) {
+    if (!Array.isArray(sortedValues) || sortedValues.length === 0) {
+      return {
+        min: 0,
+        max: 0,
+        mean: 0,
+        median: 0,
+        p50: 0,
+        p75: 0,
+        p90: 0,
+        p95: 0,
+        p99: 0
+      };
+    }
+
+    var sum = 0;
+    for (var i = 0; i < sortedValues.length; i += 1) {
+      sum += sortedValues[i];
+    }
+
+    return {
+      min: sortedValues[0],
+      max: sortedValues[sortedValues.length - 1],
+      mean: sum / sortedValues.length,
+      median: quantileSorted(sortedValues, 0.5),
+      p50: quantileSorted(sortedValues, 0.5),
+      p75: quantileSorted(sortedValues, 0.75),
+      p90: quantileSorted(sortedValues, 0.9),
+      p95: quantileSorted(sortedValues, 0.95),
+      p99: quantileSorted(sortedValues, 0.99)
+    };
+  }
+
+  function collectNormalizedSamples(blocks, intensityType, maxSamples) {
+    var limit = Number.isFinite(maxSamples) ? Math.max(1000, Math.floor(maxSamples)) : 200000;
+    var out = [];
+
+    for (var bi = 0; bi < blocks.length; bi += 1) {
+      var matrix = blocks[bi] && blocks[bi].data;
+      if (!Array.isArray(matrix) || matrix.length === 0 || !Array.isArray(matrix[0]) || matrix[0].length === 0) {
+        continue;
+      }
+
+      var dims = getMatrixDimensions(matrix);
+      var rows = dims.rows;
+      var cols = dims.cols;
+      var rowStep = Math.max(1, Math.floor(rows / 64));
+      var colStep = Math.max(1, Math.floor(cols / 64));
+
+      for (var r = 0; r < rows; r += rowStep) {
+        for (var c = 0; c < cols; c += colStep) {
+          out.push(normalizeScalarByType(getMatrixValue(matrix, r, c), intensityType));
+          if (out.length >= limit) {
+            return out;
+          }
+        }
+      }
+    }
+
+    return out;
+  }
+
+  function countActiveNeighbors(mask, row, col, radius) {
+    var rows = mask.length;
+    var cols = rows > 0 ? mask[0].length : 0;
+    var neighbors = 0;
+
+    for (var dr = -radius; dr <= radius; dr += 1) {
+      for (var dc = -radius; dc <= radius; dc += 1) {
+        if (dr === 0 && dc === 0) {
+          continue;
+        }
+
+        var rr = row + dr;
+        var cc = col + dc;
+        if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) {
+          continue;
+        }
+
+        if (mask[rr][cc]) {
+          neighbors += 1;
+        }
+      }
+    }
+
+    return neighbors;
+  }
+
+  function hasLineSupport(mask, row, col) {
+    var rows = mask.length;
+    var cols = rows > 0 ? mask[0].length : 0;
+    var up = row - 1 >= 0 ? !!mask[row - 1][col] : false;
+    var down = row + 1 < rows ? !!mask[row + 1][col] : false;
+    var left = col - 1 >= 0 ? !!mask[row][col - 1] : false;
+    var right = col + 1 < cols ? !!mask[row][col + 1] : false;
+    return (up && down) || (left && right);
+  }
+
+  function removeSingletonComponents(mask) {
+    var rows = mask.length;
+    var cols = rows > 0 ? mask[0].length : 0;
+    var visited = new Array(rows);
+    for (var r = 0; r < rows; r += 1) {
+      visited[r] = new Array(cols).fill(false);
+    }
+
+    var dirs = [
+      [-1, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, -1],
+      [0, 1],
+      [1, -1],
+      [1, 0],
+      [1, 1]
+    ];
+
+    for (var row = 0; row < rows; row += 1) {
+      for (var col = 0; col < cols; col += 1) {
+        if (!mask[row][col] || visited[row][col]) {
+          continue;
+        }
+
+        var queue = [{ r: row, c: col }];
+        var members = [];
+        visited[row][col] = true;
+
+        while (queue.length) {
+          var node = queue.pop();
+          if (!node) {
+            continue;
+          }
+          members.push(node);
+
+          for (var di = 0; di < dirs.length; di += 1) {
+            var rr = node.r + dirs[di][0];
+            var cc = node.c + dirs[di][1];
+            if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) {
+              continue;
+            }
+            if (!mask[rr][cc] || visited[rr][cc]) {
+              continue;
+            }
+            visited[rr][cc] = true;
+            queue.push({ r: rr, c: cc });
+          }
+        }
+
+        if (members.length === 1) {
+          var only = members[0];
+          mask[only.r][only.c] = false;
+        }
+      }
+    }
+  }
+
+  function bridgeThinGaps(mask) {
+    var rows = mask.length;
+    var cols = rows > 0 ? mask[0].length : 0;
+    var next = new Array(rows);
+
+    for (var r = 0; r < rows; r += 1) {
+      next[r] = mask[r].slice();
+    }
+
+    for (var row = 1; row < rows - 1; row += 1) {
+      for (var col = 1; col < cols - 1; col += 1) {
+        if (mask[row][col]) {
+          continue;
+        }
+
+        var verticalBridge = mask[row - 1][col] && mask[row + 1][col];
+        var horizontalBridge = mask[row][col - 1] && mask[row][col + 1];
+        if (verticalBridge || horizontalBridge) {
+          next[row][col] = true;
+        }
+      }
+    }
+
+    return next;
+  }
+
+  function createProcessingContext(options, blocks) {
+    var compareView = String((options && options.compareView) || DEFAULT_CONFIG.compareView || "denoised").toLowerCase();
+    if (compareView !== "original" && compareView !== "thresholded" && compareView !== "denoised") {
+      compareView = "denoised";
+    }
+
+    var intensityType = resolveIntensityType(options || {}, blocks);
+    var samples = collectNormalizedSamples(blocks, intensityType, 200000);
+    samples.sort(function (a, b) {
+      return a - b;
+    });
+
+    var stats = buildStatsFromSorted(samples);
+    var floorPct = Number((options && options.noiseFloorPercentile) || DEFAULT_CONFIG.noiseFloorPercentile);
+    if (!Number.isFinite(floorPct)) {
+      floorPct = 72;
+    }
+    floorPct = Math.max(1, Math.min(99, floorPct));
+
+    var adaptiveFloor = quantileSorted(samples, floorPct / 100);
+    if (!Number.isFinite(adaptiveFloor)) {
+      adaptiveFloor = 0;
+    }
+
+    var minimumThreshold = Number((options && options.noiseThreshold) || DEFAULT_CONFIG.noiseThreshold);
+    if (!Number.isFinite(minimumThreshold)) {
+      minimumThreshold = 0;
+    }
+    minimumThreshold = clamp01(minimumThreshold);
+
+    var threshold = Math.max(adaptiveFloor, minimumThreshold);
+    threshold = clamp01(threshold);
+
+    var neighborhoodSize = Number((options && options.neighborhoodSize) || DEFAULT_CONFIG.neighborhoodSize);
+    if (neighborhoodSize !== 5) {
+      neighborhoodSize = 3;
+    }
+
+    var minActiveNeighbors = Number((options && options.minActiveNeighbors) || DEFAULT_CONFIG.minActiveNeighbors);
+    if (!Number.isFinite(minActiveNeighbors)) {
+      minActiveNeighbors = 1;
+    }
+    minActiveNeighbors = Math.max(0, Math.floor(minActiveNeighbors));
+
+    return {
+      intensityType: intensityType,
+      compareView: compareView,
+      noiseSuppressionEnabled:
+        options && typeof options.noiseSuppressionEnabled === "boolean"
+          ? options.noiseSuppressionEnabled
+          : !!DEFAULT_CONFIG.noiseSuppressionEnabled,
+      isolatedPixelRemovalEnabled:
+        options && typeof options.isolatedPixelRemovalEnabled === "boolean"
+          ? options.isolatedPixelRemovalEnabled
+          : !!DEFAULT_CONFIG.isolatedPixelRemovalEnabled,
+      morphologyEnabled:
+        options && typeof options.morphologyEnabled === "boolean"
+          ? options.morphologyEnabled
+          : !!DEFAULT_CONFIG.morphologyEnabled,
+      neighborhoodSize: neighborhoodSize,
+      minActiveNeighbors: minActiveNeighbors,
+      threshold: threshold,
+      stats: stats,
+      removedBefore: 0,
+      removedAfter: 0
+    };
+  }
+
+  function processBlockMatrix(matrix, processCtx) {
+    var dims = getMatrixDimensions(matrix);
+    var rows = dims.rows;
+    var cols = dims.cols;
+
+    var original = new Array(rows);
+    var thresholded = new Array(rows);
+    var mask = new Array(rows);
+
+    var activeBefore = 0;
+
+    for (var r = 0; r < rows; r += 1) {
+      original[r] = new Array(cols);
+      thresholded[r] = new Array(cols);
+      mask[r] = new Array(cols);
+      for (var c = 0; c < cols; c += 1) {
+        var normalized = normalizeScalarByType(getMatrixValue(matrix, r, c), processCtx.intensityType);
+        original[r][c] = normalized;
+
+        var gated = processCtx.noiseSuppressionEnabled && normalized < processCtx.threshold ? 0 : normalized;
+        thresholded[r][c] = gated;
+        var active = gated > 0;
+        mask[r][c] = active;
+        if (active) {
+          activeBefore += 1;
+        }
+      }
+    }
+
+    if (processCtx.isolatedPixelRemovalEnabled) {
+      var radius = Math.floor((processCtx.neighborhoodSize - 1) / 2);
+      var filteredMask = new Array(rows);
+      for (var rr = 0; rr < rows; rr += 1) {
+        filteredMask[rr] = new Array(cols);
+        for (var cc = 0; cc < cols; cc += 1) {
+          if (!mask[rr][cc]) {
+            filteredMask[rr][cc] = false;
+            continue;
+          }
+
+          var neighborCount = countActiveNeighbors(mask, rr, cc, radius);
+          var keep = neighborCount >= processCtx.minActiveNeighbors || hasLineSupport(mask, rr, cc);
+          filteredMask[rr][cc] = keep;
+        }
+      }
+      mask = filteredMask;
+      removeSingletonComponents(mask);
+    }
+
+    if (processCtx.morphologyEnabled) {
+      mask = bridgeThinGaps(mask);
+    }
+
+    var denoised = new Array(rows);
+    var activeAfter = 0;
+    for (var r2 = 0; r2 < rows; r2 += 1) {
+      denoised[r2] = new Array(cols);
+      for (var c2 = 0; c2 < cols; c2 += 1) {
+        var keepValue = mask[r2][c2] ? thresholded[r2][c2] : 0;
+        denoised[r2][c2] = keepValue;
+        if (keepValue > 0) {
+          activeAfter += 1;
+        }
+      }
+    }
+
+    processCtx.removedBefore += activeBefore;
+    processCtx.removedAfter += activeAfter;
+
+    var selected;
+    if (processCtx.compareView === "original") {
+      selected = original;
+    } else if (processCtx.compareView === "thresholded") {
+      selected = thresholded;
+    } else {
+      selected = denoised;
+    }
+
+    return {
+      matrix: selected,
+      rows: rows,
+      cols: cols
     };
   }
 
@@ -534,7 +946,12 @@
     }
 
     var image = nativeCtx.createImageData(plotW, nativeCanvas.height);
-    var intensityMapper = buildIntensityMapper(options, blocks);
+    var processCtx = createProcessingContext(options || {}, blocks);
+    var intensityMapper = buildIntensityMapper(options, blocks, processCtx.intensityType);
+    var bucketAggregation = String((options && options.bucketAggregation) || DEFAULT_CONFIG.bucketAggregation || "max").toLowerCase();
+    if (bucketAggregation !== "hybrid") {
+      bucketAggregation = "max";
+    }
     var lowRgb = valueToColor(0);
     for (var baseIdx = 0; baseIdx < image.data.length; baseIdx += 4) {
       image.data[baseIdx] = lowRgb[0];
@@ -550,14 +967,25 @@
     var rangeMs = toMs - fromMs;
     var coverageIntervals = [];
 
-    function flushColumnBucket(rows, rowValues, xStart, xEnd) {
+    function aggregateBucketValue(maxValue, sumValue, countValue) {
+      if (bucketAggregation === "hybrid") {
+        if (!Number.isFinite(countValue) || countValue <= 0) {
+          return 0;
+        }
+        var meanValue = sumValue / countValue;
+        return 0.7 * maxValue + 0.3 * meanValue;
+      }
+      return maxValue;
+    }
+
+    function flushColumnBucket(rows, bucketMax, bucketSum, bucketCount, xStart, xEnd) {
       for (var r = 0; r < rows; r += 1) {
         var yNative = rows - 1 - r;
         if (yNative < 0 || yNative >= nativeCanvas.height) {
           continue;
         }
 
-        var value = intensityMapper.map(rowValues[r]);
+        var value = intensityMapper.map(aggregateBucketValue(bucketMax[r], bucketSum[r], bucketCount[r]));
         if (!Number.isFinite(value)) {
           value = 0;
         }
@@ -579,6 +1007,9 @@
       if (!Array.isArray(matrix) || matrix.length === 0 || !Array.isArray(matrix[0]) || matrix[0].length === 0) {
         continue;
       }
+
+      var processed = processBlockMatrix(matrix, processCtx);
+      var processedMatrix = processed.matrix;
 
       var dims = getMatrixDimensions(matrix);
       var rows = dims.rows;
@@ -628,7 +1059,23 @@
       var bucketX0 = -1;
       var bucketX1 = -1;
       var hasBucket = false;
-      var bucketValues = new Array(rows);
+      var bucketMax = new Array(rows);
+      var bucketSum = new Array(rows);
+      var bucketCount = new Array(rows);
+
+      function resetBucketRow(rowIndex, value) {
+        bucketMax[rowIndex] = value;
+        bucketSum[rowIndex] = value;
+        bucketCount[rowIndex] = 1;
+      }
+
+      function mergeBucketRow(rowIndex, value) {
+        if (value > bucketMax[rowIndex]) {
+          bucketMax[rowIndex] = value;
+        }
+        bucketSum[rowIndex] += value;
+        bucketCount[rowIndex] += 1;
+      }
 
       for (var c = 0; c < cols; c += columnStride) {
         var timeMs;
@@ -661,7 +1108,7 @@
           bucketX0 = x0;
           bucketX1 = x1;
           for (var initR = 0; initR < rows; initR += 1) {
-            bucketValues[initR] = getMatrixValue(matrix, initR, c);
+            resetBucketRow(initR, processedMatrix[initR][c]);
           }
           continue;
         }
@@ -672,24 +1119,21 @@
           }
 
           for (var mergeR = 0; mergeR < rows; mergeR += 1) {
-            var mergedValue = getMatrixValue(matrix, mergeR, c);
-            if (mergedValue > bucketValues[mergeR]) {
-              bucketValues[mergeR] = mergedValue;
-            }
+            mergeBucketRow(mergeR, processedMatrix[mergeR][c]);
           }
           continue;
         }
 
-        flushColumnBucket(rows, bucketValues, bucketX0, bucketX1);
+        flushColumnBucket(rows, bucketMax, bucketSum, bucketCount, bucketX0, bucketX1);
         bucketX0 = x0;
         bucketX1 = x1;
         for (var resetR = 0; resetR < rows; resetR += 1) {
-          bucketValues[resetR] = getMatrixValue(matrix, resetR, c);
+          resetBucketRow(resetR, processedMatrix[resetR][c]);
         }
       }
 
       if (hasBucket) {
-        flushColumnBucket(rows, bucketValues, bucketX0, bucketX1);
+        flushColumnBucket(rows, bucketMax, bucketSum, bucketCount, bucketX0, bucketX1);
       }
     }
 
@@ -893,6 +1337,14 @@
       drawLegend(options.legendCanvas, intensityMapper.legend);
     }
 
+    var removedPercent = 0;
+    if (processCtx.removedBefore > 0) {
+      removedPercent = ((processCtx.removedBefore - processCtx.removedAfter) / processCtx.removedBefore) * 100;
+      if (!Number.isFinite(removedPercent) || removedPercent < 0) {
+        removedPercent = 0;
+      }
+    }
+
     return {
       fromMs: fromMs,
       toMs: toMs,
@@ -902,6 +1354,8 @@
       intensityMode: intensityMapper.mode,
       intensityDbMin: Number.isFinite(intensityMapper.dbMin) ? intensityMapper.dbMin : null,
       intensityDbMax: Number.isFinite(intensityMapper.dbMax) ? intensityMapper.dbMax : null,
+      intensityType: processCtx.intensityType,
+      compareView: processCtx.compareView,
       layout: {
         plotLeft: p.left,
         plotTop: p.top,
@@ -909,6 +1363,19 @@
         plotBottom: p.top + plotH
       },
       hasRealFrequency: hasRealFrequency,
+      debugStats: {
+        min: processCtx.stats.min,
+        max: processCtx.stats.max,
+        mean: processCtx.stats.mean,
+        median: processCtx.stats.median,
+        p50: processCtx.stats.p50,
+        p75: processCtx.stats.p75,
+        p90: processCtx.stats.p90,
+        p95: processCtx.stats.p95,
+        p99: processCtx.stats.p99,
+        selectedNoiseThreshold: processCtx.threshold,
+        removedPercent: removedPercent
+      },
       gaps: gapRenderInfo.map(function (gap) {
         return {
           start: new Date(gap.start).toISOString(),

@@ -140,6 +140,7 @@ export class HistoryService {
       endTime: normalized.parsedEndDate.toISOString(),
       data: normalized.parsed.data,
       frequencyBins: normalized.parsed.frequencyBins,
+      intensityType: normalized.parsed.intensityType,
       persisted: false
     };
   }
@@ -173,6 +174,7 @@ export class HistoryService {
         endTime: (existing.endTime || normalized.parsedEndDate).toISOString(),
         data: normalized.parsed.data,
         frequencyBins: normalized.parsed.frequencyBins,
+        intensityType: normalized.parsed.intensityType,
         persisted: true
       };
     }
@@ -205,6 +207,7 @@ export class HistoryService {
       endTime: (saved.endTime || normalized.parsedEndDate).toISOString(),
       data: normalized.parsed.data,
       frequencyBins: normalized.parsed.frequencyBins,
+      intensityType: normalized.parsed.intensityType,
       persisted: true
     };
   }

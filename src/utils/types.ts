@@ -1,6 +1,7 @@
 import { UserRole } from "../entities/User";
 
 export type DeviceMatrix = number[][];
+export type IntensityType = "normalized" | "uint8" | "magnitude" | "db";
 
 export interface CompressedDeviceMatrixPayload {
   format: "gzip-base64-json-v1";
@@ -20,6 +21,7 @@ export interface IncomingDeviceDataPayload {
   endTime?: string;
   data: DeviceMatrix;
   frequencyBins?: number[];
+  intensityType?: IntensityType;
 }
 
 export interface DeviceDataBroadcastPayload {
@@ -31,6 +33,7 @@ export interface DeviceDataBroadcastPayload {
   endTime?: string;
   data: DeviceMatrix;
   frequencyBins?: number[];
+  intensityType?: IntensityType;
   persisted?: boolean;
 }
 
