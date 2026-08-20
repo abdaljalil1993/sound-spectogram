@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link rel="stylesheet" href="/public/css/styles.css" />
+  </head>
+  <body class="auth-body">
+    <main class="auth-card">
+      <h1>Sign In</h1>
+      <form id="loginForm">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" required />
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required />
+
+        <button type="submit">Login</button>
+      </form>
+      <p id="loginError" class="error-text"></p>
+    </main>
+
+    <script src="/public/js/login.js"></script>
+  </body>
+</html>

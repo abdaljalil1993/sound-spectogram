@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/public/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Device Spectrogram Dashboard</h1>
+      <div class="topbar-actions">
+        <nav class="top-nav" id="topNav">
+          <button type="button" class="tab-btn active" data-tab="history">History</button>
+          <button type="button" class="tab-btn" data-tab="users">User</button>
+          <button type="button" class="tab-btn" data-tab="devices">Device</button>
+        </nav>
+        <span id="userBadge" class="user-badge"></span>
+        <button id="logoutBtn" type="button">Logout</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <p id="globalMessage" class="global-message"></p>
+
+      <div class="dashboard-layout">
+        <section class="left-panel">
+          <section id="historyPanel" class="tab-panel active">
+            <h2 id="selectedDeviceTitle">Select a device</h2>
+            <form id="historyRangeForm" class="inline-form">
+              <label for="queryDate">Day</label>
+              <input id="queryDate" name="queryDate" type="date" required />
+              <label for="fromTime">From</label>
+              <input id="fromTime" name="fromTime" type="time" step="60" required />
+              <label for="toTime">To</label>
+              <input id="toTime" name="toTime" type="time" step="60" required />
+              <button type="submit">Load Range</button>
+              <button id="latest24Btn" type="button">Latest 24h</button>
+              <button id="loadExampleBtn" type="button">Load Example</button>
+              <button id="resetViewBtn" type="button">Reset View</button>
+            </form>
+
+            <div class="spectro-toolbar" id="spectroToolbar">
+              <button id="panLeftBtn" type="button" class="ghost-btn" title="Pan left (Arrow Left)">Pan Left</button>
+              <button id="panRightBtn" type="button" class="ghost-btn" title="Pan right (Arrow Right)">Pan Right</button>
+              <button id="zoomOutBtn" type="button" class="ghost-btn" title="Zoom out (-)">Zoom Out</button>
+              <button id="zoomInBtn" type="button" class="ghost-btn" title="Zoom in (+)">Zoom In</button>
+              <button id="fitPacketsBtn" type="button" class="ghost-btn" title="Fit all packets in view (F)">Fit Packets</button>
+              <button id="followLiveBtn" type="button" class="ghost-btn" title="Return to live latest 24h (L)">Follow Live</button>
+            </div>
+            <p class="spectro-hint">
+              Drag to pan. Mouse wheel zooms at cursor. Shift + wheel pans horizontally. Alt + wheel gives fine zoom.
+              Keyboard: Left/Right pan, +/- zoom, 0 reset, F fit packets, L latest 24h.
+            </p>
+
+            <div class="canvas-wrapper">
+              <canvas id="spectrogramCanvas" width="960" height="480" tabindex="0" aria-label="Spectrogram viewport"></canvas>
+            </div>
+            <div id="gapTooltip" class="gap-tooltip hidden"></div>
+            <div class="legend-wrapper">
+              <canvas id="spectrogramLegend" width="560" height="46"></canvas>
+            </div>
+            <div id="historyInfo" class="history-info">No data loaded.</div>
+
+            <div class="table-wrap history-table-wrap">
+              <h3>History Packets</h3>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Duration</th>
+                    <th>Rows</th>
+                    <th>Cols</th>
+                  </tr>
+                </thead>
+                <tbody id="historyTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="usersPanel" class="tab-panel">
+            <h2>User Management</h2>
+            <form id="userForm" class="crud-form admin-only">
+              <input type="hidden" id="userId" />
+              <label for="userName">Name</label>
+              <input id="userName" name="name" type="text" required />
+              <label for="userUsername">Username</label>
+              <input id="userUsername" name="username" type="text" required />
+              <label for="userPassword">Password</label>
+              <input id="userPassword" name="password" type="password" placeholder="Required for add, optional for edit" />
+              <label for="userRole">Role</label>
+              <select id="userRole" name="role" required>
+                <option value="admin">admin</option>
+                <option value="emp">emp</option>
+              </select>
+              <div class="form-actions">
+                <button type="submit" id="userSaveBtn">Add User</button>
+                <button type="button" id="userCancelBtn">Cancel</button>
+              </div>
+            </form>
+            <p id="userFormMessage" class="history-info"></p>
+
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th class="admin-only">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="devicesPanel" class="tab-panel">
+            <h2>Device Management</h2>
+            <form id="deviceForm" class="crud-form admin-only">
+              <input type="hidden" id="deviceId" />
+              <label for="deviceName">Name</label>
+              <input id="deviceName" name="name" type="text" required />
+              <label for="deviceDescription">Description</label>
+              <input id="deviceDescription" name="description" type="text" />
+              <div class="form-actions">
+                <button type="submit" id="deviceSaveBtn">Add Device</button>
+                <button type="button" id="deviceCancelBtn">Cancel</button>
+              </div>
+            </form>
+            <p id="deviceFormMessage" class="history-info"></p>
+
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th class="admin-only">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="devicesTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <aside class="right-panel">
+          <h3>Device Info</h3>
+          <p id="sideDeviceInfo" class="history-info">No selected device.</p>
+          <h3>Devices</h3>
+          <ul id="deviceList" class="device-list"></ul>
+        </aside>
+      </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/public/js/spectrogram.js"></script>
+    <script src="/public/js/dashboard.js"></script>
+  </body>
+</html>
