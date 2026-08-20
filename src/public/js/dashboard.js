@@ -58,6 +58,7 @@
   var historyTableBody = document.getElementById("historyTableBody");
   var sideDeviceInfoEl = document.getElementById("sideDeviceInfo");
   var canvas = document.getElementById("spectrogramCanvas");
+  var spectrogramLoaderEl = document.getElementById("spectrogramLoader");
   var legendCanvas = document.getElementById("spectrogramLegend");
   var gapTooltipEl = document.getElementById("gapTooltip");
   var historyRangeForm = document.getElementById("historyRangeForm");
@@ -107,6 +108,7 @@
     !historyTableBody ||
     !sideDeviceInfoEl ||
     !canvas ||
+    !spectrogramLoaderEl ||
     !legendCanvas ||
     !gapTooltipEl ||
     !historyRangeForm ||
@@ -155,6 +157,11 @@
   function setGlobalMessage(message, isError) {
     globalMessageEl.textContent = message || "";
     globalMessageEl.style.color = isError ? "#8a1c18" : "#1f6f53";
+  }
+
+  function setSpectrogramLoading(isLoading) {
+    spectrogramLoaderEl.classList.toggle("hidden", !isLoading);
+    canvas.setAttribute("aria-busy", isLoading ? "true" : "false");
   }
 
   var activeColorMap = "magma";
@@ -866,26 +873,31 @@
     gapTooltipEl.classList.add("hidden");
     historyInfoEl.textContent = "Loading data for selected device...";
     historyTableBody.innerHTML = "";
+    setSpectrogramLoading(true);
 
-    currentPackets = await apiRequest(endpoint);
-    currentPackets.forEach(normalizePacketTiming);
-    activeTimeStepMs = 1000;
+    try {
+      currentPackets = await apiRequest(endpoint);
+      currentPackets.forEach(normalizePacketTiming);
+      activeTimeStepMs = 1000;
 
-    if (!currentPackets.length) {
-      historyInfoEl.textContent = "No data available for the selected device.";
-      selectedDeviceTitleEl.textContent = "Selected Device: " + selectedDeviceName + " (No data)";
-      sideDeviceInfoEl.textContent =
-        "ID: " +
-        selectedDeviceId +
-        " | Name: " +
-        selectedDeviceName +
-        " | Description: " +
-        "No history records found for this device.";
+      if (!currentPackets.length) {
+        historyInfoEl.textContent = "No data available for the selected device.";
+        selectedDeviceTitleEl.textContent = "Selected Device: " + selectedDeviceName + " (No data)";
+        sideDeviceInfoEl.textContent =
+          "ID: " +
+          selectedDeviceId +
+          " | Name: " +
+          selectedDeviceName +
+          " | Description: " +
+          "No history records found for this device.";
+        scheduleRender({ skipTable: false });
+        return;
+      }
+
       scheduleRender({ skipTable: false });
-      return;
+    } finally {
+      setSpectrogramLoading(false);
     }
-
-    scheduleRender({ skipTable: false });
   }
 
   async function selectDevice(device) {

@@ -48,6 +48,10 @@
             </p>
 
             <div class="canvas-wrapper">
+              <div id="spectrogramLoader" class="spectrogram-loader hidden" aria-live="polite">
+                <div class="spectrogram-loader-spinner"></div>
+                <div class="spectrogram-loader-text">Loading spectrogram data...</div>
+              </div>
               <canvas id="spectrogramCanvas" width="960" height="480" tabindex="0" aria-label="Spectrogram viewport"></canvas>
             </div>
             <div id="gapTooltip" class="gap-tooltip hidden"></div>
