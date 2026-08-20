@@ -6,6 +6,7 @@
     inputValueMax: 255,
     gamma: 1.0,
     smoothVertical: true,
+    axisMinFrequency: 30,
     background: "#140d28",
     gapFill: "rgba(54, 103, 194, 0.26)",
     gapStroke: "rgba(102, 196, 231, 0.9)",
@@ -100,6 +101,42 @@
     return Number.isFinite(ms) ? ms : NaN;
   }
 
+  function getCachedMs(block, cacheKey, fallbackKeys) {
+    if (!block) {
+      return NaN;
+    }
+
+    if (Number.isFinite(block[cacheKey])) {
+      return block[cacheKey];
+    }
+
+    for (var i = 0; i < fallbackKeys.length; i += 1) {
+      var key = fallbackKeys[i];
+      if (Number.isFinite(block[key])) {
+        block[cacheKey] = block[key];
+        return block[cacheKey];
+      }
+    }
+
+    var ms = parseDateMs(block.timestamp || block.startTime || block.start_time || block.endTime || block.end_time);
+    if (Number.isFinite(ms)) {
+      block[cacheKey] = ms;
+    }
+    return ms;
+  }
+
+  function getBlockStartMs(block) {
+    return getCachedMs(block, "__startMs", ["startMs", "start_ms"]);
+  }
+
+  function getBlockEndMs(block) {
+    return getCachedMs(block, "__endMs", ["endMs", "end_ms"]);
+  }
+
+  function getBlockTimestampMs(block) {
+    return getCachedMs(block, "__timestampMs", ["timestampMs", "timestamp_ms"]);
+  }
+
   function formatTimeLabel(ms, withDate) {
     var d = new Date(ms);
     var hh = String(d.getHours()).padStart(2, "0");
@@ -177,8 +214,8 @@
     }
 
     for (var i = blockIndex + 1; i < blocks.length; i += 1) {
-      var nextTs = parseDateMs(blocks[i].timestamp);
-      var ts = parseDateMs(block.timestamp);
+      var nextTs = getBlockTimestampMs(blocks[i]);
+      var ts = getBlockTimestampMs(block);
       if (Number.isFinite(nextTs) && Number.isFinite(ts) && nextTs > ts) {
         return Math.max(1, Math.round((nextTs - ts) / Math.max(1, cols)));
       }
@@ -247,6 +284,7 @@
 
     var blocks = Array.isArray(options.blocks) ? options.blocks.slice() : [];
     var fastMode = !!(options && options.fastMode);
+    var assumeSorted = options && options.assumeSorted !== false;
     var fromMs = parseDateMs(options.from);
     var toMs = parseDateMs(options.to);
     if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs) {
@@ -274,11 +312,11 @@
       return { gaps: [] };
     }
 
-    blocks.sort(function (a, b) {
-      var aStart = parseDateMs(a.startTime || a.start_time || a.timestamp);
-      var bStart = parseDateMs(b.startTime || b.start_time || b.timestamp);
-      return aStart - bStart;
-    });
+    if (!assumeSorted) {
+      blocks.sort(function (a, b) {
+        return getBlockStartMs(a) - getBlockStartMs(b);
+      });
+    }
 
     var dpr = window.devicePixelRatio || 1;
     var cssWidth = Math.max(480, Math.floor(canvas.clientWidth || 960));
@@ -357,8 +395,8 @@
       var dims = getMatrixDimensions(matrix);
       var rows = dims.rows;
       var cols = dims.cols;
-      var blockStartMs = parseDateMs(block.startTime || block.start_time || block.timestamp);
-      var blockEndMs = parseDateMs(block.endTime || block.end_time || block.timestamp);
+      var blockStartMs = getBlockStartMs(block);
+      var blockEndMs = getBlockEndMs(block);
       if (!Number.isFinite(blockStartMs) || !Number.isFinite(blockEndMs)) {
         continue;
       }
@@ -383,7 +421,7 @@
       }
 
       if (!hasExplicitInterval) {
-        var blockTs = parseDateMs(block.timestamp);
+        var blockTs = getBlockTimestampMs(block);
         if (!Number.isFinite(blockTs)) {
           continue;
         }
@@ -414,11 +452,11 @@
             nextTimeMs = blockEndMs;
           }
         } else if (DEFAULT_CONFIG.blockTimestampMode === "end") {
-          var blockTs = parseDateMs(block.timestamp);
+          var blockTs = getBlockTimestampMs(block);
           timeMs = blockTs - (cols - 1 - c) * stepMs;
           nextTimeMs = timeMs + stepMs * columnStride;
         } else {
-          var blockTsStart = parseDateMs(block.timestamp);
+          var blockTsStart = getBlockTimestampMs(block);
           timeMs = blockTsStart + c * stepMs;
           nextTimeMs = timeMs + stepMs * columnStride;
         }
@@ -620,17 +658,22 @@
     var minFrequency = options.minFrequency;
     var maxFrequency = options.maxFrequency;
     var hasRealFrequency = Number.isFinite(minFrequency) && Number.isFinite(maxFrequency) && maxFrequency > minFrequency;
+    var axisMinFrequency = Number(DEFAULT_CONFIG.axisMinFrequency);
+    if (!Number.isFinite(axisMinFrequency) || axisMinFrequency < 0) {
+      axisMinFrequency = 30;
+    }
+    var displayMinFrequency = hasRealFrequency ? Math.max(minFrequency, axisMinFrequency) : null;
 
     for (var ly = 0; ly <= yTicks; ly += 1) {
       var yF = ly / yTicks;
       var yPos = p.top + Math.round(yF * plotH);
       var label;
       if (hasRealFrequency) {
-        var hz = maxFrequency - yF * (maxFrequency - minFrequency);
+        var hz = maxFrequency - yF * (maxFrequency - displayMinFrequency);
         label = Math.round(hz) + " Hz";
       } else {
         var bin = Math.round((1 - yF) * (binCount - 1));
-        label = "Bin " + bin;
+        label = "Band " + bin;
       }
       ctx.fillText(label, p.left - 8, yPos);
     }
@@ -642,7 +685,7 @@
     ctx.textBaseline = "middle";
     ctx.translate(14, p.top + plotH / 2);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillText(hasRealFrequency ? "Frequency" : "Frequency Bins", 0, 0);
+    ctx.fillText(hasRealFrequency ? "Frequency (Hz)" : "Frequency bands (Hz unavailable)", 0, 0);
     ctx.restore();
 
     ctx.textAlign = "center";
@@ -660,6 +703,7 @@
         plotRight: p.left + plotW,
         plotBottom: p.top + plotH
       },
+      hasRealFrequency: hasRealFrequency,
       gaps: gapRenderInfo.map(function (gap) {
         return {
           start: new Date(gap.start).toISOString(),

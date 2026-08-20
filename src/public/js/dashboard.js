@@ -69,6 +69,7 @@
   var zoomInBtn = document.getElementById("zoomInBtn");
   var zoomOutBtn = document.getElementById("zoomOutBtn");
   var fitPacketsBtn = document.getElementById("fitPacketsBtn");
+  var colorMapBtn = document.getElementById("colorMapBtn");
   var followLiveBtn = document.getElementById("followLiveBtn");
 
   var usersTableBody = document.getElementById("usersTableBody");
@@ -117,6 +118,7 @@
     !zoomInBtn ||
     !zoomOutBtn ||
     !fitPacketsBtn ||
+    !colorMapBtn ||
     !followLiveBtn ||
     !usersTableBody ||
     !userForm ||
@@ -153,6 +155,85 @@
   function setGlobalMessage(message, isError) {
     globalMessageEl.textContent = message || "";
     globalMessageEl.style.color = isError ? "#8a1c18" : "#1f6f53";
+  }
+
+  var activeColorMap = "magma";
+
+  function updateColorMapButtonLabel() {
+    colorMapBtn.textContent = "Colors: " + activeColorMap;
+    colorMapBtn.title = "Toggle color map (current: " + activeColorMap + ")";
+  }
+
+  function applyColorMap(colorMap) {
+    activeColorMap = String(colorMap || "magma").toLowerCase() === "sunset" ? "sunset" : "magma";
+    window.Spectrogram.configure({
+      colorMap: activeColorMap
+    });
+    updateColorMapButtonLabel();
+    scheduleRender({ skipTable: true });
+  }
+
+  function toggleColorMap() {
+    applyColorMap(activeColorMap === "magma" ? "sunset" : "magma");
+  }
+
+  function getPacketStartMs(packet) {
+    if (!packet) {
+      return NaN;
+    }
+
+    if (Number.isFinite(packet.__startMs)) {
+      return packet.__startMs;
+    }
+
+    var value = new Date(packet.startTime || packet.start_time || packet.timestamp).getTime();
+    if (Number.isFinite(value)) {
+      packet.__startMs = value;
+    }
+    return value;
+  }
+
+  function getPacketEndMs(packet) {
+    if (!packet) {
+      return NaN;
+    }
+
+    if (Number.isFinite(packet.__endMs)) {
+      return packet.__endMs;
+    }
+
+    var value = new Date(packet.endTime || packet.end_time || packet.timestamp).getTime();
+    if (Number.isFinite(value)) {
+      packet.__endMs = value;
+    }
+    return value;
+  }
+
+  function getPacketTimestampMs(packet) {
+    if (!packet) {
+      return NaN;
+    }
+
+    if (Number.isFinite(packet.__timestampMs)) {
+      return packet.__timestampMs;
+    }
+
+    var value = new Date(packet.timestamp || packet.endTime || packet.end_time || packet.startTime || packet.start_time).getTime();
+    if (Number.isFinite(value)) {
+      packet.__timestampMs = value;
+    }
+    return value;
+  }
+
+  function normalizePacketTiming(packet) {
+    if (!packet) {
+      return packet;
+    }
+
+    getPacketStartMs(packet);
+    getPacketEndMs(packet);
+    getPacketTimestampMs(packet);
+    return packet;
   }
 
   function normalizeDeviceKey(value) {
@@ -341,7 +422,7 @@
 
       // Keep only recent packets in memory for the rolling 24-hour view.
       currentPackets = currentPackets.filter(function (packet) {
-        var packetEnd = new Date(packet.endTime || packet.end_time || packet.timestamp).getTime();
+        var packetEnd = getPacketEndMs(packet);
         return Number.isFinite(packetEnd) && packetEnd >= fromMs;
       });
     } else if (Number.isFinite(viewportFromMs) && Number.isFinite(viewportToMs)) {
@@ -362,8 +443,8 @@
     }
 
     var visiblePackets = currentPackets.filter(function (packet) {
-      var packetStart = new Date(packet.startTime || packet.start_time || packet.timestamp).getTime();
-      var packetEnd = new Date(packet.endTime || packet.end_time || packet.timestamp).getTime();
+      var packetStart = getPacketStartMs(packet);
+      var packetEnd = getPacketEndMs(packet);
       if (!Number.isFinite(packetStart) || !Number.isFinite(packetEnd)) {
         return false;
       }
@@ -408,6 +489,7 @@
       from: new Date(fromMs).toISOString(),
       to: new Date(toMs).toISOString(),
       fastMode: !!renderOptions.skipTable,
+      assumeSorted: true,
       minFrequency: minFrequency,
       maxFrequency: maxFrequency
     });
@@ -444,17 +526,22 @@
       return;
     }
 
+    if (renderResult && renderResult.hasRealFrequency) {
+      historyInfoEl.textContent = historyInfoEl.textContent + " | Frequency axis: Hz";
+    } else {
+      historyInfoEl.textContent = historyInfoEl.textContent + " | Frequency axis: bands only (add sampleRate / minFrequency / maxFrequency for Hz labels)";
+    }
+
     historyTableBody.innerHTML = "";
     visiblePackets.forEach(function (packet) {
       var rowCount = Array.isArray(packet.data) ? packet.data.length : 0;
       var colCount = rowCount > 0 && Array.isArray(packet.data[0]) ? packet.data[0].length : 0;
-      var startLocal = formatLocalDateTime(packet.startTime || packet.start_time || packet.timestamp);
-      var endLocal = formatLocalDateTime(packet.endTime || packet.end_time || packet.timestamp);
+      var startLocal = formatLocalDateTime(getPacketStartMs(packet));
+      var endLocal = formatLocalDateTime(getPacketEndMs(packet));
       var durationMin = Math.max(
         0,
         Math.round(
-          (new Date(packet.endTime || packet.end_time || packet.timestamp).getTime() -
-            new Date(packet.startTime || packet.start_time || packet.timestamp).getTime()) /
+          (getPacketEndMs(packet) - getPacketStartMs(packet)) /
             60000
         )
       );
@@ -505,16 +592,15 @@
   }
 
   function insertPacketSorted(packet) {
-    var packetTime = new Date(packet.startTime || packet.start_time || packet.timestamp).getTime();
+    normalizePacketTiming(packet);
+    var packetTime = getPacketStartMs(packet);
     if (!Number.isFinite(packetTime)) {
       return;
     }
 
     var i = 0;
     while (i < currentPackets.length) {
-      var currentTime = new Date(
-        currentPackets[i].startTime || currentPackets[i].start_time || currentPackets[i].timestamp
-      ).getTime();
+      var currentTime = getPacketStartMs(currentPackets[i]);
       if (!Number.isFinite(currentTime) || packetTime < currentTime) {
         break;
       }
@@ -572,8 +658,8 @@
   }
 
   function getPacketInterval(packet) {
-    var startMs = new Date(packet.startTime || packet.start_time || packet.timestamp).getTime();
-    var endMs = new Date(packet.endTime || packet.end_time || packet.timestamp).getTime();
+    var startMs = getPacketStartMs(packet);
+    var endMs = getPacketEndMs(packet);
 
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
       return null;
@@ -737,6 +823,7 @@
     historyTableBody.innerHTML = "";
 
     currentPackets = await apiRequest(endpoint);
+    currentPackets.forEach(normalizePacketTiming);
     activeTimeStepMs = 1000;
 
     if (!currentPackets.length) {
@@ -1175,6 +1262,10 @@
     fitViewportToPackets();
   });
 
+  colorMapBtn.addEventListener("click", function () {
+    toggleColorMap();
+  });
+
   followLiveBtn.addEventListener("click", async function () {
     if (!selectedDeviceId) {
       return;
@@ -1390,7 +1481,8 @@
         return;
       }
 
-      var payloadTime = new Date(payload.timestamp).getTime();
+      normalizePacketTiming(payload);
+      var payloadTime = getPacketTimestampMs(payload);
       if (!Number.isFinite(payloadTime)) {
         return;
       }
@@ -1479,8 +1571,11 @@
   window.Spectrogram.configure({
     colorMap: "magma",
     inputValueMax: 255,
-    gamma: 1.0
+    gamma: 1.0,
+    axisMinFrequency: 30
   });
+  activeColorMap = "magma";
+  updateColorMapButtonLabel();
   window.Spectrogram.drawLegend(legendCanvas);
 
   setupSocket();
