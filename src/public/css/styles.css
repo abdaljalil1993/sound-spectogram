@@ -271,6 +271,20 @@ select:focus-visible {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
 }
 
+.probe-tooltip {
+  position: fixed;
+  z-index: 31;
+  pointer-events: none;
+  background: rgba(16, 24, 18, 0.96);
+  color: #f2fff4;
+  border: 1px solid rgba(83, 232, 145, 0.8);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+
 #spectrogramLegend {
   display: block;
   width: 100%;
@@ -349,6 +363,20 @@ select:focus-visible {
   min-height: 36px;
   font-size: 12px;
   padding: 8px 10px;
+}
+
+.toolbar-select,
+.toolbar-number {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 6px 8px;
+}
+
+.toolbar-number {
+  width: 86px;
 }
 
 .spectro-hint {

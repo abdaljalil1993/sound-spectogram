@@ -63,6 +63,7 @@
   var spectrogramLoaderEl = document.getElementById("spectrogramLoader");
   var legendCanvas = document.getElementById("spectrogramLegend");
   var gapTooltipEl = document.getElementById("gapTooltip");
+  var probeTooltipEl = document.getElementById("probeTooltip");
   var historyRangeForm = document.getElementById("historyRangeForm");
   var latest24Btn = document.getElementById("latest24Btn");
   var loadExampleBtn = document.getElementById("loadExampleBtn");
@@ -74,6 +75,12 @@
   var fitPacketsBtn = document.getElementById("fitPacketsBtn");
   var colorMapBtn = document.getElementById("colorMapBtn");
   var followLiveBtn = document.getElementById("followLiveBtn");
+  var intensityModeSelect = document.getElementById("intensityModeSelect");
+  var dbMinInput = document.getElementById("dbMinInput");
+  var dbMaxInput = document.getElementById("dbMaxInput");
+  var pctLowInput = document.getElementById("pctLowInput");
+  var pctHighInput = document.getElementById("pctHighInput");
+  var applyIntensityBtn = document.getElementById("applyIntensityBtn");
 
   var usersTableBody = document.getElementById("usersTableBody");
   var userForm = document.getElementById("userForm");
@@ -115,6 +122,7 @@
     !spectrogramLoaderEl ||
     !legendCanvas ||
     !gapTooltipEl ||
+    !probeTooltipEl ||
     !historyRangeForm ||
     !latest24Btn ||
     !loadExampleBtn ||
@@ -126,6 +134,12 @@
     !fitPacketsBtn ||
     !colorMapBtn ||
     !followLiveBtn ||
+    !intensityModeSelect ||
+    !dbMinInput ||
+    !dbMaxInput ||
+    !pctLowInput ||
+    !pctHighInput ||
+    !applyIntensityBtn ||
     !usersTableBody ||
     !userForm ||
     !userIdInput ||
@@ -180,7 +194,114 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function normalizeFrequencyBins(rawBins) {
+    if (!Array.isArray(rawBins) || rawBins.length === 0) {
+      return null;
+    }
+
+    var bins = [];
+    for (var i = 0; i < rawBins.length; i += 1) {
+      var item = rawBins[i];
+      var value;
+      if (Array.isArray(item)) {
+        if (!item.length) {
+          return null;
+        }
+        value = Number(item[0]);
+      } else {
+        value = Number(item);
+      }
+
+      if (!Number.isFinite(value)) {
+        return null;
+      }
+
+      bins.push(value);
+    }
+
+    return bins;
+  }
+
+  function getPacketFrequencyBins(packet) {
+    if (!packet) {
+      return null;
+    }
+
+    if (Array.isArray(packet.__frequencyBins)) {
+      return packet.__frequencyBins;
+    }
+
+    var bins = normalizeFrequencyBins(packet.frequencyBins || packet.freq || packet.frequencies);
+    packet.__frequencyBins = bins;
+    return bins;
+  }
+
   var activeColorMap = "magma";
+  var activeIntensityMode = "linear";
+  var activeDbMin = -95;
+  var activeDbMax = -20;
+  var activePercentileLow = 5;
+  var activePercentileHigh = 99;
+
+  function updateIntensityControlsState() {
+    var mode = String(activeIntensityMode || "linear");
+    var isDbFixed = mode === "db-fixed";
+    var isDbPercentile = mode === "db-percentile";
+
+    dbMinInput.disabled = !isDbFixed;
+    dbMaxInput.disabled = !isDbFixed;
+    pctLowInput.disabled = !isDbPercentile;
+    pctHighInput.disabled = !isDbPercentile;
+  }
+
+  function applyIntensitySettings() {
+    var mode = String(intensityModeSelect.value || "linear");
+    if (mode !== "linear" && mode !== "db-fixed" && mode !== "db-percentile") {
+      mode = "linear";
+    }
+
+    var parsedDbMin = Number(dbMinInput.value);
+    var parsedDbMax = Number(dbMaxInput.value);
+    var parsedPctLow = Number(pctLowInput.value);
+    var parsedPctHigh = Number(pctHighInput.value);
+
+    if (!Number.isFinite(parsedDbMin)) {
+      parsedDbMin = -95;
+    }
+    if (!Number.isFinite(parsedDbMax)) {
+      parsedDbMax = -20;
+    }
+    if (parsedDbMax <= parsedDbMin) {
+      parsedDbMax = parsedDbMin + 10;
+    }
+
+    if (!Number.isFinite(parsedPctLow)) {
+      parsedPctLow = 5;
+    }
+    if (!Number.isFinite(parsedPctHigh)) {
+      parsedPctHigh = 99;
+    }
+    parsedPctLow = clamp(parsedPctLow, 0, 99);
+    parsedPctHigh = clamp(parsedPctHigh, 1, 100);
+    if (parsedPctHigh <= parsedPctLow) {
+      parsedPctHigh = Math.min(100, parsedPctLow + 1);
+    }
+
+    activeIntensityMode = mode;
+    activeDbMin = parsedDbMin;
+    activeDbMax = parsedDbMax;
+    activePercentileLow = parsedPctLow;
+    activePercentileHigh = parsedPctHigh;
+
+    intensityModeSelect.value = activeIntensityMode;
+    dbMinInput.value = String(activeDbMin);
+    dbMaxInput.value = String(activeDbMax);
+    pctLowInput.value = String(activePercentileLow);
+    pctHighInput.value = String(activePercentileHigh);
+
+    updateIntensityControlsState();
+    scheduleRender({ skipTable: true });
+  }
 
   function updateColorMapButtonLabel() {
     colorMapBtn.textContent = "Colors: " + activeColorMap;
@@ -424,6 +545,7 @@
 
   function renderLatestPacket(options) {
     var renderOptions = options || {};
+    probeTooltipEl.classList.add("hidden");
     if (!currentPackets.length) {
       historyInfoEl.textContent = "No data available for the selected device.";
       historyTableBody.innerHTML = "";
@@ -469,8 +591,19 @@
 
     var minFrequency = null;
     var maxFrequency = null;
+    var frequencyBins = null;
     for (var i = 0; i < visiblePackets.length; i += 1) {
       var packet = visiblePackets[i];
+      var packetBins = getPacketFrequencyBins(packet);
+      if (packetBins && packetBins.length > 1) {
+        frequencyBins = packetBins;
+        minFrequency = packetBins[0];
+        maxFrequency = packetBins[packetBins.length - 1];
+        if (maxFrequency > minFrequency) {
+          break;
+        }
+      }
+
       if (
         Number.isFinite(packet.minFrequency) &&
         Number.isFinite(packet.maxFrequency) &&
@@ -516,6 +649,12 @@
       to: new Date(toMs).toISOString(),
       fastMode: !!renderOptions.skipTable,
       assumeSorted: true,
+      intensityMode: activeIntensityMode,
+      dbMin: activeDbMin,
+      dbMax: activeDbMax,
+      percentileLow: activePercentileLow,
+      percentileHigh: activePercentileHigh,
+      frequencyBins: frequencyBins,
       minFrequency: minFrequency,
       maxFrequency: maxFrequency
     });
@@ -1381,6 +1520,20 @@
     await loadDeviceHistory(selectedDeviceId);
   });
 
+  applyIntensityBtn.addEventListener("click", function () {
+    applyIntensitySettings();
+  });
+
+  intensityModeSelect.addEventListener("change", function () {
+    applyIntensitySettings();
+  });
+
+  [dbMinInput, dbMaxInput, pctLowInput, pctHighInput].forEach(function (inputEl) {
+    inputEl.addEventListener("change", function () {
+      applyIntensitySettings();
+    });
+  });
+
   canvas.style.cursor = "grab";
 
   canvas.addEventListener("mousedown", function (event) {
@@ -1524,6 +1677,11 @@
         setGlobalMessage(error instanceof Error ? error.message : "Failed to switch to live mode", true);
       });
       event.preventDefault();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      probeTooltipEl.classList.add("hidden");
     }
   });
 
@@ -1538,6 +1696,177 @@
       "<br>Duration: " +
       mins +
       " min"
+    );
+  }
+
+  function getPacketValueAt(packet, row, col) {
+    if (!packet || !Array.isArray(packet.data) || packet.data.length === 0 || !Array.isArray(packet.data[0])) {
+      return NaN;
+    }
+
+    if (!Array.isArray(packet.data[row])) {
+      return NaN;
+    }
+
+    var value = packet.data[row][col];
+    return Number.isFinite(value) ? value : NaN;
+  }
+
+  function magnitudeToDb(value) {
+    var n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) {
+      return Number.NEGATIVE_INFINITY;
+    }
+    return 20 * Math.log10(n);
+  }
+
+  function formatDbValue(dbValue) {
+    if (!Number.isFinite(dbValue)) {
+      return "-inf dB";
+    }
+    return dbValue.toFixed(1) + " dB";
+  }
+
+  function findProbeSample(timeMs, rowIndex) {
+    if (!lastRenderMeta || !Number.isFinite(lastRenderMeta.fromMs) || !Number.isFinite(lastRenderMeta.toMs)) {
+      return null;
+    }
+
+    var visiblePackets = getVisiblePackets(lastRenderMeta.fromMs, lastRenderMeta.toMs);
+    for (var i = 0; i < visiblePackets.length; i += 1) {
+      var packet = visiblePackets[i];
+      var matrix = packet && packet.data;
+      if (!Array.isArray(matrix) || matrix.length === 0 || !Array.isArray(matrix[0]) || matrix[0].length === 0) {
+        continue;
+      }
+
+      var rows = matrix.length;
+      var cols = matrix[0].length;
+      if (rowIndex < 0 || rowIndex >= rows) {
+        continue;
+      }
+
+      var interval = getPacketInterval(packet);
+      var startMs;
+      var endMs;
+      if (interval) {
+        startMs = interval.startMs;
+        endMs = interval.endMs;
+      } else {
+        var ts = getPacketTimestampMs(packet);
+        if (!Number.isFinite(ts)) {
+          continue;
+        }
+        var stepMs = Number(packet.timeStepMs || activeTimeStepMs);
+        if (!Number.isFinite(stepMs) || stepMs <= 0) {
+          stepMs = 1;
+        }
+        startMs = ts - (cols - 1) * stepMs;
+        endMs = ts + stepMs;
+      }
+
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+        continue;
+      }
+
+      if (timeMs < startMs || timeMs > endMs) {
+        continue;
+      }
+
+      var colIndex = Math.floor(((timeMs - startMs) / (endMs - startMs)) * cols);
+      colIndex = clamp(colIndex, 0, cols - 1);
+
+      return {
+        packet: packet,
+        rowIndex: rowIndex,
+        colIndex: colIndex,
+        rows: rows,
+        cols: cols
+      };
+    }
+
+    return null;
+  }
+
+  function getProbeFrequencyHz(sample) {
+    var bins = getPacketFrequencyBins(sample.packet);
+    if (bins && bins.length === sample.rows) {
+      return bins[sample.rowIndex];
+    }
+
+    if (
+      lastRenderMeta &&
+      Number.isFinite(lastRenderMeta.minFrequency) &&
+      Number.isFinite(lastRenderMeta.maxFrequency) &&
+      lastRenderMeta.maxFrequency > lastRenderMeta.minFrequency
+    ) {
+      if (sample.rows <= 1) {
+        return lastRenderMeta.minFrequency;
+      }
+      var ratio = sample.rowIndex / (sample.rows - 1);
+      return lastRenderMeta.minFrequency + ratio * (lastRenderMeta.maxFrequency - lastRenderMeta.minFrequency);
+    }
+
+    return null;
+  }
+
+  function buildProbeInfo(event) {
+    if (!lastRenderMeta || !lastRenderMeta.layout) {
+      return null;
+    }
+
+    var rect = canvas.getBoundingClientRect();
+    var x = event.clientX - rect.left;
+    var y = event.clientY - rect.top;
+    var layout = lastRenderMeta.layout;
+
+    if (x < layout.plotLeft || x > layout.plotRight || y < layout.plotTop || y > layout.plotBottom) {
+      return null;
+    }
+
+    if (!Number.isFinite(lastRenderMeta.fromMs) || !Number.isFinite(lastRenderMeta.toMs)) {
+      return null;
+    }
+
+    var xFrac = clamp((x - layout.plotLeft) / Math.max(1, layout.plotRight - layout.plotLeft), 0, 1);
+    var yFrac = clamp((y - layout.plotTop) / Math.max(1, layout.plotBottom - layout.plotTop), 0, 1);
+    var timeMs = lastRenderMeta.fromMs + xFrac * (lastRenderMeta.toMs - lastRenderMeta.fromMs);
+    var rowIndex = Math.round((1 - yFrac) * Math.max(0, lastRenderMeta.binCount - 1));
+
+    var sample = findProbeSample(timeMs, rowIndex);
+    if (!sample) {
+      return null;
+    }
+
+    var rawValue = getPacketValueAt(sample.packet, sample.rowIndex, sample.colIndex);
+    var dbValue = magnitudeToDb(rawValue);
+    var freqHz = getProbeFrequencyHz(sample);
+
+    return {
+      timeMs: timeMs,
+      rowIndex: sample.rowIndex,
+      colIndex: sample.colIndex,
+      rawValue: rawValue,
+      dbValue: dbValue,
+      freqHz: freqHz
+    };
+  }
+
+  function formatProbeTooltip(info) {
+    var frequencyText = Number.isFinite(info.freqHz)
+      ? Math.round(info.freqHz) + " Hz"
+      : "Band " + info.rowIndex;
+
+    return (
+      "Probe\u00a0Point<br>" +
+      "Time: " +
+      new Date(info.timeMs).toISOString() +
+      "<br>Frequency: " +
+      frequencyText +
+      "<br>Raw value: " +
+      (Number.isFinite(info.rawValue) ? info.rawValue.toFixed(3) : "NaN") +
+      "<br>Amplitude: " +
+      formatDbValue(info.dbValue)
     );
   }
 
@@ -1579,6 +1908,23 @@
 
   canvas.addEventListener("mouseleave", function () {
     gapTooltipEl.classList.add("hidden");
+  });
+
+  canvas.addEventListener("click", function (event) {
+    if (isPanning) {
+      return;
+    }
+
+    var info = buildProbeInfo(event);
+    if (!info) {
+      probeTooltipEl.classList.add("hidden");
+      return;
+    }
+
+    probeTooltipEl.innerHTML = formatProbeTooltip(info);
+    probeTooltipEl.style.left = event.clientX + 14 + "px";
+    probeTooltipEl.style.top = event.clientY + 14 + "px";
+    probeTooltipEl.classList.remove("hidden");
   });
 
   function setupSocket() {
@@ -1680,10 +2026,21 @@
     colorMap: "magma",
     inputValueMax: 255,
     gamma: 1.0,
-    axisMinFrequency: 30
+    axisMinFrequency: 30,
+    intensityMode: "linear",
+    dbMin: -95,
+    dbMax: -20,
+    percentileLow: 5,
+    percentileHigh: 99
   });
   activeColorMap = "magma";
   updateColorMapButtonLabel();
+  intensityModeSelect.value = activeIntensityMode;
+  dbMinInput.value = String(activeDbMin);
+  dbMaxInput.value = String(activeDbMax);
+  pctLowInput.value = String(activePercentileLow);
+  pctHighInput.value = String(activePercentileHigh);
+  updateIntensityControlsState();
   window.Spectrogram.drawLegend(legendCanvas);
 
   setupSocket();

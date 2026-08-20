@@ -4,6 +4,11 @@
     blockTimestampMode: "end",
     colorMap: "magma",
     inputValueMax: 255,
+    intensityMode: "linear",
+    dbMin: -95,
+    dbMax: -20,
+    percentileLow: 5,
+    percentileHigh: 99,
     gamma: 1.0,
     smoothVertical: true,
     axisMinFrequency: 30,
@@ -189,6 +194,182 @@
     return matrix[row][col];
   }
 
+  function normalizeFrequencyBins(rawBins) {
+    if (!Array.isArray(rawBins) || rawBins.length === 0) {
+      return null;
+    }
+
+    var bins = [];
+    for (var i = 0; i < rawBins.length; i += 1) {
+      var item = rawBins[i];
+      var value = Array.isArray(item) ? item[0] : item;
+      var n = Number(value);
+      if (!Number.isFinite(n)) {
+        return null;
+      }
+      bins.push(n);
+    }
+
+    return bins;
+  }
+
+  function dbFromMagnitude(value) {
+    var n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) {
+      return Number.NEGATIVE_INFINITY;
+    }
+    return 20 * Math.log10(n);
+  }
+
+  function parsePercent(value, fallback) {
+    var n = Number(value);
+    if (!Number.isFinite(n)) {
+      return fallback;
+    }
+    return n;
+  }
+
+  function quantileSorted(sortedValues, quantile) {
+    if (!Array.isArray(sortedValues) || sortedValues.length === 0) {
+      return NaN;
+    }
+
+    var q = clamp01(quantile);
+    var pos = q * (sortedValues.length - 1);
+    var lower = Math.floor(pos);
+    var upper = Math.ceil(pos);
+    if (lower === upper) {
+      return sortedValues[lower];
+    }
+
+    var t = pos - lower;
+    return lerp(sortedValues[lower], sortedValues[upper], t);
+  }
+
+  function collectDbSamples(blocks, maxSamples) {
+    var samples = [];
+    var maxCount = Number.isFinite(maxSamples) ? Math.max(1000, Math.floor(maxSamples)) : 20000;
+
+    for (var bi = 0; bi < blocks.length; bi += 1) {
+      var matrix = blocks[bi] && blocks[bi].data;
+      if (!Array.isArray(matrix) || matrix.length === 0 || !Array.isArray(matrix[0]) || matrix[0].length === 0) {
+        continue;
+      }
+
+      var dims = getMatrixDimensions(matrix);
+      var rows = dims.rows;
+      var cols = dims.cols;
+      if (rows <= 0 || cols <= 0) {
+        continue;
+      }
+
+      var rowStep = Math.max(1, Math.floor(rows / 48));
+      var colStep = Math.max(1, Math.floor(cols / 48));
+
+      for (var r = 0; r < rows; r += rowStep) {
+        for (var c = 0; c < cols; c += colStep) {
+          var raw = getMatrixValue(matrix, r, c);
+          var db = dbFromMagnitude(raw);
+          if (Number.isFinite(db)) {
+            samples.push(db);
+          }
+
+          if (samples.length >= maxCount) {
+            return samples;
+          }
+        }
+      }
+    }
+
+    return samples;
+  }
+
+  function buildIntensityMapper(options, blocks) {
+    var modeRaw = (options && options.intensityMode) || DEFAULT_CONFIG.intensityMode;
+    var mode = String(modeRaw || "linear").toLowerCase();
+    if (mode !== "db-fixed" && mode !== "db-percentile") {
+      mode = "linear";
+    }
+
+    if (mode === "linear") {
+      return {
+        mode: mode,
+        map: function (value) {
+          return normalizeIntensity(value);
+        },
+        legend: {
+          lowLabel: "Low 0",
+          highLabel: "High 255",
+          title: "Linear"
+        }
+      };
+    }
+
+    var defaultDbMin = Number(DEFAULT_CONFIG.dbMin);
+    var defaultDbMax = Number(DEFAULT_CONFIG.dbMax);
+    if (!Number.isFinite(defaultDbMin)) {
+      defaultDbMin = -95;
+    }
+    if (!Number.isFinite(defaultDbMax)) {
+      defaultDbMax = -20;
+    }
+
+    var dbMin = Number(options && options.dbMin);
+    var dbMax = Number(options && options.dbMax);
+    if (!Number.isFinite(dbMin)) {
+      dbMin = defaultDbMin;
+    }
+    if (!Number.isFinite(dbMax)) {
+      dbMax = defaultDbMax;
+    }
+
+    if (mode === "db-percentile") {
+      var lowP = parsePercent((options && options.percentileLow) || DEFAULT_CONFIG.percentileLow, 5);
+      var highP = parsePercent((options && options.percentileHigh) || DEFAULT_CONFIG.percentileHigh, 99);
+      lowP = Math.max(0, Math.min(99, lowP));
+      highP = Math.max(1, Math.min(100, highP));
+      if (highP <= lowP) {
+        highP = Math.min(100, lowP + 1);
+      }
+
+      var dbSamples = collectDbSamples(blocks, 20000).sort(function (a, b) {
+        return a - b;
+      });
+
+      if (dbSamples.length > 0) {
+        var qLow = quantileSorted(dbSamples, lowP / 100);
+        var qHigh = quantileSorted(dbSamples, highP / 100);
+        if (Number.isFinite(qLow) && Number.isFinite(qHigh) && qHigh > qLow) {
+          dbMin = qLow;
+          dbMax = qHigh;
+        }
+      }
+    }
+
+    if (!(dbMax > dbMin)) {
+      dbMin = defaultDbMin;
+      dbMax = defaultDbMax;
+    }
+
+    return {
+      mode: mode,
+      dbMin: dbMin,
+      dbMax: dbMax,
+      map: function (value) {
+        var db = dbFromMagnitude(value);
+        if (!Number.isFinite(db)) {
+          return 0;
+        }
+        return clamp01((db - dbMin) / (dbMax - dbMin));
+      },
+      legend: {
+        lowLabel: Math.round(dbMin) + " dB",
+        highLabel: Math.round(dbMax) + " dB",
+        title: mode === "db-percentile" ? "dB (percentile)" : "dB (fixed)"
+      }
+    };
+  }
+
   function chooseTicks(widthPx, minTicks, maxTicks) {
     var byWidth = Math.floor(widthPx / 120);
     return Math.max(minTicks, Math.min(maxTicks, byWidth));
@@ -224,7 +405,7 @@
     return Math.max(10, Math.round(rangeMs / Math.max(200, cols * Math.max(1, blocks.length))));
   }
 
-  function drawLegend(legendCanvas) {
+  function drawLegend(legendCanvas, legendMeta) {
     if (!legendCanvas) return;
     var ctx = legendCanvas.getContext("2d");
     if (!ctx) return;
@@ -255,13 +436,19 @@
     ctx.strokeStyle = "#4b5677";
     ctx.strokeRect(x0, y0, w, h);
 
+    var lowLabel = legendMeta && legendMeta.lowLabel ? legendMeta.lowLabel : "Low 0";
+    var highLabel = legendMeta && legendMeta.highLabel ? legendMeta.highLabel : "High 255";
+    var title = legendMeta && legendMeta.title ? legendMeta.title : "Linear";
+
     ctx.fillStyle = "#d8e2ff";
     ctx.font = "12px Segoe UI";
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
-    ctx.fillText("Low 0", 10, y0 + h / 2);
+    ctx.fillText(lowLabel, 10, y0 + h / 2);
+    ctx.textAlign = "center";
+    ctx.fillText(title, x0 + w / 2, y0 + h / 2);
     ctx.textAlign = "right";
-    ctx.fillText("High 255", width - 10, y0 + h / 2);
+    ctx.fillText(highLabel, width - 10, y0 + h / 2);
   }
 
   function configure(configPatch) {
@@ -347,6 +534,7 @@
     }
 
     var image = nativeCtx.createImageData(plotW, nativeCanvas.height);
+    var intensityMapper = buildIntensityMapper(options, blocks);
     var lowRgb = valueToColor(0);
     for (var baseIdx = 0; baseIdx < image.data.length; baseIdx += 4) {
       image.data[baseIdx] = lowRgb[0];
@@ -369,7 +557,7 @@
           continue;
         }
 
-        var value = rowValues[r];
+        var value = intensityMapper.map(rowValues[r]);
         if (!Number.isFinite(value)) {
           value = 0;
         }
@@ -657,18 +845,27 @@
     ctx.textBaseline = "middle";
     var minFrequency = options.minFrequency;
     var maxFrequency = options.maxFrequency;
-    var hasRealFrequency = Number.isFinite(minFrequency) && Number.isFinite(maxFrequency) && maxFrequency > minFrequency;
+    var frequencyBins = normalizeFrequencyBins(options.frequencyBins);
+    var hasFrequencyBins = Array.isArray(frequencyBins) && frequencyBins.length === binCount;
+    var hasRealFrequency =
+      hasFrequencyBins ||
+      (Number.isFinite(minFrequency) && Number.isFinite(maxFrequency) && maxFrequency > minFrequency);
     var axisMinFrequency = Number(DEFAULT_CONFIG.axisMinFrequency);
     if (!Number.isFinite(axisMinFrequency) || axisMinFrequency < 0) {
       axisMinFrequency = 30;
     }
-    var displayMinFrequency = hasRealFrequency ? Math.max(minFrequency, axisMinFrequency) : null;
+    var displayMinFrequency =
+      !hasFrequencyBins && hasRealFrequency ? Math.max(minFrequency, axisMinFrequency) : null;
 
     for (var ly = 0; ly <= yTicks; ly += 1) {
       var yF = ly / yTicks;
       var yPos = p.top + Math.round(yF * plotH);
       var label;
-      if (hasRealFrequency) {
+      if (hasFrequencyBins) {
+        var rowIndex = Math.max(0, Math.min(binCount - 1, Math.round((1 - yF) * (binCount - 1))));
+        var mappedHz = frequencyBins[rowIndex];
+        label = Math.round(mappedHz) + " Hz";
+      } else if (hasRealFrequency) {
         var hz = maxFrequency - yF * (maxFrequency - displayMinFrequency);
         label = Math.round(hz) + " Hz";
       } else {
@@ -693,10 +890,18 @@
     ctx.fillText("Time", p.left + plotW / 2, cssHeight - 8);
 
     if (options.legendCanvas) {
-      drawLegend(options.legendCanvas);
+      drawLegend(options.legendCanvas, intensityMapper.legend);
     }
 
     return {
+      fromMs: fromMs,
+      toMs: toMs,
+      binCount: binCount,
+      minFrequency: Number.isFinite(minFrequency) ? minFrequency : null,
+      maxFrequency: Number.isFinite(maxFrequency) ? maxFrequency : null,
+      intensityMode: intensityMapper.mode,
+      intensityDbMin: Number.isFinite(intensityMapper.dbMin) ? intensityMapper.dbMin : null,
+      intensityDbMax: Number.isFinite(intensityMapper.dbMax) ? intensityMapper.dbMax : null,
       layout: {
         plotLeft: p.left,
         plotTop: p.top,

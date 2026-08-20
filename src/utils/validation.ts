@@ -72,6 +72,35 @@ export function validateIncomingDevicePayload(payload: unknown): {
     return { valid: false, message: matrixValidation.message };
   }
 
+  const matrixRows = (raw.data as unknown[]).length;
+
+  const rawFrequencyBins = raw.frequencyBins ?? raw.freq ?? raw.frequencies;
+  let parsedFrequencyBins: number[] | undefined;
+  if (rawFrequencyBins !== undefined) {
+    if (!Array.isArray(rawFrequencyBins) || rawFrequencyBins.length === 0) {
+      return { valid: false, message: "frequency bins must be a non-empty array when provided" };
+    }
+
+    const bins: number[] = [];
+    for (const item of rawFrequencyBins) {
+      const value = Array.isArray(item) ? item[0] : item;
+      const n = Number(value);
+      if (!Number.isFinite(n)) {
+        return { valid: false, message: "frequency bins must contain only finite numbers" };
+      }
+      bins.push(n);
+    }
+
+    if (bins.length !== matrixRows) {
+      return {
+        valid: false,
+        message: `frequency bins length (${bins.length}) must match data rows (${matrixRows})`
+      };
+    }
+
+    parsedFrequencyBins = bins;
+  }
+
   const startTimeCandidate =
     (typeof raw.start_time === "string" && raw.start_time.trim()) ||
     (typeof raw.startTime === "string" && raw.startTime.trim()) ||
@@ -101,7 +130,8 @@ export function validateIncomingDevicePayload(payload: unknown): {
       timestamp,
       startTime,
       endTime,
-      data: raw.data as number[][]
+      data: raw.data as number[][],
+      frequencyBins: parsedFrequencyBins
     }
   };
 }

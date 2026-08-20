@@ -34,4 +34,7 @@ export class DeviceHistory {
 
   @Column({ type: "json" })
   data!: StoredDeviceMatrix;
+
+  @Column({ type: "json", nullable: true })
+  frequencyBins!: number[] | null;
 }

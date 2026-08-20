@@ -86,7 +86,8 @@ export class HistoryService {
         timestamp: resolvedEnd,
         startTime: resolvedStart,
         endTime: resolvedEnd,
-        data: this.decodeMatrix(item.data)
+        data: this.decodeMatrix(item.data),
+        frequencyBins: Array.isArray(item.frequencyBins) ? item.frequencyBins : null
       };
     });
   }
@@ -138,6 +139,7 @@ export class HistoryService {
       startTime: normalized.parsedStartDate.toISOString(),
       endTime: normalized.parsedEndDate.toISOString(),
       data: normalized.parsed.data,
+      frequencyBins: normalized.parsed.frequencyBins,
       persisted: false
     };
   }
@@ -170,6 +172,7 @@ export class HistoryService {
         startTime: (existing.startTime || normalized.parsedStartDate).toISOString(),
         endTime: (existing.endTime || normalized.parsedEndDate).toISOString(),
         data: normalized.parsed.data,
+        frequencyBins: normalized.parsed.frequencyBins,
         persisted: true
       };
     }
@@ -179,7 +182,8 @@ export class HistoryService {
       timestamp: normalized.parsedEndDate,
       startTime: normalized.parsedStartDate,
       endTime: normalized.parsedEndDate,
-      data: this.compressMatrix(normalized.parsed.data)
+      data: this.compressMatrix(normalized.parsed.data),
+      frequencyBins: normalized.parsed.frequencyBins ?? null
     });
 
     const saved = await this.historyRepo.save(entity);
@@ -200,6 +204,7 @@ export class HistoryService {
       startTime: (saved.startTime || normalized.parsedStartDate).toISOString(),
       endTime: (saved.endTime || normalized.parsedEndDate).toISOString(),
       data: normalized.parsed.data,
+      frequencyBins: normalized.parsed.frequencyBins,
       persisted: true
     };
   }

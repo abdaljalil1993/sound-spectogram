@@ -19,6 +19,7 @@ export interface IncomingDeviceDataPayload {
   startTime?: string;
   endTime?: string;
   data: DeviceMatrix;
+  frequencyBins?: number[];
 }
 
 export interface DeviceDataBroadcastPayload {
@@ -29,6 +30,7 @@ export interface DeviceDataBroadcastPayload {
   startTime?: string;
   endTime?: string;
   data: DeviceMatrix;
+  frequencyBins?: number[];
   persisted?: boolean;
 }
 
