@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ar">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>History Spectrogram Lite</title>
+    <style>
+      :root {
+        --bg: #0d1020;
+        --panel: #121a2d;
+        --panel-2: #1d2943;
+        --text: #edf2ff;
+        --muted: #b7c2dd;
+        --accent: #72d7ff;
+        --danger: #ff7f7f;
+        --success: #77d57a;
+        --border: rgba(255, 255, 255, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        background: linear-gradient(180deg, #0c1220, #131b2f);
+        color: var(--text);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 28px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(10, 15, 28, 0.92);
+      }
+
+      .topbar h1 {
+        margin: 0;
+        font-size: clamp(1.3rem, 2vw, 2rem);
+      }
+
+      .topbar nav a {
+        color: var(--text);
+        text-decoration: none;
+        background: rgba(114, 215, 255, 0.12);
+        border: 1px solid rgba(114, 215, 255, 0.35);
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+
+      .main-content {
+        padding: 24px;
+      }
+
+      .panel {
+        max-width: 1400px;
+        margin: 0 auto;
+        background: rgba(18, 26, 45, 0.95);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: end;
+        margin-bottom: 16px;
+      }
+
+      .toolbar label {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .toolbar input,
+      .toolbar select,
+      .toolbar button {
+        min-height: 42px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        padding: 0 12px;
+        font-size: 0.95rem;
+      }
+
+      .toolbar button {
+        background: linear-gradient(180deg, #2d8cff, #1e5cdc);
+        border: none;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .toolbar button:hover { filter: brightness(1.05); }
+
+      .toolbar .secondary {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12);
+      }
+
+      .status {
+        margin: 12px 0 18px;
+        border-left: 4px solid var(--accent);
+        background: rgba(114, 215, 255, 0.08);
+        color: var(--muted);
+        padding: 10px 12px;
+        border-radius: 10px;
+      }
+
+      .status.error {
+        border-left-color: var(--danger);
+        background: rgba(255, 127, 127, 0.08);
+        color: #ffd7d7;
+      }
+
+      .canvas-wrap {
+        background: rgba(0, 0, 0, 0.14);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: auto;
+        min-height: 420px;
+      }
+
+      .image-viewport {
+        display: inline-block;
+        overflow: auto;
+        background: #140d28;
+        min-width: 100%;
+        min-height: 420px;
+      }
+
+      canvas {
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: none;
+        max-height: none;
+        background: #140d28;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        transform-origin: top left;
+      }
+
+      .legend-wrap {
+        margin-top: 12px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+
+      .meta {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      @media (max-width: 720px) {
+        .topbar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .toolbar label {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>History Spectrogram Lite</h1>
+      <nav>
+        <a href="/dashboard">عودة للوحة الرئيسية</a>
+      </nav>
+    </header>
+
+    <main class="main-content">
+      <section class="panel">
+        <div class="toolbar">
+          <label>
+            الجهاز
+            <select id="deviceSelect"></select>
+          </label>
+
+          <label>
+            من
+            <input id="fromInput" type="datetime-local" />
+          </label>
+
+          <label>
+            إلى
+            <input id="toInput" type="datetime-local" />
+          </label>
+
+          <button id="loadBtn" type="button">تحميل</button>
+          <button id="latestBtn" class="secondary" type="button">آخر 24 ساعة</button>
+
+          <label>
+            خريطة الألوان
+            <select id="colorMapSelect">
+              <option value="magma">magma</option>
+              <option value="sunset">sunset</option>
+            </select>
+          </label>
+
+          <label>
+            زووم
+            <input id="zoomInput" type="range" min="1" max="12" step="1" value="1" />
+          </label>
+        </div>
+
+        <div id="status" class="status">جاهز للتحميل...</div>
+
+        <div class="canvas-wrap">
+          <div id="imageViewport" class="image-viewport">
+            <canvas id="spectrogramCanvas" width="960" height="480" aria-label="History spectrogram"></canvas>
+          </div>
+        </div>
+
+        <div class="legend-wrap">
+          <canvas id="legendCanvas" width="560" height="46" aria-label="Color legend"></canvas>
+        </div>
+
+        <div id="meta" class="meta">لا توجد بيانات حتى الآن.</div>
+      </section>
+    </main>
+
+    <script src="/public/js/spectrogram.js"></script>
+    <script src="/public/js/history-lite.js"></script>
+  </body>
+</html>

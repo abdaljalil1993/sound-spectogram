@@ -51,6 +51,11 @@
     ]
   };
 
+  var PROCESS_CONTEXT_CACHE = new Map();
+  var BLOCK_PROCESS_CACHE = new WeakMap();
+  var MAX_PROCESS_CONTEXT_CACHE = 24;
+  var MAX_BLOCK_KEYS_PER_PACKET = 6;
+
   function clamp01(value) {
     var n = Number(value);
     if (!Number.isFinite(n)) return 0;
@@ -447,42 +452,14 @@
     return inferImageIntensityType(blocks);
   }
 
-  function buildStatsFromSorted(sortedValues) {
-    if (!Array.isArray(sortedValues) || sortedValues.length === 0) {
-      return {
-        min: 0,
-        max: 0,
-        mean: 0,
-        median: 0,
-        p50: 0,
-        p75: 0,
-        p90: 0,
-        p95: 0,
-        p99: 0
-      };
-    }
-
-    var sum = 0;
-    for (var i = 0; i < sortedValues.length; i += 1) {
-      sum += sortedValues[i];
-    }
-
-    return {
-      min: sortedValues[0],
-      max: sortedValues[sortedValues.length - 1],
-      mean: sum / sortedValues.length,
-      median: quantileSorted(sortedValues, 0.5),
-      p50: quantileSorted(sortedValues, 0.5),
-      p75: quantileSorted(sortedValues, 0.75),
-      p90: quantileSorted(sortedValues, 0.9),
-      p95: quantileSorted(sortedValues, 0.95),
-      p99: quantileSorted(sortedValues, 0.99)
-    };
-  }
-
-  function collectNormalizedSamples(blocks, intensityType, maxSamples) {
+  function collectNormalizedHistogram(blocks, intensityType, maxSamples, histogramBins) {
     var limit = Number.isFinite(maxSamples) ? Math.max(1000, Math.floor(maxSamples)) : 200000;
-    var out = [];
+    var binsCount = Number.isFinite(histogramBins) ? Math.max(64, Math.floor(histogramBins)) : 1024;
+    var hist = new Array(binsCount).fill(0);
+    var total = 0;
+    var sum = 0;
+    var min = Number.POSITIVE_INFINITY;
+    var max = Number.NEGATIVE_INFINITY;
 
     for (var bi = 0; bi < blocks.length; bi += 1) {
       var matrix = blocks[bi] && blocks[bi].data;
@@ -498,15 +475,95 @@
 
       for (var r = 0; r < rows; r += rowStep) {
         for (var c = 0; c < cols; c += colStep) {
-          out.push(normalizeScalarByType(getMatrixValue(matrix, r, c), intensityType));
-          if (out.length >= limit) {
-            return out;
+          var v = normalizeScalarByType(getMatrixValue(matrix, r, c), intensityType);
+          if (v < min) {
+            min = v;
+          }
+          if (v > max) {
+            max = v;
+          }
+
+          sum += v;
+          total += 1;
+
+          var binIndex = Math.min(binsCount - 1, Math.max(0, Math.floor(v * (binsCount - 1))));
+          hist[binIndex] += 1;
+
+          if (total >= limit) {
+            return {
+              hist: hist,
+              total: total,
+              sum: sum,
+              min: Number.isFinite(min) ? min : 0,
+              max: Number.isFinite(max) ? max : 0,
+              binsCount: binsCount
+            };
           }
         }
       }
     }
 
-    return out;
+    return {
+      hist: hist,
+      total: total,
+      sum: sum,
+      min: Number.isFinite(min) ? min : 0,
+      max: Number.isFinite(max) ? max : 0,
+      binsCount: binsCount
+    };
+  }
+
+  function quantileFromHistogram(histogramData, q) {
+    if (!histogramData || !Array.isArray(histogramData.hist) || histogramData.total <= 0) {
+      return 0;
+    }
+
+    var hist = histogramData.hist;
+    var binsCount = histogramData.binsCount;
+    var target = clamp01(q) * (histogramData.total - 1);
+    var acc = 0;
+    for (var i = 0; i < binsCount; i += 1) {
+      acc += hist[i];
+      if (acc > target) {
+        return i / Math.max(1, binsCount - 1);
+      }
+    }
+
+    return 1;
+  }
+
+  function buildStatsFromHistogram(histogramData) {
+    if (!histogramData || histogramData.total <= 0) {
+      return {
+        min: 0,
+        max: 0,
+        mean: 0,
+        median: 0,
+        p50: 0,
+        p75: 0,
+        p90: 0,
+        p95: 0,
+        p99: 0
+      };
+    }
+
+    var p50 = quantileFromHistogram(histogramData, 0.5);
+    var p75 = quantileFromHistogram(histogramData, 0.75);
+    var p90 = quantileFromHistogram(histogramData, 0.9);
+    var p95 = quantileFromHistogram(histogramData, 0.95);
+    var p99 = quantileFromHistogram(histogramData, 0.99);
+
+    return {
+      min: histogramData.min,
+      max: histogramData.max,
+      mean: histogramData.sum / histogramData.total,
+      median: p50,
+      p50: p50,
+      p75: p75,
+      p90: p90,
+      p95: p95,
+      p99: p99
+    };
   }
 
   function countActiveNeighbors(mask, row, col, radius) {
@@ -629,28 +686,86 @@
     return next;
   }
 
-  function createProcessingContext(options, blocks) {
+  function buildBlockSetSignature(blocks) {
+    if (!Array.isArray(blocks) || blocks.length === 0) {
+      return "empty";
+    }
+
+    var first = blocks[0];
+    var last = blocks[blocks.length - 1];
+    return [
+      String(blocks.length),
+      String(getBlockStartMs(first)),
+      String(getBlockEndMs(last)),
+      String(getBlockTimestampMs(first)),
+      String(getBlockTimestampMs(last))
+    ].join("|");
+  }
+
+  function buildProcessingContextCacheKey(options, blocks, intensityType) {
+    var floorPct = Number((options && options.noiseFloorPercentile) || DEFAULT_CONFIG.noiseFloorPercentile);
+    var minThreshold = Number((options && options.noiseThreshold) || DEFAULT_CONFIG.noiseThreshold);
+    return [
+      intensityType,
+      String(buildBlockSetSignature(blocks)),
+      Number.isFinite(floorPct) ? floorPct.toFixed(2) : "72.00",
+      Number.isFinite(minThreshold) ? minThreshold.toFixed(4) : "0.0600"
+    ].join("::");
+  }
+
+  function getCachedProcessContext(key) {
+    return PROCESS_CONTEXT_CACHE.get(key) || null;
+  }
+
+  function setCachedProcessContext(key, processCtx) {
+    if (PROCESS_CONTEXT_CACHE.has(key)) {
+      PROCESS_CONTEXT_CACHE.delete(key);
+    }
+    PROCESS_CONTEXT_CACHE.set(key, {
+      intensityType: processCtx.intensityType,
+      threshold: processCtx.threshold,
+      stats: processCtx.stats
+    });
+
+    if (PROCESS_CONTEXT_CACHE.size > MAX_PROCESS_CONTEXT_CACHE) {
+      var firstKey = PROCESS_CONTEXT_CACHE.keys().next();
+      if (!firstKey.done) {
+        PROCESS_CONTEXT_CACHE.delete(firstKey.value);
+      }
+    }
+  }
+
+  function createProcessingContext(options, blocks, fastMode) {
     var compareView = String((options && options.compareView) || DEFAULT_CONFIG.compareView || "denoised").toLowerCase();
     if (compareView !== "original" && compareView !== "thresholded" && compareView !== "denoised") {
       compareView = "denoised";
     }
 
     var intensityType = resolveIntensityType(options || {}, blocks);
-    var samples = collectNormalizedSamples(blocks, intensityType, 200000);
-    samples.sort(function (a, b) {
-      return a - b;
-    });
+    var contextCacheKey = buildProcessingContextCacheKey(options || {}, blocks, intensityType);
+    var cachedCtx = getCachedProcessContext(contextCacheKey);
 
-    var stats = buildStatsFromSorted(samples);
+    var histogramData;
+    var stats;
+    var adaptiveFloor;
+    if (cachedCtx && fastMode) {
+      stats = cachedCtx.stats;
+      adaptiveFloor = cachedCtx.threshold;
+    } else {
+      histogramData = collectNormalizedHistogram(blocks, intensityType, 200000, 1024);
+      stats = buildStatsFromHistogram(histogramData);
+    }
     var floorPct = Number((options && options.noiseFloorPercentile) || DEFAULT_CONFIG.noiseFloorPercentile);
     if (!Number.isFinite(floorPct)) {
       floorPct = 72;
     }
     floorPct = Math.max(1, Math.min(99, floorPct));
 
-    var adaptiveFloor = quantileSorted(samples, floorPct / 100);
-    if (!Number.isFinite(adaptiveFloor)) {
-      adaptiveFloor = 0;
+    if (!(cachedCtx && fastMode)) {
+      adaptiveFloor = quantileFromHistogram(histogramData, floorPct / 100);
+      if (!Number.isFinite(adaptiveFloor)) {
+        adaptiveFloor = 0;
+      }
     }
 
     var minimumThreshold = Number((options && options.noiseThreshold) || DEFAULT_CONFIG.noiseThreshold);
@@ -673,7 +788,7 @@
     }
     minActiveNeighbors = Math.max(0, Math.floor(minActiveNeighbors));
 
-    return {
+    var processCtx = {
       intensityType: intensityType,
       compareView: compareView,
       noiseSuppressionEnabled:
@@ -692,9 +807,24 @@
       minActiveNeighbors: minActiveNeighbors,
       threshold: threshold,
       stats: stats,
+      processKey: [
+        intensityType,
+        threshold.toFixed(4),
+        options && options.noiseSuppressionEnabled === false ? 0 : 1,
+        options && options.isolatedPixelRemovalEnabled === false ? 0 : 1,
+        options && options.morphologyEnabled === false ? 0 : 1,
+        neighborhoodSize,
+        minActiveNeighbors
+      ].join("|"),
       removedBefore: 0,
       removedAfter: 0
     };
+
+    if (!cachedCtx || !fastMode) {
+      setCachedProcessContext(contextCacheKey, processCtx);
+    }
+
+    return processCtx;
   }
 
   function processBlockMatrix(matrix, processCtx) {
@@ -763,23 +893,56 @@
       }
     }
 
-    processCtx.removedBefore += activeBefore;
-    processCtx.removedAfter += activeAfter;
-
-    var selected;
-    if (processCtx.compareView === "original") {
-      selected = original;
-    } else if (processCtx.compareView === "thresholded") {
-      selected = thresholded;
-    } else {
-      selected = denoised;
-    }
-
     return {
-      matrix: selected,
+      original: original,
+      thresholded: thresholded,
+      denoised: denoised,
+      activeBefore: activeBefore,
+      activeAfter: activeAfter,
       rows: rows,
       cols: cols
     };
+  }
+
+  function getBlockProcessedCache(block) {
+    var cache = BLOCK_PROCESS_CACHE.get(block);
+    if (!cache) {
+      cache = {
+        order: [],
+        values: Object.create(null)
+      };
+      BLOCK_PROCESS_CACHE.set(block, cache);
+    }
+    return cache;
+  }
+
+  function getProcessedBlockMatrix(block, matrix, processCtx) {
+    var cache = getBlockProcessedCache(block);
+    var key = processCtx.processKey;
+    var cached = cache.values[key];
+    if (!cached) {
+      cached = processBlockMatrix(matrix, processCtx);
+      cache.values[key] = cached;
+      cache.order.push(key);
+
+      if (cache.order.length > MAX_BLOCK_KEYS_PER_PACKET) {
+        var evictKey = cache.order.shift();
+        if (evictKey) {
+          delete cache.values[evictKey];
+        }
+      }
+    }
+
+    processCtx.removedBefore += cached.activeBefore;
+    processCtx.removedAfter += cached.activeAfter;
+
+    if (processCtx.compareView === "original") {
+      return cached.original;
+    }
+    if (processCtx.compareView === "thresholded") {
+      return cached.thresholded;
+    }
+    return cached.denoised;
   }
 
   function chooseTicks(widthPx, minTicks, maxTicks) {
@@ -946,7 +1109,7 @@
     }
 
     var image = nativeCtx.createImageData(plotW, nativeCanvas.height);
-    var processCtx = createProcessingContext(options || {}, blocks);
+    var processCtx = createProcessingContext(options || {}, blocks, fastMode);
     var intensityMapper = buildIntensityMapper(options, blocks, processCtx.intensityType);
     var bucketAggregation = String((options && options.bucketAggregation) || DEFAULT_CONFIG.bucketAggregation || "max").toLowerCase();
     if (bucketAggregation !== "hybrid") {
@@ -978,25 +1141,46 @@
       return maxValue;
     }
 
+    var fastRowStride = fastMode ? Math.max(1, Math.floor(binCount / 260)) : 1;
+
     function flushColumnBucket(rows, bucketMax, bucketSum, bucketCount, xStart, xEnd) {
-      for (var r = 0; r < rows; r += 1) {
-        var yNative = rows - 1 - r;
-        if (yNative < 0 || yNative >= nativeCanvas.height) {
+      for (var r = 0; r < rows; r += fastRowStride) {
+        var rowEnd = Math.min(rows, r + fastRowStride);
+        var groupedValue = 0;
+        for (var rg = r; rg < rowEnd; rg += 1) {
+          var candidate = aggregateBucketValue(bucketMax[rg], bucketSum[rg], bucketCount[rg]);
+          if (candidate > groupedValue) {
+            groupedValue = candidate;
+          }
+        }
+
+        var yNativeTop = rows - rowEnd;
+        var yNativeBottom = rows - 1 - r;
+        if (yNativeBottom < 0 || yNativeTop >= nativeCanvas.height) {
           continue;
         }
 
-        var value = intensityMapper.map(aggregateBucketValue(bucketMax[r], bucketSum[r], bucketCount[r]));
+        var yStart = Math.max(0, yNativeTop);
+        var yStop = Math.min(nativeCanvas.height - 1, yNativeBottom);
+        if (yStop < yStart) {
+          continue;
+        }
+
+        var value = intensityMapper.map(groupedValue);
         if (!Number.isFinite(value)) {
           value = 0;
         }
 
         var rgb = valueToColor(value);
-        for (var x = xStart; x < xEnd && x < plotW; x += 1) {
-          var idx = (yNative * plotW + x) * 4;
-          image.data[idx] = rgb[0];
-          image.data[idx + 1] = rgb[1];
-          image.data[idx + 2] = rgb[2];
-          image.data[idx + 3] = 255;
+        for (var yNative = yStart; yNative <= yStop; yNative += 1) {
+          var rowOffset = yNative * plotW;
+          for (var x = xStart; x < xEnd && x < plotW; x += 1) {
+            var idx = (rowOffset + x) * 4;
+            image.data[idx] = rgb[0];
+            image.data[idx + 1] = rgb[1];
+            image.data[idx + 2] = rgb[2];
+            image.data[idx + 3] = 255;
+          }
         }
       }
     }
@@ -1008,8 +1192,7 @@
         continue;
       }
 
-      var processed = processBlockMatrix(matrix, processCtx);
-      var processedMatrix = processed.matrix;
+      var processedMatrix = getProcessedBlockMatrix(block, matrix, processCtx);
 
       var dims = getMatrixDimensions(matrix);
       var rows = dims.rows;

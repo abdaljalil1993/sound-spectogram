@@ -28,7 +28,7 @@
           <section id="historyPanel" class="tab-panel active">
             <h2 id="selectedDeviceTitle">Select a device</h2>
             <div class="inline-form range-actions-row">
-              <button id="latest24Btn" type="button">Latest 24h</button>
+              <button id="latest24Btn" type="button">Latest 2h</button>
               <button id="loadExampleBtn" type="button">Load Example</button>
               <button id="resetViewBtn" type="button">Reset View</button>
             </div>
@@ -40,56 +40,11 @@
               <button id="zoomInBtn" type="button" class="ghost-btn" title="Zoom in (+)">Zoom In</button>
               <button id="fitPacketsBtn" type="button" class="ghost-btn" title="Fit all packets in view (F)">Fit Packets</button>
               <button id="colorMapBtn" type="button" class="ghost-btn" title="Toggle color map">Colors: magma</button>
-              <button id="followLiveBtn" type="button" class="ghost-btn" title="Return to live latest 24h (L)">Follow Live</button>
-              <select id="intensityModeSelect" class="toolbar-select" title="Intensity scale mode">
-                <option value="linear">Linear 0..255</option>
-                <option value="db-fixed">dB fixed clip</option>
-                <option value="db-percentile">dB percentile</option>
-              </select>
-              <input id="dbMinInput" class="toolbar-number" type="number" step="1" value="-95" title="dB minimum clip" />
-              <input id="dbMaxInput" class="toolbar-number" type="number" step="1" value="-20" title="dB maximum clip" />
-              <input id="pctLowInput" class="toolbar-number" type="number" min="0" max="99" step="1" value="5" title="Percentile low" />
-              <input id="pctHighInput" class="toolbar-number" type="number" min="1" max="100" step="1" value="99" title="Percentile high" />
-              <button id="applyIntensityBtn" type="button" class="ghost-btn" title="Apply intensity scaling">Apply Scale</button>
-              <select id="compareViewSelect" class="toolbar-select" title="Compare processing stage">
-                <option value="denoised">View: denoised</option>
-                <option value="original">View: original</option>
-                <option value="thresholded">View: thresholded</option>
-              </select>
-              <label class="toolbar-check" title="Enable adaptive noise suppression">
-                <input id="noiseSuppressionEnabledInput" type="checkbox" checked /> Noise Gate
-              </label>
-              <input
-                id="noiseFloorPercentileInput"
-                class="toolbar-number"
-                type="number"
-                min="1"
-                max="99"
-                step="1"
-                value="72"
-                title="Noise floor percentile"
-              />
-              <input id="noiseThresholdInput" class="toolbar-number" type="number" min="0" max="1" step="0.01" value="0.06" title="Minimum normalized threshold" />
-              <label class="toolbar-check" title="Remove isolated active pixels using neighborhood test">
-                <input id="isolatedPixelRemovalEnabledInput" type="checkbox" checked /> De-speckle
-              </label>
-              <input id="minActiveNeighborsInput" class="toolbar-number" type="number" min="0" max="8" step="1" value="1" title="Minimum active neighbors" />
-              <select id="neighborhoodSizeSelect" class="toolbar-select" title="Neighborhood size">
-                <option value="3" selected>3x3</option>
-                <option value="5">5x5</option>
-              </select>
-              <select id="bucketAggregationSelect" class="toolbar-select" title="Column aggregation when compressed">
-                <option value="max" selected>Bucket: max</option>
-                <option value="hybrid">Bucket: hybrid</option>
-              </select>
-              <label class="toolbar-check" title="Show render statistics for current visible data">
-                <input id="debugStatsEnabledInput" type="checkbox" /> Stats
-              </label>
-              <button id="applyNoiseBtn" type="button" class="ghost-btn" title="Apply noise suppression settings">Apply Noise</button>
+              <button id="followLiveBtn" type="button" class="ghost-btn" title="Return to live latest 2h (L)">Follow Live</button>
             </div>
             <p class="spectro-hint">
               Drag to pan. Mouse wheel zooms at cursor. Shift + wheel pans horizontally. Alt + wheel gives fine zoom.
-              Keyboard: Left/Right pan, +/- zoom, 0 reset, F fit packets, L latest 24h.
+              Keyboard: Left/Right pan, +/- zoom, 0 reset, F fit packets, L latest 2h.
             </p>
 
             <div class="canvas-wrapper">
@@ -222,6 +177,97 @@
               <input id="toTime" name="toTime" type="time" step="60" required />
               <button type="submit">Load Range</button>
             </form>
+            <div class="quick-range-grid">
+              <button id="latest5hBtn" type="button" class="ghost-btn">Latest 5h</button>
+              <button id="latest24hBtn" type="button" class="ghost-btn">Latest 24h</button>
+            </div>
+            <div class="last-packet-row">
+              <button id="latestPacketBtn" type="button" class="ghost-btn">Last Packet</button>
+              <button id="stepBack5mBtn" type="button" class="ghost-btn mini-btn" title="Step back 5 minutes">-5m</button>
+            </div>
+          </div>
+
+          <div class="side-card">
+            <h3>Processing Controls</h3>
+            <p class="control-note" id="processingStatus">اختر الجهاز ثم عدل الإعدادات. التطبيق يتم مباشرة عند التغيير.</p>
+            <div class="processing-controls-grid">
+              <label for="intensityModeSelect">Scale Mode</label>
+              <select id="intensityModeSelect" class="toolbar-select" title="Intensity scale mode">
+                <option value="linear">Linear (صورة intensity)</option>
+                <option value="db-fixed">dB fixed clip</option>
+                <option value="db-percentile">dB percentile</option>
+              </select>
+
+              <label for="dbMinInput">dB Min</label>
+              <input id="dbMinInput" class="toolbar-number" type="number" step="1" value="-95" title="dB minimum clip" />
+
+              <label for="dbMaxInput">dB Max</label>
+              <input id="dbMaxInput" class="toolbar-number" type="number" step="1" value="-20" title="dB maximum clip" />
+
+              <label for="pctLowInput">dB Percentile Low</label>
+              <input id="pctLowInput" class="toolbar-number" type="number" min="0" max="99" step="1" value="5" title="Percentile low" />
+
+              <label for="pctHighInput">dB Percentile High</label>
+              <input id="pctHighInput" class="toolbar-number" type="number" min="1" max="100" step="1" value="99" title="Percentile high" />
+
+              <label for="compareViewSelect">View Compare</label>
+              <select id="compareViewSelect" class="toolbar-select" title="Compare processing stage">
+                <option value="denoised">Denoised</option>
+                <option value="original">Original</option>
+                <option value="thresholded">Thresholded</option>
+              </select>
+
+              <label class="toolbar-check" title="Enable adaptive noise suppression">
+                <input id="noiseSuppressionEnabledInput" type="checkbox" checked /> Noise Gate
+              </label>
+              <input
+                id="noiseFloorPercentileInput"
+                class="toolbar-number"
+                type="number"
+                min="1"
+                max="99"
+                step="1"
+                value="72"
+                title="Noise floor percentile"
+              />
+
+              <label for="noiseThresholdInput">Noise Threshold</label>
+              <input id="noiseThresholdInput" class="toolbar-number" type="number" min="0" max="1" step="0.01" value="0.06" title="Minimum normalized threshold" />
+
+              <label class="toolbar-check" title="Remove isolated active pixels using neighborhood test">
+                <input id="isolatedPixelRemovalEnabledInput" type="checkbox" checked /> De-speckle
+              </label>
+              <input id="minActiveNeighborsInput" class="toolbar-number" type="number" min="0" max="8" step="1" value="1" title="Minimum active neighbors" />
+
+              <label for="neighborhoodSizeSelect">Neighborhood</label>
+              <select id="neighborhoodSizeSelect" class="toolbar-select" title="Neighborhood size">
+                <option value="3" selected>3x3</option>
+                <option value="5">5x5</option>
+              </select>
+
+              <label for="bucketAggregationSelect">Bucket Aggregation</label>
+              <select id="bucketAggregationSelect" class="toolbar-select" title="Column aggregation when compressed">
+                <option value="max" selected>max</option>
+                <option value="hybrid">hybrid</option>
+              </select>
+
+              <label class="toolbar-check" title="Show render statistics for current visible data">
+                <input id="debugStatsEnabledInput" type="checkbox" /> Show Stats
+              </label>
+              <button id="applyIntensityBtn" type="button" class="ghost-btn" title="Apply intensity scaling">Apply Scale</button>
+              <button id="applyNoiseBtn" type="button" class="ghost-btn" title="Apply noise suppression settings">Apply Noise</button>
+            </div>
+
+            <ul class="control-help-list">
+              <li><strong>Linear:</strong> مناسب لبيانات الصورة (0..1 أو 0..255). الافتراضي الموصى به لحالتك.</li>
+              <li><strong>dB fixed / dB percentile:</strong> تعمل فعليا فقط عندما نوع الإدخال magnitude/db، وإلا يعود النظام تلقائيا لـ Linear.</li>
+              <li><strong>Noise Gate:</strong> يزيل الخلفية الضعيفة حسب عتبة تكيفية.</li>
+              <li><strong>Noise Floor Percentile:</strong> يحدد أرضية الضجيج من توزيع البيانات (مثلا 72 يعني قيم أقل من ذلك غالبا ضجيج).</li>
+              <li><strong>Noise Threshold:</strong> حد أدنى ثابت بعد التطبيع لضبط شدة القص.</li>
+              <li><strong>De-speckle + Min neighbors:</strong> يزيل النقاط المنفردة ويحافظ على الخطوط.</li>
+              <li><strong>View Compare:</strong> Original قبل المعالجة، Thresholded بعد البوابة، Denoised بعد إزالة النقاط.</li>
+              <li><strong>Bucket Aggregation:</strong> max يحافظ على القمم، hybrid يخفف تضخيم النقط المفردة عند ضغط الأعمدة.</li>
+            </ul>
           </div>
         </aside>
       </div>

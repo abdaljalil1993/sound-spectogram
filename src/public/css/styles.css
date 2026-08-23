@@ -352,6 +352,26 @@ select:focus-visible {
   margin-top: 4px;
 }
 
+.quick-range-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.last-packet-row {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.mini-btn {
+  min-width: 58px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
 .spectro-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -394,6 +414,47 @@ select:focus-visible {
 
 .toolbar-check input {
   margin: 0;
+}
+
+.processing-controls-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.processing-controls-grid label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.processing-controls-grid .toolbar-select,
+.processing-controls-grid .toolbar-number,
+.processing-controls-grid .ghost-btn {
+  width: 100%;
+}
+
+.control-note {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #375a4f;
+  background: #eef7f3;
+  border: 1px solid #cee8de;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.control-help-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.control-help-list li {
+  margin-bottom: 6px;
 }
 
 .spectro-hint {

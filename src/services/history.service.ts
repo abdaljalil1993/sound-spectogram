@@ -157,12 +157,15 @@ export class HistoryService {
     });
 
     if (existing) {
+      const preservedFrequencyBins = normalized.parsed.frequencyBins ?? existing.frequencyBins ?? null;
+
       console.info("[HistoryService] Duplicate packet skipped", {
         deviceId: normalized.resolvedDeviceId,
         deviceName: normalized.resolvedDeviceName,
         startTime: normalized.parsedStartDate.toISOString(),
         endTime: normalized.parsedEndDate.toISOString(),
-        existingHistoryId: existing.id
+        existingHistoryId: existing.id,
+        preservedFrequencyBins: preservedFrequencyBins ? preservedFrequencyBins.length : 0
       });
 
       return {
@@ -173,7 +176,7 @@ export class HistoryService {
         startTime: (existing.startTime || normalized.parsedStartDate).toISOString(),
         endTime: (existing.endTime || normalized.parsedEndDate).toISOString(),
         data: normalized.parsed.data,
-        frequencyBins: normalized.parsed.frequencyBins,
+        frequencyBins: preservedFrequencyBins ?? undefined,
         intensityType: normalized.parsed.intensityType,
         persisted: true
       };

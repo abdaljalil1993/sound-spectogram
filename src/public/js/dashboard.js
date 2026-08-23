@@ -26,7 +26,7 @@
   var selectedDeviceMaxFrequency = null;
   var currentPackets = [];
   var activeTimeStepMs = 1000;
-  var activeRangeMode = "latest24";
+  var activeRangeMode = "latest2h";
   var activeFromIso = null;
   var activeToIso = null;
   var viewportFromMs = null;
@@ -45,6 +45,10 @@
   var editingUserId = null;
   var editingDeviceId = null;
   var lastPersistenceWarningAt = 0;
+  var LIVE_WINDOW_MS = 2 * 60 * 60 * 1000;
+  var LIVE_WINDOW_LABEL = "Latest 2h";
+  var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
+  var MAX_PACKETS_IN_MEMORY = 12000;
 
   var topNav = document.getElementById("topNav");
   var tabButtons = document.querySelectorAll(".tab-btn");
@@ -59,6 +63,7 @@
   var historyInfoEl = document.getElementById("historyInfo");
   var historyTableBody = document.getElementById("historyTableBody");
   var sideDeviceInfoEl = document.getElementById("sideDeviceInfo");
+  var processingStatusEl = document.getElementById("processingStatus");
   var canvas = document.getElementById("spectrogramCanvas");
   var spectrogramLoaderEl = document.getElementById("spectrogramLoader");
   var legendCanvas = document.getElementById("spectrogramLegend");
@@ -66,6 +71,10 @@
   var probeTooltipEl = document.getElementById("probeTooltip");
   var historyRangeForm = document.getElementById("historyRangeForm");
   var latest24Btn = document.getElementById("latest24Btn");
+  var latest5hBtn = document.getElementById("latest5hBtn");
+  var latest24hBtn = document.getElementById("latest24hBtn");
+  var latestPacketBtn = document.getElementById("latestPacketBtn");
+  var stepBack5mBtn = document.getElementById("stepBack5mBtn");
   var loadExampleBtn = document.getElementById("loadExampleBtn");
   var resetViewBtn = document.getElementById("resetViewBtn");
   var panLeftBtn = document.getElementById("panLeftBtn");
@@ -128,6 +137,7 @@
     !historyInfoEl ||
     !historyTableBody ||
     !sideDeviceInfoEl ||
+    !processingStatusEl ||
     !canvas ||
     !spectrogramLoaderEl ||
     !legendCanvas ||
@@ -135,6 +145,10 @@
     !probeTooltipEl ||
     !historyRangeForm ||
     !latest24Btn ||
+    !latest5hBtn ||
+    !latest24hBtn ||
+    !latestPacketBtn ||
+    !stepBack5mBtn ||
     !loadExampleBtn ||
     !resetViewBtn ||
     !panLeftBtn ||
@@ -197,6 +211,13 @@
   function setGlobalMessage(message, isError) {
     globalMessageEl.textContent = message || "";
     globalMessageEl.style.color = isError ? "#8a1c18" : "#1f6f53";
+  }
+
+  function setProcessingStatus(text, isWarning) {
+    processingStatusEl.textContent = text || "";
+    processingStatusEl.style.color = isWarning ? "#8a1c18" : "#375a4f";
+    processingStatusEl.style.background = isWarning ? "#fff3f1" : "#eef7f3";
+    processingStatusEl.style.borderColor = isWarning ? "#f2c9c2" : "#cee8de";
   }
 
   function setSpectrogramLoading(isLoading) {
@@ -331,6 +352,7 @@
     bucketAggregationSelect.value = activeBucketAggregation;
 
     scheduleRender({ skipTable: true });
+    setGlobalMessage("Noise settings applied", false);
   }
 
   function updateIntensityControlsState() {
@@ -391,6 +413,7 @@
 
     updateIntensityControlsState();
     scheduleRender({ skipTable: true });
+    setGlobalMessage("Scale settings applied", false);
   }
 
   function updateColorMapButtonLabel() {
@@ -468,6 +491,29 @@
     getPacketEndMs(packet);
     getPacketTimestampMs(packet);
     return packet;
+  }
+
+  function getInitialLoadRangeIso() {
+    var toMs = Date.now();
+    var fromMs = toMs - LIVE_WINDOW_MS;
+    return {
+      fromIso: new Date(fromMs).toISOString(),
+      toIso: new Date(toMs).toISOString()
+    };
+  }
+
+  function getRecentRangeIso(hours) {
+    var safeHours = Number(hours);
+    if (!Number.isFinite(safeHours) || safeHours <= 0) {
+      safeHours = 2;
+    }
+
+    var toMs = Date.now();
+    var fromMs = toMs - Math.round(safeHours * 60 * 60 * 1000);
+    return {
+      fromIso: new Date(fromMs).toISOString(),
+      toIso: new Date(toMs).toISOString()
+    };
   }
 
   function normalizeDeviceKey(value) {
@@ -647,9 +693,9 @@
 
     var fromMs;
     var toMs;
-    if (activeRangeMode === "latest24" && followLatest24) {
+    if (activeRangeMode === "latest2h" && followLatest24) {
       toMs = Date.now();
-      fromMs = toMs - 24 * 60 * 60 * 1000;
+      fromMs = toMs - LIVE_WINDOW_MS;
       activeFromIso = new Date(fromMs).toISOString();
       activeToIso = new Date(toMs).toISOString();
       viewportFromMs = fromMs;
@@ -764,6 +810,30 @@
     });
     lastRenderMeta = renderResult || null;
 
+    if (renderResult) {
+      var selectedScaleText = activeIntensityMode;
+      var effectiveScaleText = renderResult.intensityMode || activeIntensityMode;
+      var selectedViewText = activeCompareView;
+      var effectiveViewText = renderResult.compareView || activeCompareView;
+      var infoText =
+        "Scale selected: " +
+        selectedScaleText +
+        " | effective: " +
+        effectiveScaleText +
+        " | View selected: " +
+        selectedViewText +
+        " | effective: " +
+        effectiveViewText +
+        " | Intensity type: " +
+        (renderResult.intensityType || "image");
+
+      var isScaleFallback = selectedScaleText !== effectiveScaleText;
+      if (isScaleFallback) {
+        infoText += " | Note: dB modes are ignored for image intensity input";
+      }
+      setProcessingStatus(infoText, isScaleFallback);
+    }
+
     var gapInfo = " | Gaps: 0";
     if (renderResult && Array.isArray(renderResult.gaps) && renderResult.gaps.length > 0) {
       var firstGap = renderResult.gaps[0];
@@ -788,7 +858,7 @@
       " | Total packets: " +
       visiblePackets.length +
       " | View mode: " +
-      (followLatest24 ? "Latest 24h (live)" : "Manual pan/zoom") +
+      (followLatest24 ? LIVE_WINDOW_LABEL + " (live)" : "Manual pan/zoom") +
       gapInfo;
 
     if (renderOptions.skipTable) {
@@ -898,16 +968,24 @@
       return;
     }
 
-    var i = 0;
-    while (i < currentPackets.length) {
-      var currentTime = getPacketStartMs(currentPackets[i]);
-      if (!Number.isFinite(currentTime) || packetTime < currentTime) {
-        break;
+    var low = 0;
+    var high = currentPackets.length;
+    while (low < high) {
+      var mid = Math.floor((low + high) / 2);
+      var midTime = getPacketStartMs(currentPackets[mid]);
+      if (!Number.isFinite(midTime) || packetTime < midTime) {
+        high = mid;
+      } else {
+        low = mid + 1;
       }
-      i += 1;
     }
 
-    currentPackets.splice(i, 0, packet);
+    currentPackets.splice(low, 0, packet);
+
+    if (currentPackets.length > MAX_PACKETS_IN_MEMORY) {
+      var overflow = currentPackets.length - MAX_PACKETS_IN_MEMORY;
+      currentPackets.splice(0, overflow);
+    }
   }
 
   function getCurrentViewSpanMs() {
@@ -1135,7 +1213,7 @@
   }
 
   function resetViewport() {
-    if (activeRangeMode === "latest24") {
+    if (activeRangeMode === "latest2h") {
       followLatest24 = true;
       scheduleRender({ skipTable: false });
       return;
@@ -1151,21 +1229,51 @@
 
   async function loadDeviceHistory(deviceId, fromIso, toIsoValue) {
     var endpoint = "/api/devices/" + deviceId + "/history";
+    var nowMs = Date.now();
+
     if (fromIso && toIsoValue) {
-      endpoint += "?from=" + encodeURIComponent(fromIso) + "&to=" + encodeURIComponent(toIsoValue);
+      var requestedFromMs = new Date(fromIso).getTime();
+      var requestedToMs = new Date(toIsoValue).getTime();
+      if (!Number.isFinite(requestedFromMs) || !Number.isFinite(requestedToMs) || requestedToMs <= requestedFromMs) {
+        throw new Error("Invalid time range");
+      }
+
+      var effectiveToMs = Math.min(requestedToMs, nowMs);
+      var effectiveFromMs = requestedFromMs;
+      var clampedByNow = effectiveToMs !== requestedToMs;
+
+      if (effectiveToMs - effectiveFromMs > MAX_LOAD_WINDOW_MS) {
+        effectiveFromMs = effectiveToMs - MAX_LOAD_WINDOW_MS;
+      }
+
+      if (!(effectiveToMs > effectiveFromMs)) {
+        throw new Error("Requested range is outside the allowed window.");
+      }
+
+      var effectiveFromIso = new Date(effectiveFromMs).toISOString();
+      var effectiveToIso = new Date(effectiveToMs).toISOString();
+
+      if (effectiveFromMs !== requestedFromMs || clampedByNow) {
+        setGlobalMessage("Range was clamped to max 24 hours and current time.", false);
+      }
+
+      endpoint += "?from=" + encodeURIComponent(effectiveFromIso) + "&to=" + encodeURIComponent(effectiveToIso);
       activeRangeMode = "custom";
-      activeFromIso = fromIso;
-      activeToIso = toIsoValue;
-      viewportFromMs = new Date(fromIso).getTime();
-      viewportToMs = new Date(toIsoValue).getTime();
+      activeFromIso = effectiveFromIso;
+      activeToIso = effectiveToIso;
+      viewportFromMs = effectiveFromMs;
+      viewportToMs = effectiveToMs;
       followLatest24 = false;
     } else {
-      activeRangeMode = "latest24";
-      activeFromIso = null;
-      activeToIso = null;
+      activeRangeMode = "latest2h";
+      var latestToMs = nowMs;
+      var latestFromMs = latestToMs - LIVE_WINDOW_MS;
+      activeFromIso = new Date(latestFromMs).toISOString();
+      activeToIso = new Date(latestToMs).toISOString();
       followLatest24 = true;
-      viewportFromMs = null;
-      viewportToMs = null;
+      viewportFromMs = latestFromMs;
+      viewportToMs = latestToMs;
+      endpoint += "?from=" + encodeURIComponent(activeFromIso) + "&to=" + encodeURIComponent(activeToIso);
     }
 
     currentPackets = [];
@@ -1200,6 +1308,82 @@
     }
   }
 
+  async function loadRecentHours(hours, label) {
+    if (!selectedDeviceId) {
+      setGlobalMessage("Select a device first", true);
+      return;
+    }
+
+    var range = getRecentRangeIso(hours);
+    await loadDeviceHistory(selectedDeviceId, range.fromIso, range.toIso);
+    setGlobalMessage((label || "Recent range") + " loaded for " + selectedDeviceName, false);
+  }
+
+  async function loadLatestPacketOnly() {
+    if (!selectedDeviceId) {
+      setGlobalMessage("Select a device first", true);
+      return;
+    }
+
+    var range = getRecentRangeIso(24);
+    await loadDeviceHistory(selectedDeviceId, range.fromIso, range.toIso);
+
+    if (!currentPackets.length) {
+      setGlobalMessage("No packet found in the last 24 hours", true);
+      return;
+    }
+
+    var latestPacket = currentPackets[currentPackets.length - 1];
+    var latestStartMs = getPacketStartMs(latestPacket);
+    var latestEndMs = getPacketEndMs(latestPacket);
+    if (!Number.isFinite(latestStartMs)) {
+      latestStartMs = getPacketTimestampMs(latestPacket);
+    }
+    if (!Number.isFinite(latestEndMs)) {
+      latestEndMs = latestStartMs;
+    }
+
+    if (!Number.isFinite(latestStartMs)) {
+      setGlobalMessage("Could not resolve latest packet time", true);
+      return;
+    }
+
+    var effectiveEnd = Number.isFinite(latestEndMs) && latestEndMs > latestStartMs ? latestEndMs : latestStartMs + 1000;
+    activeRangeMode = "lastPacket";
+    followLatest24 = false;
+    viewportFromMs = latestStartMs;
+    viewportToMs = effectiveEnd;
+    activeFromIso = new Date(viewportFromMs).toISOString();
+    activeToIso = new Date(viewportToMs).toISOString();
+    scheduleRender({ skipTable: false });
+    setGlobalMessage("Latest packet focused. Use -5m to step backward.", false);
+  }
+
+  async function stepBackByMinutes(minutes) {
+    if (!selectedDeviceId) {
+      setGlobalMessage("Select a device first", true);
+      return;
+    }
+
+    var stepMinutes = Number(minutes);
+    if (!Number.isFinite(stepMinutes) || stepMinutes <= 0) {
+      stepMinutes = 5;
+    }
+
+    var stepMs = Math.round(stepMinutes * 60 * 1000);
+    var span = getCurrentViewSpanMs();
+    if (!Number.isFinite(span) || span <= 0) {
+      span = stepMs;
+    }
+
+    var baseToMs = Number.isFinite(viewportToMs) ? viewportToMs : Date.now();
+    var targetToMs = baseToMs - stepMs;
+    var targetFromMs = targetToMs - span;
+
+    await loadDeviceHistory(selectedDeviceId, new Date(targetFromMs).toISOString(), new Date(targetToMs).toISOString());
+    setGlobalMessage("Shifted backward by " + stepMinutes + " minutes", false);
+  }
+
   async function selectDevice(device) {
     selectedDeviceId = device.id;
     selectedDeviceName = device.name;
@@ -1219,7 +1403,8 @@
         ? selectedDeviceMinFrequency + " Hz -> " + selectedDeviceMaxFrequency + " Hz"
         : "not configured");
     setActiveDevice(device.id);
-    await loadDeviceHistory(device.id);
+    var initialRange = getInitialLoadRangeIso();
+    await loadDeviceHistory(device.id, initialRange.fromIso, initialRange.toIso);
   }
 
   function renderDeviceSidebar() {
@@ -1566,9 +1751,41 @@
 
     try {
       await loadDeviceHistory(selectedDeviceId);
-      setGlobalMessage("Latest 24 hours loaded for " + selectedDeviceName, false);
+      setGlobalMessage("Latest 2 hours loaded for " + selectedDeviceName, false);
     } catch (error) {
       setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);
+    }
+  });
+
+  latest5hBtn.addEventListener("click", async function () {
+    try {
+      await loadRecentHours(5, "Latest 5 hours");
+    } catch (error) {
+      setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);
+    }
+  });
+
+  latest24hBtn.addEventListener("click", async function () {
+    try {
+      await loadRecentHours(24, "Latest 24 hours");
+    } catch (error) {
+      setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);
+    }
+  });
+
+  latestPacketBtn.addEventListener("click", async function () {
+    try {
+      await loadLatestPacketOnly();
+    } catch (error) {
+      setGlobalMessage(error instanceof Error ? error.message : "Failed to load latest packet", true);
+    }
+  });
+
+  stepBack5mBtn.addEventListener("click", async function () {
+    try {
+      await stepBackByMinutes(5);
+    } catch (error) {
+      setGlobalMessage(error instanceof Error ? error.message : "Failed to step back", true);
     }
   });
 

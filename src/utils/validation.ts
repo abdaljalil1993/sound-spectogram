@@ -74,8 +74,13 @@ export function validateIncomingDevicePayload(payload: unknown): {
 
   const matrixRows = (raw.data as unknown[]).length;
 
-  const intensityTypeRaw =
-    typeof raw.intensityType === "string" ? raw.intensityType.trim().toLowerCase() : undefined;
+  const intensityTypeValue =
+    typeof raw.intensityType === "string"
+      ? raw.intensityType
+      : typeof raw.intensity_type === "string"
+        ? raw.intensity_type
+        : undefined;
+  const intensityTypeRaw = intensityTypeValue ? intensityTypeValue.trim().toLowerCase() : undefined;
   let parsedIntensityType: IncomingDeviceDataPayload["intensityType"];
   if (intensityTypeRaw) {
     if (
@@ -93,7 +98,13 @@ export function validateIncomingDevicePayload(payload: unknown): {
     parsedIntensityType = intensityTypeRaw;
   }
 
-  const rawFrequencyBins = raw.frequencyBins ?? raw.freq ?? raw.frequencies;
+  const rawFrequencyBins =
+    raw.frequencyBins ??
+    raw.frequency_bins ??
+    raw.freq ??
+    raw.frequencies ??
+    raw.frequency ??
+    raw.bin_frequencies;
   let parsedFrequencyBins: number[] | undefined;
   if (rawFrequencyBins !== undefined) {
     if (!Array.isArray(rawFrequencyBins) || rawFrequencyBins.length === 0) {
