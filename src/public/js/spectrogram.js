@@ -1116,6 +1116,44 @@
       Number.isFinite(selectedDisplayMaxFrequency) &&
       selectedDisplayMaxFrequency > selectedDisplayMinFrequency;
 
+    function detectFrequencyBinDirection(frequencyBins) {
+      if (!Array.isArray(frequencyBins) || frequencyBins.length < 2) {
+        return "ascending";
+      }
+
+      var ascending = true;
+      var descending = true;
+      for (var i = 1; i < frequencyBins.length; i += 1) {
+        var prev = Number(frequencyBins[i - 1]);
+        var curr = Number(frequencyBins[i]);
+        if (!Number.isFinite(prev) || !Number.isFinite(curr)) {
+          return "ascending";
+        }
+        if (curr > prev) {
+          descending = false;
+        }
+        if (curr < prev) {
+          ascending = false;
+        }
+      }
+
+      if (ascending) {
+        return "ascending";
+      }
+      if (descending) {
+        return "descending";
+      }
+      return "mixed";
+    }
+
+    function mapFrequencyRowToScreen(rowIndex, frequencyBins) {
+      var direction = detectFrequencyBinDirection(frequencyBins);
+      if (direction === "descending") {
+        return rowIndex;
+      }
+      return Math.max(0, nativeCanvas.height - 1 - rowIndex);
+    }
+
     function resolveVisibleRowRange() {
       if (!hasDisplayFrequencyRange) {
         return { start: 0, end: Math.max(0, nativeCanvas.height - 1) };
@@ -1380,10 +1418,18 @@
     var sourceY = 0;
     var sourceHeight = nativeCanvas.height;
     if (hasDisplayFrequencyRange) {
-      var visualStart = Math.max(0, nativeCanvas.height - 1 - visibleRowRange.end);
-      var visualEnd = Math.max(0, nativeCanvas.height - 1 - visibleRowRange.start);
-      sourceY = visualStart;
-      sourceHeight = Math.max(1, visualEnd - visualStart + 1);
+      var frequencyBins = normalizeFrequencyBins(options && options.frequencyBins);
+      var firstRawRow = Math.min(visibleRowRange.start, visibleRowRange.end);
+      var lastRawRow = Math.max(visibleRowRange.start, visibleRowRange.end);
+      var mappedStart = mapFrequencyRowToScreen(firstRawRow, frequencyBins);
+      var mappedEnd = mapFrequencyRowToScreen(lastRawRow, frequencyBins);
+      if (mappedStart > mappedEnd) {
+        var temp = mappedStart;
+        mappedStart = mappedEnd;
+        mappedEnd = temp;
+      }
+      sourceY = mappedStart;
+      sourceHeight = Math.max(1, mappedEnd - mappedStart + 1);
     }
 
     ctx.imageSmoothingEnabled = !!DEFAULT_CONFIG.smoothVertical;
@@ -1554,8 +1600,9 @@
       var yPos = p.top + Math.round(yF * plotH);
       var label;
       if (hasFrequencyBins) {
-        var rowIndex = Math.max(0, Math.min(binCount - 1, Math.round((1 - yF) * (binCount - 1))));
-        var mappedHz = frequencyBins[rowIndex];
+        var rawRowIndex = Math.max(0, Math.min(binCount - 1, Math.round((1 - yF) * (binCount - 1))));
+        var screenRowIndex = detectFrequencyBinDirection(frequencyBins) === "descending" ? rawRowIndex : binCount - 1 - rawRowIndex;
+        var mappedHz = frequencyBins[screenRowIndex];
         label = Math.round(mappedHz) + " Hz";
       } else if (hasRealFrequency) {
         var hz = maxFrequency - yF * (maxFrequency - yAxisMinFrequency);
