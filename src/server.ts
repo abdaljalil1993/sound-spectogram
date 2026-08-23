@@ -27,7 +27,7 @@ async function bootstrap(): Promise<void> {
 
   registerDeviceSocket(io);
 
-  const port = 3111;
+  const port = Number(process.env.PORT || 3111);
   httpServer.listen(port, () => {
     console.log(`Server is running on port ${port}`);
   });

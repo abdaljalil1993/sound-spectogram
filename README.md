@@ -94,6 +94,55 @@ npm run build
 npm start
 ```
 
+## Docker
+
+Before Docker startup, copy `.env.example` to `.env` and adjust the values for your local environment.
+
+Local Docker start:
+
+```bash
+docker compose up --build
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+View logs:
+
+```bash
+docker compose logs -f app
+```
+
+Rebuild from scratch:
+
+```bash
+docker compose build --no-cache
+```
+
+Application URL:
+
+```text
+http://localhost:3111
+```
+
+MySQL from the host (only if MySQL is published in the selected Compose configuration):
+
+```text
+localhost:13306
+```
+
+Notes:
+
+- Inside the Docker network the app connects to MySQL using `mysql:3306`.
+- `localhost:13306` is only a host-side mapping for local development access.
+- MySQL data is stored in a named Docker volume.
+- `docker compose down` does not delete the named volume.
+- `docker compose down -v` deletes the volume and therefore can delete database data.
+- Do not run `down -v` in production unless you intentionally want to destroy the database volume.
+
 ## Socket.IO Contract (Project X -> This App)
 
 ### Incoming event name
