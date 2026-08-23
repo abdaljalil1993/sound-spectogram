@@ -1,4 +1,4 @@
-import { Between, MoreThanOrEqual, Repository } from "typeorm";
+import { Between, LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
 import { gzipSync, gunzipSync } from "zlib";
 import { AppDataSource } from "../config/data-source";
 import { DeviceHistory } from "../entities/DeviceHistory";
@@ -255,10 +255,11 @@ export class HistoryService {
     const items = await this.historyRepo.find({
       where: {
         deviceId,
-        timestamp: Between(from, to)
+        startTime: LessThanOrEqual(to),
+        endTime: MoreThanOrEqual(from)
       },
       order: {
-        timestamp: "ASC"
+        startTime: "ASC"
       }
     });
 

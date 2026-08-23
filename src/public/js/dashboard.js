@@ -26,7 +26,7 @@
   var selectedDeviceMaxFrequency = null;
   var currentPackets = [];
   var activeTimeStepMs = 1000;
-  var activeRangeMode = "latest2h";
+  var activeRangeMode = "latest1h";
   var activeFromIso = null;
   var activeToIso = null;
   var viewportFromMs = null;
@@ -45,8 +45,8 @@
   var editingUserId = null;
   var editingDeviceId = null;
   var lastPersistenceWarningAt = 0;
-  var LIVE_WINDOW_MS = 2 * 60 * 60 * 1000;
-  var LIVE_WINDOW_LABEL = "Latest 2h";
+  var LIVE_WINDOW_MS = 60 * 60 * 1000;
+  var LIVE_WINDOW_LABEL = "Latest 1h";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
   var MAX_PACKETS_IN_MEMORY = 12000;
 
@@ -57,6 +57,7 @@
   var devicesPanel = document.getElementById("devicesPanel");
   var globalMessageEl = document.getElementById("globalMessage");
   var userBadgeEl = document.getElementById("userBadge");
+  var socketStatusBadgeEl = document.getElementById("socketStatusBadge");
 
   var deviceListEl = document.getElementById("deviceList");
   var selectedDeviceTitleEl = document.getElementById("selectedDeviceTitle");
@@ -84,6 +85,10 @@
   var fitPacketsBtn = document.getElementById("fitPacketsBtn");
   var colorMapBtn = document.getElementById("colorMapBtn");
   var followLiveBtn = document.getElementById("followLiveBtn");
+  var freqMinInput = document.getElementById("freqMinInput");
+  var freqMaxInput = document.getElementById("freqMaxInput");
+  var applyFreqRangeBtn = document.getElementById("applyFreqRangeBtn");
+  var clearFreqRangeBtn = document.getElementById("clearFreqRangeBtn");
   var intensityModeSelect = document.getElementById("intensityModeSelect");
   var dbMinInput = document.getElementById("dbMinInput");
   var dbMaxInput = document.getElementById("dbMaxInput");
@@ -132,6 +137,7 @@
     !devicesPanel ||
     !globalMessageEl ||
     !userBadgeEl ||
+    !socketStatusBadgeEl ||
     !deviceListEl ||
     !selectedDeviceTitleEl ||
     !historyInfoEl ||
@@ -158,6 +164,10 @@
     !fitPacketsBtn ||
     !colorMapBtn ||
     !followLiveBtn ||
+    !freqMinInput ||
+    !freqMaxInput ||
+    !applyFreqRangeBtn ||
+    !clearFreqRangeBtn ||
     !intensityModeSelect ||
     !dbMinInput ||
     !dbMaxInput ||
@@ -213,11 +223,54 @@
     globalMessageEl.style.color = isError ? "#8a1c18" : "#1f6f53";
   }
 
+  function setSocketStatus(isConnected, detail) {
+    var label = isConnected ? "Socket: Connected" : "Socket: Disconnected";
+    if (detail) {
+      label = isConnected ? ("Socket: Connected — " + detail) : ("Socket: Disconnected — " + detail);
+    }
+
+    socketStatusBadgeEl.textContent = label;
+    socketStatusBadgeEl.classList.toggle("connected", !!isConnected);
+    socketStatusBadgeEl.classList.toggle("disconnected", !isConnected);
+  }
+
   function setProcessingStatus(text, isWarning) {
     processingStatusEl.textContent = text || "";
     processingStatusEl.style.color = isWarning ? "#8a1c18" : "#375a4f";
     processingStatusEl.style.background = isWarning ? "#fff3f1" : "#eef7f3";
     processingStatusEl.style.borderColor = isWarning ? "#f2c9c2" : "#cee8de";
+  }
+
+  function parseDisplayFrequencyRange() {
+    var minValue = parseOptionalNumberInput(freqMinInput.value);
+    var maxValue = parseOptionalNumberInput(freqMaxInput.value);
+
+    if (!Number.isFinite(minValue) || !Number.isFinite(maxValue) || maxValue <= minValue) {
+      return null;
+    }
+
+    return {
+      min: minValue,
+      max: maxValue
+    };
+  }
+
+  function applyFrequencyRangeFilter() {
+    var range = parseDisplayFrequencyRange();
+    if (!range) {
+      setGlobalMessage("Enter valid Min and Max frequency values in Hz.", true);
+      return;
+    }
+
+    setGlobalMessage("Frequency band set to " + range.min + " Hz - " + range.max + " Hz", false);
+    scheduleRender({ skipTable: false });
+  }
+
+  function clearFrequencyRangeFilter() {
+    freqMinInput.value = "";
+    freqMaxInput.value = "";
+    setGlobalMessage("Vertical frequency filter cleared.", false);
+    scheduleRender({ skipTable: false });
   }
 
   function setSpectrogramLoading(isLoading) {
@@ -693,7 +746,7 @@
 
     var fromMs;
     var toMs;
-    if (activeRangeMode === "latest2h" && followLatest24) {
+    if (activeRangeMode === "latest1h" && followLatest24) {
       toMs = Date.now();
       fromMs = toMs - LIVE_WINDOW_MS;
       activeFromIso = new Date(fromMs).toISOString();
@@ -701,7 +754,7 @@
       viewportFromMs = fromMs;
       viewportToMs = toMs;
 
-      // Keep only recent packets in memory for the rolling 24-hour view.
+      // Keep only recent packets in memory for the rolling 1-hour live view.
       currentPackets = currentPackets.filter(function (packet) {
         var packetEnd = getPacketEndMs(packet);
         return Number.isFinite(packetEnd) && packetEnd >= fromMs;
@@ -724,6 +777,7 @@
     }
 
     var visiblePackets = getVisiblePackets(fromMs, toMs);
+    var displayFrequencyRange = parseDisplayFrequencyRange();
 
     var minFrequency = null;
     var maxFrequency = null;
@@ -806,7 +860,9 @@
       intensityType: intensityType,
       frequencyBins: frequencyBins,
       minFrequency: minFrequency,
-      maxFrequency: maxFrequency
+      maxFrequency: maxFrequency,
+      displayMinFrequency: displayFrequencyRange ? displayFrequencyRange.min : null,
+      displayMaxFrequency: displayFrequencyRange ? displayFrequencyRange.max : null
     });
     lastRenderMeta = renderResult || null;
 
@@ -850,16 +906,14 @@
         "m)";
     }
 
-    historyInfoEl.textContent =
-      "Range: " +
-      formatLocalDateTime(fromMs) +
-      " -> " +
-      formatLocalDateTime(toMs) +
-      " | Total packets: " +
-      visiblePackets.length +
-      " | View mode: " +
-      (followLatest24 ? LIVE_WINDOW_LABEL + " (live)" : "Manual pan/zoom") +
-      gapInfo;
+    if (displayFrequencyRange) {
+      historyInfoEl.textContent +=
+        " | Vertical freq: " +
+        Math.round(displayFrequencyRange.min) +
+        "-" +
+        Math.round(displayFrequencyRange.max) +
+        " Hz";
+    }
 
     if (renderOptions.skipTable) {
       return;
@@ -1213,7 +1267,7 @@
   }
 
   function resetViewport() {
-    if (activeRangeMode === "latest2h") {
+    if (activeRangeMode === "latest1h") {
       followLatest24 = true;
       scheduleRender({ skipTable: false });
       return;
@@ -1265,7 +1319,7 @@
       viewportToMs = effectiveToMs;
       followLatest24 = false;
     } else {
-      activeRangeMode = "latest2h";
+      activeRangeMode = "latest1h";
       var latestToMs = nowMs;
       var latestFromMs = latestToMs - LIVE_WINDOW_MS;
       activeFromIso = new Date(latestFromMs).toISOString();
@@ -1751,7 +1805,7 @@
 
     try {
       await loadDeviceHistory(selectedDeviceId);
-      setGlobalMessage("Latest 2 hours loaded for " + selectedDeviceName, false);
+      setGlobalMessage("Latest 1 hour live feed loaded for " + selectedDeviceName, false);
     } catch (error) {
       setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);
     }
@@ -1874,6 +1928,19 @@
 
   applyIntensityBtn.addEventListener("click", function () {
     applyIntensitySettings();
+  });
+
+  applyFreqRangeBtn.addEventListener("click", applyFrequencyRangeFilter);
+  clearFreqRangeBtn.addEventListener("click", clearFrequencyRangeFilter);
+  freqMinInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      applyFrequencyRangeFilter();
+    }
+  });
+  freqMaxInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      applyFrequencyRangeFilter();
+    }
   });
 
   intensityModeSelect.addEventListener("change", function () {
@@ -2301,6 +2368,42 @@
 
   function setupSocket() {
     var socket = io();
+    var lastHeartbeatAt = 0;
+
+    function markHeartbeat() {
+      lastHeartbeatAt = Date.now();
+      setSocketStatus(true, "Heartbeat OK");
+    }
+
+    socket.on("connect", function () {
+      markHeartbeat();
+      socket.emit("client:heartbeat", { ts: Date.now() });
+    });
+
+    socket.on("disconnect", function (reason) {
+      setSocketStatus(false, reason || "Connection lost");
+    });
+
+    socket.on("connect_error", function () {
+      setSocketStatus(false, "Connection error");
+    });
+
+    socket.on("server:heartbeat", function () {
+      markHeartbeat();
+    });
+
+    var heartbeatTimer = setInterval(function () {
+      if (!socket.connected) {
+        setSocketStatus(false, "Retrying");
+        return;
+      }
+
+      if (lastHeartbeatAt && Date.now() - lastHeartbeatAt > 30000) {
+        setSocketStatus(false, "No heartbeat");
+      }
+
+      socket.emit("client:heartbeat", { ts: Date.now() });
+    }, 15000);
 
     socket.on("device:data", function (payload) {
       if (!payloadMatchesSelectedDevice(payload)) {

@@ -1109,6 +1109,60 @@
     }
 
     var image = nativeCtx.createImageData(plotW, nativeCanvas.height);
+    var selectedDisplayMinFrequency = options && options.displayMinFrequency;
+    var selectedDisplayMaxFrequency = options && options.displayMaxFrequency;
+    var hasDisplayFrequencyRange =
+      Number.isFinite(selectedDisplayMinFrequency) &&
+      Number.isFinite(selectedDisplayMaxFrequency) &&
+      selectedDisplayMaxFrequency > selectedDisplayMinFrequency;
+
+    function resolveVisibleRowRange() {
+      if (!hasDisplayFrequencyRange) {
+        return { start: 0, end: Math.max(0, nativeCanvas.height - 1) };
+      }
+
+      var effectiveMin = Number(options && options.minFrequency);
+      var effectiveMax = Number(options && options.maxFrequency);
+      if (!Number.isFinite(effectiveMin) || !Number.isFinite(effectiveMax) || effectiveMax <= effectiveMin) {
+        effectiveMin = 0;
+        effectiveMax = Math.max(1, nativeCanvas.height - 1);
+      }
+
+      var visibleRowCount = Math.max(1, nativeCanvas.height);
+      var candidateStart = 0;
+      var candidateEnd = visibleRowCount - 1;
+      var frequencyBins = normalizeFrequencyBins(options && options.frequencyBins);
+      if (Array.isArray(frequencyBins) && frequencyBins.length === binCount) {
+        var matches = [];
+        for (var rowIndex = 0; rowIndex < frequencyBins.length; rowIndex += 1) {
+          var rowFreq = Number(frequencyBins[rowIndex]);
+          if (Number.isFinite(rowFreq) && rowFreq >= selectedDisplayMinFrequency && rowFreq <= selectedDisplayMaxFrequency) {
+            matches.push(rowIndex);
+          }
+        }
+
+        if (matches.length > 0) {
+          candidateStart = matches[0];
+          candidateEnd = matches[matches.length - 1];
+        }
+      } else {
+        var relativeMin = (selectedDisplayMinFrequency - effectiveMin) / (effectiveMax - effectiveMin || 1);
+        var relativeMax = (selectedDisplayMaxFrequency - effectiveMin) / (effectiveMax - effectiveMin || 1);
+        candidateStart = Math.max(0, Math.min(visibleRowCount - 1, Math.floor(relativeMin * (visibleRowCount - 1))));
+        candidateEnd = Math.max(0, Math.min(visibleRowCount - 1, Math.ceil(relativeMax * (visibleRowCount - 1))));
+        if (candidateStart > candidateEnd) {
+          var tmp = candidateStart;
+          candidateStart = candidateEnd;
+          candidateEnd = tmp;
+        }
+      }
+
+      return {
+        start: Math.max(0, candidateStart),
+        end: Math.min(visibleRowCount - 1, candidateEnd)
+      };
+    }
+
     var processCtx = createProcessingContext(options || {}, blocks, fastMode);
     var intensityMapper = buildIntensityMapper(options, blocks, processCtx.intensityType);
     var bucketAggregation = String((options && options.bucketAggregation) || DEFAULT_CONFIG.bucketAggregation || "max").toLowerCase();
@@ -1322,11 +1376,21 @@
 
     nativeCtx.putImageData(image, 0, 0);
 
+    var visibleRowRange = resolveVisibleRowRange();
+    var sourceY = 0;
+    var sourceHeight = nativeCanvas.height;
+    if (hasDisplayFrequencyRange) {
+      var visualStart = Math.max(0, nativeCanvas.height - 1 - visibleRowRange.end);
+      var visualEnd = Math.max(0, nativeCanvas.height - 1 - visibleRowRange.start);
+      sourceY = visualStart;
+      sourceHeight = Math.max(1, visualEnd - visualStart + 1);
+    }
+
     ctx.imageSmoothingEnabled = !!DEFAULT_CONFIG.smoothVertical;
     if (ctx.imageSmoothingEnabled && typeof ctx.imageSmoothingQuality === "string") {
       ctx.imageSmoothingQuality = "high";
     }
-    ctx.drawImage(nativeCanvas, p.left, p.top, plotW, plotH);
+    ctx.drawImage(nativeCanvas, 0, sourceY, plotW, sourceHeight, p.left, p.top, plotW, plotH);
     ctx.imageSmoothingEnabled = false;
 
     function computeGaps(from, to, intervals) {
@@ -1470,8 +1534,8 @@
 
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
-    var minFrequency = options.minFrequency;
-    var maxFrequency = options.maxFrequency;
+    var minFrequency = Number.isFinite(selectedDisplayMinFrequency) ? selectedDisplayMinFrequency : options.minFrequency;
+    var maxFrequency = Number.isFinite(selectedDisplayMaxFrequency) ? selectedDisplayMaxFrequency : options.maxFrequency;
     var frequencyBins = normalizeFrequencyBins(options.frequencyBins);
     var hasFrequencyBins = Array.isArray(frequencyBins) && frequencyBins.length === binCount;
     var hasRealFrequency =
@@ -1481,8 +1545,9 @@
     if (!Number.isFinite(axisMinFrequency) || axisMinFrequency < 0) {
       axisMinFrequency = 30;
     }
-    var displayMinFrequency =
+    var axisMinDisplayFrequency =
       !hasFrequencyBins && hasRealFrequency ? Math.max(minFrequency, axisMinFrequency) : null;
+    var yAxisMinFrequency = Number.isFinite(axisMinDisplayFrequency) ? axisMinDisplayFrequency : minFrequency;
 
     for (var ly = 0; ly <= yTicks; ly += 1) {
       var yF = ly / yTicks;
@@ -1493,7 +1558,7 @@
         var mappedHz = frequencyBins[rowIndex];
         label = Math.round(mappedHz) + " Hz";
       } else if (hasRealFrequency) {
-        var hz = maxFrequency - yF * (maxFrequency - displayMinFrequency);
+        var hz = maxFrequency - yF * (maxFrequency - yAxisMinFrequency);
         label = Math.round(hz) + " Hz";
       } else {
         var bin = Math.round((1 - yF) * (binCount - 1));

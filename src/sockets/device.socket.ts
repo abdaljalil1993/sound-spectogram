@@ -61,6 +61,20 @@ export function registerDeviceSocket(io: Server): void {
       console.log(`Socket disconnected: ${socket.id} (${reason})`);
     });
 
+    socket.on("client:heartbeat", (payload: unknown, ack?: (response: unknown) => void) => {
+      const response = {
+        ok: true,
+        serverTime: new Date().toISOString(),
+        clientPayload: payload ?? null
+      };
+
+      socket.emit("server:heartbeat", response);
+
+      if (typeof ack === "function") {
+        ack(response);
+      }
+    });
+
     // const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => void): Promise<void> => {
     //     // console.log("data from device ",(payload as any).data);
     //        console.log("data from device ",(payload as any).data.deviceId);
