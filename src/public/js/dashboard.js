@@ -1055,6 +1055,17 @@
     }
   }
 
+  function syncLatestLiveViewport() {
+    var latestToMs = Date.now();
+    var latestFromMs = latestToMs - LIVE_WINDOW_MS;
+    activeRangeMode = "latest1h";
+    activeFromIso = new Date(latestFromMs).toISOString();
+    activeToIso = new Date(latestToMs).toISOString();
+    viewportFromMs = latestFromMs;
+    viewportToMs = latestToMs;
+    followLatest24 = true;
+  }
+
   function getCurrentViewSpanMs() {
     if (!Number.isFinite(viewportFromMs) || !Number.isFinite(viewportToMs)) {
       return null;
@@ -2439,6 +2450,9 @@
       }
 
       insertPacketSorted(payload);
+      if (activeRangeMode === "latest1h" && followLatest24) {
+        syncLatestLiveViewport();
+      }
       scheduleRender({ skipTable: false });
 
       if (payload.persisted === false) {
