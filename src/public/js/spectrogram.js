@@ -226,6 +226,14 @@
     return yyyy + "-" + mon + "-" + day + " " + hh + ":" + mm;
   }
 
+  function formatDisplayedFrequencyLabel(hz) {
+    var n = Number(hz);
+    if (!Number.isFinite(n)) {
+      return "- Hz";
+    }
+    return Math.round(n / 2) + " Hz";
+  }
+
   function getBinCount(blocks) {
     for (var i = 0; i < blocks.length; i += 1) {
       var matrix = blocks[i] && blocks[i].data;
@@ -1630,10 +1638,10 @@
         var screenRowIndex = Math.max(0, Math.min(binCount - 1, Math.round(yF * (binCount - 1))));
         var rawRowIndex = FrequencyMapping.mapScreenYToRawRow(screenRowIndex, frequencyBins, binCount);
         var mappedHz = frequencyBins[rawRowIndex];
-        label = Math.round(mappedHz) + " Hz";
+        label = formatDisplayedFrequencyLabel(mappedHz);
       } else if (hasRealFrequency) {
         var hz = maxFrequency - yF * (maxFrequency - yAxisMinFrequency);
-        label = Math.round(hz) + " Hz";
+        label = formatDisplayedFrequencyLabel(hz);
       } else {
         var bin = Math.round((1 - yF) * (binCount - 1));
         label = "Band " + bin;

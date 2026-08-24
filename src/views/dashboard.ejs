@@ -15,7 +15,7 @@
           <button type="button" class="tab-btn" data-tab="users">User</button>
           <button type="button" class="tab-btn" data-tab="devices">Device</button>
         </nav>
-        <span id="socketStatusBadge" class="connection-badge disconnected" title="Socket connection status">Socket: Disconnected</span>
+        <span id="socketStatusBadge" class="connection-badge disconnected" title="Socket connection status">Disconnected</span>
         <span id="userBadge" class="user-badge"></span>
         <button id="logoutBtn" type="button">Logout</button>
       </div>
@@ -30,7 +30,7 @@
             <h2 id="selectedDeviceTitle">Select a device</h2>
             <div class="inline-form range-actions-row">
               <button id="latest24Btn" type="button">Latest 1h</button>
-              <button id="loadExampleBtn" type="button">Load Example</button>
+              <button id="loadExampleBtn" type="button" class="hidden">Load Example</button>
               <button id="resetViewBtn" type="button">Reset View</button>
             </div>
 
@@ -40,7 +40,7 @@
               <button id="zoomOutBtn" type="button" class="ghost-btn" title="Zoom out (-)">Zoom Out</button>
               <button id="zoomInBtn" type="button" class="ghost-btn" title="Zoom in (+)">Zoom In</button>
               <button id="fitPacketsBtn" type="button" class="ghost-btn" title="Fit all packets in view (F)">Fit Packets</button>
-              <button id="colorMapBtn" type="button" class="ghost-btn" title="Toggle color map">Colors: magma</button>
+              <button id="colorMapBtn" type="button" class="ghost-btn hidden" title="Toggle color map">Colors: magma</button>
               <button id="followLiveBtn" type="button" class="ghost-btn" title="Return to live latest 1h (L)">Follow Live</button>
             </div>
             <div class="frequency-range-controls">
@@ -72,7 +72,7 @@
             <div class="legend-wrapper">
               <canvas id="spectrogramLegend" width="560" height="46"></canvas>
             </div>
-            <div id="historyInfo" class="history-info">No data loaded.</div>
+            <div id="historyInfo" class="history-info hidden">No data loaded.</div>
 
             <div class="table-wrap history-table-wrap">
               <h3>History Packets</h3>
@@ -200,7 +200,7 @@
             </div>
           </div>
 
-          <div class="side-card">
+          <div class="side-card hidden">
             <h3>Processing Controls</h3>
             <p class="control-note" id="processingStatus">اختر الجهاز ثم عدل الإعدادات. التطبيق يتم مباشرة عند التغيير.</p>
             <div class="processing-controls-grid">

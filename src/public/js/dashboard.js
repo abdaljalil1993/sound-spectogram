@@ -224,10 +224,7 @@
   }
 
   function setSocketStatus(isConnected, detail) {
-    var label = isConnected ? "Socket: Connected" : "Socket: Disconnected";
-    if (detail) {
-      label = isConnected ? ("Socket: Connected — " + detail) : ("Socket: Disconnected — " + detail);
-    }
+    var label = isConnected ? "Connected" : "Disconnected";
 
     socketStatusBadgeEl.textContent = label;
     socketStatusBadgeEl.classList.toggle("connected", !!isConnected);
@@ -2465,8 +2462,9 @@
     toTimeInput instanceof HTMLInputElement
   ) {
     var now = new Date();
+    var fromDate = new Date(now.getTime() - 30 * 60 * 1000);
     queryDateInput.value = formatDateOnly(now);
-    fromTimeInput.value = "00:00";
+    fromTimeInput.value = formatTimeOnly(fromDate);
     toTimeInput.value = formatTimeOnly(now);
   }
 
