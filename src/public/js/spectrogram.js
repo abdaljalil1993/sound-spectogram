@@ -22,6 +22,7 @@
     gamma: 1.0,
     smoothVertical: true,
     axisMinFrequency: 30,
+    displayGainDb: 0,
     background: "#140d28",
     gapFill: "rgba(54, 103, 194, 0.26)",
     gapStroke: "rgba(102, 196, 231, 0.9)",
@@ -547,6 +548,37 @@
       return fallback;
     }
     return n;
+  }
+
+  function resolveDisplayGainDb(options) {
+    var gainDb = Number(options && options.displayGainDb);
+    if (!Number.isFinite(gainDb)) {
+      gainDb = Number(DEFAULT_CONFIG.displayGainDb);
+    }
+    if (!Number.isFinite(gainDb)) {
+      gainDb = 0;
+    }
+    if (gainDb < -24) {
+      gainDb = -24;
+    }
+    if (gainDb > 24) {
+      gainDb = 24;
+    }
+    return gainDb;
+  }
+
+  function applyDisplayGain(mappedValue, displayGainDb) {
+    var value = clamp01(mappedValue);
+    if (!value) {
+      return 0;
+    }
+
+    if (!displayGainDb) {
+      return value;
+    }
+
+    var gainScale = Math.pow(10, displayGainDb / 20);
+    return clamp01(value * gainScale);
   }
 
   function quantileSorted(sortedValues, quantile) {
@@ -1472,6 +1504,7 @@
 
     var processCtx = createProcessingContext(options || {}, blocks, fastMode);
     var intensityMapper = buildIntensityMapper(options, blocks, processCtx.intensityType);
+    var displayGainDb = resolveDisplayGainDb(options);
     var bucketAggregation = String((options && options.bucketAggregation) || DEFAULT_CONFIG.bucketAggregation || "max").toLowerCase();
     if (bucketAggregation !== "hybrid") {
       bucketAggregation = "max";
@@ -1524,6 +1557,7 @@
         if (!Number.isFinite(value)) {
           value = 0;
         }
+        value = applyDisplayGain(value, displayGainDb);
 
         var byteValue = Math.max(0, Math.min(255, Math.round(clamp01(value) * 255)));
         for (var yNative = yStart; yNative <= yStop; yNative += 1) {

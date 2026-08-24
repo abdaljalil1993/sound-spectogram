@@ -85,6 +85,7 @@
   var fitPacketsBtn = document.getElementById("fitPacketsBtn");
   var colorMapBtn = document.getElementById("colorMapBtn");
   var followLiveBtn = document.getElementById("followLiveBtn");
+  var displayGainInput = document.getElementById("displayGainInput");
   var freqMinInput = document.getElementById("freqMinInput");
   var freqMaxInput = document.getElementById("freqMaxInput");
   var applyFreqRangeBtn = document.getElementById("applyFreqRangeBtn");
@@ -164,6 +165,7 @@
     !fitPacketsBtn ||
     !colorMapBtn ||
     !followLiveBtn ||
+    !displayGainInput ||
     !freqMinInput ||
     !freqMaxInput ||
     !applyFreqRangeBtn ||
@@ -328,6 +330,7 @@
   }
 
   var activeColorMap = "magma";
+  var activeDisplayGainDb = 0;
   var activeIntensityMode = "linear";
   var activeDbMin = -95;
   var activeDbMax = -20;
@@ -464,6 +467,18 @@
     updateIntensityControlsState();
     scheduleRender({ skipTable: true });
     setGlobalMessage("Scale settings applied", false);
+  }
+
+  function applyDisplayGainSettings() {
+    var displayGainDb = Number(displayGainInput.value);
+    if (!Number.isFinite(displayGainDb)) {
+      displayGainDb = 0;
+    }
+
+    activeDisplayGainDb = clamp(displayGainDb, -24, 24);
+    displayGainInput.value = String(activeDisplayGainDb);
+    scheduleRender({ skipTable: true });
+    setGlobalMessage("Display gain applied", false);
   }
 
   function updateColorMapButtonLabel() {
@@ -855,6 +870,7 @@
       bucketAggregation: activeBucketAggregation,
       debugStatsEnabled: activeDebugStatsEnabled,
       intensityType: intensityType,
+      displayGainDb: activeDisplayGainDb,
       frequencyBins: frequencyBins,
       minFrequency: minFrequency,
       maxFrequency: maxFrequency,
@@ -1944,6 +1960,15 @@
     applyIntensitySettings();
   });
 
+  displayGainInput.addEventListener("change", function () {
+    applyDisplayGainSettings();
+  });
+  displayGainInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      applyDisplayGainSettings();
+    }
+  });
+
   [dbMinInput, dbMaxInput, pctLowInput, pctHighInput].forEach(function (inputEl) {
     inputEl.addEventListener("change", function () {
       applyIntensitySettings();
@@ -2518,6 +2543,7 @@
   });
   activeColorMap = "magma";
   updateColorMapButtonLabel();
+  displayGainInput.value = String(activeDisplayGainDb);
   intensityModeSelect.value = activeIntensityMode;
   dbMinInput.value = String(activeDbMin);
   dbMaxInput.value = String(activeDbMax);
