@@ -51,6 +51,20 @@
     ]
   };
 
+  var WEBGL_RENDERER = {
+    supported: null,
+    canvas: null,
+    gl: null,
+    program: null,
+    vertexBuffer: null,
+    intensityTexture: null,
+    paletteTexture: null,
+    positionLocation: null,
+    intensityLocation: null,
+    paletteLocation: null,
+    paletteKey: ""
+  };
+
   var PROCESS_CONTEXT_CACHE = new Map();
   var BLOCK_PROCESS_CACHE = new WeakMap();
   var MAX_PROCESS_CONTEXT_CACHE = 24;
@@ -171,6 +185,232 @@
     }
 
     return stops[stops.length - 1].c;
+  }
+
+  function createWebGlShader(gl, type, source) {
+    var shader = gl.createShader(type);
+    if (!shader) {
+      return null;
+    }
+
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      gl.deleteShader(shader);
+      return null;
+    }
+
+    return shader;
+  }
+
+  function createWebGlProgram(gl, vertexSource, fragmentSource) {
+    var vertexShader = createWebGlShader(gl, gl.VERTEX_SHADER, vertexSource);
+    var fragmentShader = createWebGlShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+    if (!vertexShader || !fragmentShader) {
+      if (vertexShader) {
+        gl.deleteShader(vertexShader);
+      }
+      if (fragmentShader) {
+        gl.deleteShader(fragmentShader);
+      }
+      return null;
+    }
+
+    var program = gl.createProgram();
+    if (!program) {
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      return null;
+    }
+
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      gl.deleteProgram(program);
+      return null;
+    }
+
+    return program;
+  }
+
+  function getWebGlRenderer(width, height) {
+    if (WEBGL_RENDERER.supported === false) {
+      return null;
+    }
+
+    if (!WEBGL_RENDERER.canvas) {
+      var canvas = document.createElement("canvas");
+      var gl =
+        canvas.getContext("webgl", {
+          alpha: false,
+          antialias: false,
+          depth: false,
+          stencil: false,
+          preserveDrawingBuffer: true
+        }) ||
+        canvas.getContext("experimental-webgl", {
+          alpha: false,
+          antialias: false,
+          depth: false,
+          stencil: false,
+          preserveDrawingBuffer: true
+        });
+
+      if (!gl) {
+        WEBGL_RENDERER.supported = false;
+        return null;
+      }
+
+      var vertexSource = [
+        "attribute vec2 a_position;",
+        "varying vec2 v_uv;",
+        "void main() {",
+        "  gl_Position = vec4(a_position, 0.0, 1.0);",
+        "  v_uv = vec2((a_position.x + 1.0) * 0.5, 1.0 - (a_position.y + 1.0) * 0.5);",
+        "}"
+      ].join("\n");
+      var fragmentSource = [
+        "precision mediump float;",
+        "uniform sampler2D u_intensity;",
+        "uniform sampler2D u_palette;",
+        "varying vec2 v_uv;",
+        "void main() {",
+        "  float value = texture2D(u_intensity, v_uv).r;",
+        "  gl_FragColor = texture2D(u_palette, vec2(value, 0.5));",
+        "}"
+      ].join("\n");
+      var program = createWebGlProgram(gl, vertexSource, fragmentSource);
+      if (!program) {
+        WEBGL_RENDERER.supported = false;
+        return null;
+      }
+
+      var vertexBuffer = gl.createBuffer();
+      var intensityTexture = gl.createTexture();
+      var paletteTexture = gl.createTexture();
+      if (!vertexBuffer || !intensityTexture || !paletteTexture) {
+        WEBGL_RENDERER.supported = false;
+        return null;
+      }
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+        gl.STATIC_DRAW
+      );
+
+      gl.bindTexture(gl.TEXTURE_2D, intensityTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      gl.bindTexture(gl.TEXTURE_2D, paletteTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      WEBGL_RENDERER.supported = true;
+      WEBGL_RENDERER.canvas = canvas;
+      WEBGL_RENDERER.gl = gl;
+      WEBGL_RENDERER.program = program;
+      WEBGL_RENDERER.vertexBuffer = vertexBuffer;
+      WEBGL_RENDERER.intensityTexture = intensityTexture;
+      WEBGL_RENDERER.paletteTexture = paletteTexture;
+      WEBGL_RENDERER.positionLocation = gl.getAttribLocation(program, "a_position");
+      WEBGL_RENDERER.intensityLocation = gl.getUniformLocation(program, "u_intensity");
+      WEBGL_RENDERER.paletteLocation = gl.getUniformLocation(program, "u_palette");
+    }
+
+    var maxTextureSize = WEBGL_RENDERER.gl.getParameter(WEBGL_RENDERER.gl.MAX_TEXTURE_SIZE);
+    if (width > maxTextureSize || height > maxTextureSize) {
+      return null;
+    }
+
+    if (WEBGL_RENDERER.canvas.width !== width) {
+      WEBGL_RENDERER.canvas.width = width;
+    }
+    if (WEBGL_RENDERER.canvas.height !== height) {
+      WEBGL_RENDERER.canvas.height = height;
+    }
+
+    return WEBGL_RENDERER;
+  }
+
+  function buildPaletteTextureData() {
+    var bytes = new Uint8Array(256 * 4);
+    for (var i = 0; i < 256; i += 1) {
+      var rgb = valueToColor(i / 255);
+      var base = i * 4;
+      bytes[base] = rgb[0];
+      bytes[base + 1] = rgb[1];
+      bytes[base + 2] = rgb[2];
+      bytes[base + 3] = 255;
+    }
+    return bytes;
+  }
+
+  function renderIntensityWithWebGl(renderer, intensityBuffer, width, height) {
+    if (!renderer || !renderer.gl || !renderer.program) {
+      return false;
+    }
+
+    var gl = renderer.gl;
+    var paletteKey = String(DEFAULT_CONFIG.colorMap || "magma") + "|" + String(DEFAULT_CONFIG.gamma || 1);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+
+    gl.useProgram(renderer.program);
+    gl.viewport(0, 0, width, height);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, renderer.vertexBuffer);
+    gl.enableVertexAttribArray(renderer.positionLocation);
+    gl.vertexAttribPointer(renderer.positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, renderer.intensityTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, width, height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, intensityBuffer);
+    gl.uniform1i(renderer.intensityLocation, 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, renderer.paletteTexture);
+    if (renderer.paletteKey !== paletteKey) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, buildPaletteTextureData());
+      renderer.paletteKey = paletteKey;
+    }
+    gl.uniform1i(renderer.paletteLocation, 1);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    return gl.getError() === gl.NO_ERROR;
+  }
+
+  function createCanvasFromIntensityBuffer(width, height, intensityBuffer) {
+    var canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    var ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return null;
+    }
+
+    var image = ctx.createImageData(width, height);
+    var palette = buildPaletteTextureData();
+    for (var i = 0; i < intensityBuffer.length; i += 1) {
+      var paletteOffset = intensityBuffer[i] * 4;
+      var pixelOffset = i * 4;
+      image.data[pixelOffset] = palette[paletteOffset];
+      image.data[pixelOffset + 1] = palette[paletteOffset + 1];
+      image.data[pixelOffset + 2] = palette[paletteOffset + 2];
+      image.data[pixelOffset + 3] = 255;
+    }
+
+    ctx.putImageData(image, 0, 0);
+    return canvas;
   }
 
   function parseDateMs(value) {
@@ -1165,15 +1405,9 @@
     ctx.fillStyle = DEFAULT_CONFIG.background;
     ctx.fillRect(0, 0, cssWidth, cssHeight);
 
-    var nativeCanvas = document.createElement("canvas");
-    nativeCanvas.width = plotW;
-    nativeCanvas.height = Math.max(1, binCount);
-    var nativeCtx = nativeCanvas.getContext("2d");
-    if (!nativeCtx) {
-      return { gaps: [] };
-    }
-
-    var image = nativeCtx.createImageData(plotW, nativeCanvas.height);
+    var surfaceHeight = Math.max(1, binCount);
+    var gpuRenderer = getWebGlRenderer(plotW, surfaceHeight);
+    var intensityBuffer = new Uint8Array(plotW * surfaceHeight);
     var selectedDisplayMinFrequency = options && options.displayMinFrequency;
     var selectedDisplayMaxFrequency = options && options.displayMaxFrequency;
     var hasDisplayFrequencyRange =
@@ -1186,12 +1420,12 @@
     }
 
     function mapFrequencyRowToScreen(rowIndex, frequencyBins) {
-      return FrequencyMapping.mapRawRowToScreen(rowIndex, frequencyBins, nativeCanvas.height);
+      return FrequencyMapping.mapRawRowToScreen(rowIndex, frequencyBins, surfaceHeight);
     }
 
     function resolveVisibleRowRange() {
       if (!hasDisplayFrequencyRange) {
-        return { start: 0, end: Math.max(0, nativeCanvas.height - 1) };
+        return { start: 0, end: Math.max(0, surfaceHeight - 1) };
       }
 
       var effectiveMin = Number(options && options.minFrequency);
@@ -1201,7 +1435,7 @@
         effectiveMax = Math.max(1, nativeCanvas.height - 1);
       }
 
-      var visibleRowCount = Math.max(1, nativeCanvas.height);
+      var visibleRowCount = Math.max(1, surfaceHeight);
       var candidateStart = 0;
       var candidateEnd = visibleRowCount - 1;
       var frequencyBins = normalizeFrequencyBins(options && options.frequencyBins);
@@ -1242,13 +1476,6 @@
     if (bucketAggregation !== "hybrid") {
       bucketAggregation = "max";
     }
-    var lowRgb = valueToColor(0);
-    for (var baseIdx = 0; baseIdx < image.data.length; baseIdx += 4) {
-      image.data[baseIdx] = lowRgb[0];
-      image.data[baseIdx + 1] = lowRgb[1];
-      image.data[baseIdx + 2] = lowRgb[2];
-      image.data[baseIdx + 3] = 255;
-    }
 
     function mapX(ms) {
       return Math.floor(((ms - fromMs) / (toMs - fromMs)) * (plotW - 1));
@@ -1283,12 +1510,12 @@
 
         var yNativeTop = rows - rowEnd;
         var yNativeBottom = rows - 1 - r;
-        if (yNativeBottom < 0 || yNativeTop >= nativeCanvas.height) {
+        if (yNativeBottom < 0 || yNativeTop >= surfaceHeight) {
           continue;
         }
 
         var yStart = Math.max(0, yNativeTop);
-        var yStop = Math.min(nativeCanvas.height - 1, yNativeBottom);
+        var yStop = Math.min(surfaceHeight - 1, yNativeBottom);
         if (yStop < yStart) {
           continue;
         }
@@ -1298,15 +1525,11 @@
           value = 0;
         }
 
-        var rgb = valueToColor(value);
+        var byteValue = Math.max(0, Math.min(255, Math.round(clamp01(value) * 255)));
         for (var yNative = yStart; yNative <= yStop; yNative += 1) {
           var rowOffset = yNative * plotW;
           for (var x = xStart; x < xEnd && x < plotW; x += 1) {
-            var idx = (rowOffset + x) * 4;
-            image.data[idx] = rgb[0];
-            image.data[idx + 1] = rgb[1];
-            image.data[idx + 2] = rgb[2];
-            image.data[idx + 3] = 255;
+            intensityBuffer[rowOffset + x] = byteValue;
           }
         }
       }
@@ -1447,11 +1670,22 @@
       }
     }
 
-    nativeCtx.putImageData(image, 0, 0);
+    var drawSurfaceCanvas = null;
+    if (gpuRenderer) {
+      if (renderIntensityWithWebGl(gpuRenderer, intensityBuffer, plotW, surfaceHeight)) {
+        drawSurfaceCanvas = gpuRenderer.canvas;
+      }
+    }
+    if (!drawSurfaceCanvas) {
+      drawSurfaceCanvas = createCanvasFromIntensityBuffer(plotW, surfaceHeight, intensityBuffer);
+      if (!drawSurfaceCanvas) {
+        return { gaps: [] };
+      }
+    }
 
     var visibleRowRange = resolveVisibleRowRange();
     var sourceY = 0;
-    var sourceHeight = nativeCanvas.height;
+    var sourceHeight = surfaceHeight;
     if (hasDisplayFrequencyRange) {
       var frequencyBins = normalizeFrequencyBins(options && options.frequencyBins);
       var firstRawRow = Math.min(visibleRowRange.start, visibleRowRange.end);
@@ -1471,7 +1705,7 @@
     if (ctx.imageSmoothingEnabled && typeof ctx.imageSmoothingQuality === "string") {
       ctx.imageSmoothingQuality = "high";
     }
-    ctx.drawImage(nativeCanvas, 0, sourceY, plotW, sourceHeight, p.left, p.top, plotW, plotH);
+    ctx.drawImage(drawSurfaceCanvas, 0, sourceY, plotW, sourceHeight, p.left, p.top, plotW, plotH);
     ctx.imageSmoothingEnabled = false;
 
     function computeGaps(from, to, intervals) {
