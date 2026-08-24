@@ -67,8 +67,10 @@
     lastRenderIso: "-",
     lastIssue: ""
   };
-  var LIVE_WINDOW_MS = 60 * 60 * 1000;
-  var LIVE_WINDOW_LABEL = "Latest 1h";
+  var DEFAULT_LIVE_WINDOW_MS = 30 * 60 * 1000;
+  var ONE_HOUR_WINDOW_MS = 60 * 60 * 1000;
+  var currentLiveWindowMs = DEFAULT_LIVE_WINDOW_MS;
+  var LIVE_WINDOW_LABEL = "Latest 30m";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
   var MAX_PACKETS_IN_MEMORY = 12000;
 
@@ -637,6 +639,21 @@
     applyColorMap(activeColorMap === "magma" ? "sunset" : "magma");
   }
 
+  function parseFlexibleTimeMs(value) {
+    if (value === null || value === undefined || value === "") {
+      return NaN;
+    }
+
+    var numericValue = Number(value);
+    if (Number.isFinite(numericValue)) {
+      var normalized = Math.abs(numericValue) < 1e12 ? numericValue * 1000 : numericValue;
+      return Number.isFinite(normalized) ? normalized : NaN;
+    }
+
+    var parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }
+
   function getPacketStartMs(packet) {
     if (!packet) {
       return NaN;
@@ -646,7 +663,7 @@
       return packet.__startMs;
     }
 
-    var value = new Date(packet.startTime || packet.start_time || packet.timestamp).getTime();
+    var value = parseFlexibleTimeMs(packet.startTime || packet.start_time || packet.timestamp);
     if (Number.isFinite(value)) {
       packet.__startMs = value;
     }
@@ -662,7 +679,7 @@
       return packet.__endMs;
     }
 
-    var value = new Date(packet.endTime || packet.end_time || packet.timestamp).getTime();
+    var value = parseFlexibleTimeMs(packet.endTime || packet.end_time || packet.timestamp);
     if (Number.isFinite(value)) {
       packet.__endMs = value;
     }
@@ -678,7 +695,9 @@
       return packet.__timestampMs;
     }
 
-    var value = new Date(packet.timestamp || packet.endTime || packet.end_time || packet.startTime || packet.start_time).getTime();
+    var value = parseFlexibleTimeMs(
+      packet.timestamp || packet.endTime || packet.end_time || packet.startTime || packet.start_time
+    );
     if (Number.isFinite(value)) {
       packet.__timestampMs = value;
     }
@@ -734,7 +753,7 @@
 
   function getInitialLoadRangeIso() {
     var toMs = Date.now();
-    var fromMs = toMs - LIVE_WINDOW_MS;
+    var fromMs = toMs - DEFAULT_LIVE_WINDOW_MS;
     return {
       fromIso: new Date(fromMs).toISOString(),
       toIso: new Date(toMs).toISOString()
@@ -934,13 +953,13 @@
     var toMs;
     if (liveFollowEnabled) {
       toMs = Date.now();
-      fromMs = toMs - LIVE_WINDOW_MS;
+      fromMs = toMs - currentLiveWindowMs;
       activeFromIso = new Date(fromMs).toISOString();
       activeToIso = new Date(toMs).toISOString();
       viewportFromMs = fromMs;
       viewportToMs = toMs;
 
-      // Keep only recent packets in memory for the rolling 1-hour live view.
+      // Keep only recent packets in memory for the rolling live view window.
       currentPackets = currentPackets.filter(function (packet) {
         var packetEnd = getPacketEndMs(packet);
         return Number.isFinite(packetEnd) && packetEnd >= fromMs;
@@ -1251,8 +1270,8 @@
 
   function syncLatestLiveViewport() {
     var latestToMs = Date.now();
-    var latestFromMs = latestToMs - LIVE_WINDOW_MS;
-    activeRangeMode = "latest1h";
+    var latestFromMs = latestToMs - currentLiveWindowMs;
+    activeRangeMode = currentLiveWindowMs === ONE_HOUR_WINDOW_MS ? "latest1h" : "latest30m";
     activeFromIso = new Date(latestFromMs).toISOString();
     activeToIso = new Date(latestToMs).toISOString();
     viewportFromMs = latestFromMs;
@@ -1503,9 +1522,10 @@
     }
   }
 
-  async function loadDeviceHistory(deviceId, fromIso, toIsoValue) {
+  async function loadDeviceHistory(deviceId, fromIso, toIsoValue, loadOptions) {
     var endpoint = "/api/devices/" + deviceId + "/history";
     var nowMs = Date.now();
+    var options = loadOptions || {};
 
     if (fromIso && toIsoValue) {
       var requestedFromMs = new Date(fromIso).getTime();
@@ -1542,9 +1562,24 @@
       followLatest24 = false;
       liveFollowEnabled = false;
     } else {
-      activeRangeMode = "latest1h";
+      var liveWindowMs = Number(options.liveWindowMs);
+      if (!Number.isFinite(liveWindowMs) || liveWindowMs <= 0) {
+        liveWindowMs = currentLiveWindowMs;
+      }
+      if (!Number.isFinite(liveWindowMs) || liveWindowMs <= 0) {
+        liveWindowMs = DEFAULT_LIVE_WINDOW_MS;
+      }
+
+      currentLiveWindowMs = liveWindowMs;
+      LIVE_WINDOW_LABEL = currentLiveWindowMs === ONE_HOUR_WINDOW_MS ? "Latest 1h" : "Latest 30m";
+      activeRangeMode =
+        typeof options.modeLabel === "string" && options.modeLabel.trim().length > 0
+          ? options.modeLabel.trim()
+          : currentLiveWindowMs === ONE_HOUR_WINDOW_MS
+            ? "latest1h"
+            : "latest30m";
       var latestToMs = nowMs;
-      var latestFromMs = latestToMs - LIVE_WINDOW_MS;
+      var latestFromMs = latestToMs - currentLiveWindowMs;
       activeFromIso = new Date(latestFromMs).toISOString();
       activeToIso = new Date(latestToMs).toISOString();
       followLatest24 = true;
@@ -1592,7 +1627,7 @@
       }
       pendingLivePackets = [];
 
-      if (activeRangeMode === "latest1h") {
+      if (activeRangeMode === "latest1h" || activeRangeMode === "latest30m") {
         followLatest24 = true;
         liveFollowEnabled = true;
       }
@@ -1716,7 +1751,10 @@
         ? selectedDeviceMinFrequency + " Hz -> " + selectedDeviceMaxFrequency + " Hz"
         : "not configured");
     setActiveDevice(device.id);
-    await loadDeviceHistory(device.id);
+    await loadDeviceHistory(device.id, null, null, {
+      liveWindowMs: DEFAULT_LIVE_WINDOW_MS,
+      modeLabel: "latest30m"
+    });
   }
 
   function renderDeviceSidebar() {
@@ -2062,7 +2100,10 @@
     }
 
     try {
-      await loadDeviceHistory(selectedDeviceId);
+      await loadDeviceHistory(selectedDeviceId, null, null, {
+        liveWindowMs: ONE_HOUR_WINDOW_MS,
+        modeLabel: "latest1h"
+      });
       setGlobalMessage("Latest 1 hour live feed loaded for " + selectedDeviceName, false);
     } catch (error) {
       setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);

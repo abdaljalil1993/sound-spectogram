@@ -415,7 +415,18 @@
   }
 
   function parseDateMs(value) {
-    var ms = new Date(value).getTime();
+    if (value === null || value === undefined || value === "") {
+      return NaN;
+    }
+
+    var numericValue = Number(value);
+    var ms;
+    if (Number.isFinite(numericValue)) {
+      ms = Math.abs(numericValue) < 1e12 ? numericValue * 1000 : numericValue;
+    } else {
+      ms = new Date(value).getTime();
+    }
+
     return Number.isFinite(ms) ? ms : NaN;
   }
 

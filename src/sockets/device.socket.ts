@@ -119,5 +119,6 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
 };
 
     socket.on("send_data", handleSendData);
+    socket.on("device:data", handleSendData);
   });
 }

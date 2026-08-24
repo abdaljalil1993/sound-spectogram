@@ -28,6 +28,37 @@ export function validateDeviceMatrix(data: unknown): { valid: boolean; message?:
   return { valid: true };
 }
 
+function parseTimestampLike(value: unknown): Date | null {
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value : null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const normalized = Math.abs(value) < 1e12 ? value * 1000 : value;
+    const parsed = new Date(normalized);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      const normalized = Math.abs(numeric) < 1e12 ? numeric * 1000 : numeric;
+      const parsedNumeric = new Date(normalized);
+      return Number.isFinite(parsedNumeric.getTime()) ? parsedNumeric : null;
+    }
+
+    const parsed = new Date(trimmed);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+
+  return null;
+}
+
 export function validateIncomingDevicePayload(payload: unknown): {
   valid: boolean;
   message?: string;
@@ -54,18 +85,18 @@ export function validateIncomingDevicePayload(payload: unknown): {
   }
 
   const timestampCandidate =
-    (typeof raw.timestamp === "string" && raw.timestamp.trim()) ||
-    (typeof raw.end_time === "string" && raw.end_time.trim()) ||
-    (typeof raw.endTime === "string" && raw.endTime.trim()) ||
-    (typeof raw.start_time === "string" && raw.start_time.trim()) ||
-    (typeof raw.startTime === "string" && raw.startTime.trim()) ||
+    raw.timestamp ??
+    raw.end_time ??
+    raw.endTime ??
+    raw.start_time ??
+    raw.startTime ??
     new Date().toISOString();
 
-  const timestamp = String(timestampCandidate);
-  const parsedDate = new Date(timestamp);
-  if (Number.isNaN(parsedDate.getTime())) {
+  const parsedDate = parseTimestampLike(timestampCandidate);
+  if (!parsedDate) {
     return { valid: false, message: "timestamp is invalid" };
   }
+  const timestamp = parsedDate.toISOString();
 
   const matrixValidation = validateDeviceMatrix(raw.data);
   if (!matrixValidation.valid) {
@@ -131,22 +162,17 @@ export function validateIncomingDevicePayload(payload: unknown): {
     parsedFrequencyBins = bins;
   }
 
-  const startTimeCandidate =
-    (typeof raw.start_time === "string" && raw.start_time.trim()) ||
-    (typeof raw.startTime === "string" && raw.startTime.trim()) ||
-    timestamp;
-  const endTimeCandidate =
-    (typeof raw.end_time === "string" && raw.end_time.trim()) ||
-    (typeof raw.endTime === "string" && raw.endTime.trim()) ||
-    timestamp;
+  const startTimeCandidate = raw.start_time ?? raw.startTime ?? timestamp;
+  const endTimeCandidate = raw.end_time ?? raw.endTime ?? timestamp;
 
-  const startTime = String(startTimeCandidate);
-  const endTime = String(endTimeCandidate);
-  const parsedStart = new Date(startTime);
-  const parsedEnd = new Date(endTime);
-  if (Number.isNaN(parsedStart.getTime()) || Number.isNaN(parsedEnd.getTime())) {
+  const parsedStart = parseTimestampLike(startTimeCandidate);
+  const parsedEnd = parseTimestampLike(endTimeCandidate);
+  if (!parsedStart || !parsedEnd) {
     return { valid: false, message: "start_time/end_time are invalid" };
   }
+
+  const startTime = parsedStart.toISOString();
+  const endTime = parsedEnd.toISOString();
 
   if (parsedStart.getTime() > parsedEnd.getTime()) {
     return { valid: false, message: "start_time must be before or equal to end_time" };
