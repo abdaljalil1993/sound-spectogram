@@ -472,7 +472,7 @@
     if (!Number.isFinite(n)) {
       return "- Hz";
     }
-    return Math.round(n / 2) + " Hz";
+    return Math.round(n) + " Hz";
   }
 
   function getBinCount(blocks) {

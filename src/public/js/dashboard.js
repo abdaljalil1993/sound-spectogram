@@ -50,6 +50,23 @@
   var editingUserId = null;
   var editingDeviceId = null;
   var lastPersistenceWarningAt = 0;
+  var liveTraceEl = null;
+  var expectingLiveRender = false;
+  var liveTraceCounters = {
+    received: 0,
+    matched: 0,
+    buffered: 0,
+    inserted: 0,
+    duplicates: 0,
+    rendered: 0,
+    droppedByDevice: 0,
+    droppedByTime: 0,
+    mergedFromBuffer: 0,
+    lastStage: "init",
+    lastPacketIso: "-",
+    lastRenderIso: "-",
+    lastIssue: ""
+  };
   var LIVE_WINDOW_MS = 60 * 60 * 1000;
   var LIVE_WINDOW_LABEL = "Latest 1h";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -234,6 +251,7 @@
     var label = isConnected ? "Connected" : "Disconnected";
 
     socketStatusBadgeEl.textContent = label;
+    socketStatusBadgeEl.title = detail ? label + " | " + detail : label;
     socketStatusBadgeEl.classList.toggle("connected", !!isConnected);
     socketStatusBadgeEl.classList.toggle("disconnected", !isConnected);
   }
@@ -243,6 +261,121 @@
     processingStatusEl.style.color = isWarning ? "#8a1c18" : "#375a4f";
     processingStatusEl.style.background = isWarning ? "#fff3f1" : "#eef7f3";
     processingStatusEl.style.borderColor = isWarning ? "#f2c9c2" : "#cee8de";
+  }
+
+  function ensureLiveTraceElement() {
+    if (liveTraceEl) {
+      return liveTraceEl;
+    }
+
+    liveTraceEl = document.createElement("div");
+    liveTraceEl.id = "liveTraceStatus";
+    liveTraceEl.style.marginTop = "6px";
+    liveTraceEl.style.fontSize = "12px";
+    liveTraceEl.style.color = "#4f5f79";
+    liveTraceEl.style.wordBreak = "break-word";
+    if (historyInfoEl && historyInfoEl.parentElement) {
+      historyInfoEl.parentElement.insertBefore(liveTraceEl, historyInfoEl.nextSibling);
+    }
+
+    return liveTraceEl;
+  }
+
+  function renderLiveTraceStatus() {
+    var traceTarget = ensureLiveTraceElement();
+    var text =
+      "Live trace | stage=" +
+      liveTraceCounters.lastStage +
+      " | rx=" +
+      liveTraceCounters.received +
+      " match=" +
+      liveTraceCounters.matched +
+      " buffered=" +
+      liveTraceCounters.buffered +
+      " merged=" +
+      liveTraceCounters.mergedFromBuffer +
+      " inserted=" +
+      liveTraceCounters.inserted +
+      " dup=" +
+      liveTraceCounters.duplicates +
+      " rendered=" +
+      liveTraceCounters.rendered +
+      " dropDevice=" +
+      liveTraceCounters.droppedByDevice +
+      " dropTime=" +
+      liveTraceCounters.droppedByTime +
+      " | lastPacket=" +
+      liveTraceCounters.lastPacketIso +
+      " | lastRender=" +
+      liveTraceCounters.lastRenderIso;
+
+    if (liveTraceCounters.lastIssue) {
+      text += " | issue=" + liveTraceCounters.lastIssue;
+    }
+
+    traceTarget.textContent = text;
+    socketStatusBadgeEl.title = text;
+  }
+
+  function markLiveTrace(stage, meta) {
+    var details = meta || {};
+    liveTraceCounters.lastStage = stage;
+
+    if (stage === "socket-received") {
+      liveTraceCounters.received += 1;
+    } else if (stage === "socket-matched") {
+      liveTraceCounters.matched += 1;
+    } else if (stage === "buffered") {
+      liveTraceCounters.buffered += 1;
+    } else if (stage === "merged-from-buffer") {
+      liveTraceCounters.mergedFromBuffer += Number(details.count) || 0;
+    } else if (stage === "inserted") {
+      liveTraceCounters.inserted += 1;
+    } else if (stage === "duplicate") {
+      liveTraceCounters.duplicates += 1;
+    } else if (stage === "rendered") {
+      liveTraceCounters.rendered += 1;
+    } else if (stage === "drop-device") {
+      liveTraceCounters.droppedByDevice += 1;
+    } else if (stage === "drop-time") {
+      liveTraceCounters.droppedByTime += 1;
+    }
+
+    if (Number.isFinite(details.packetTimeMs)) {
+      liveTraceCounters.lastPacketIso = new Date(details.packetTimeMs).toISOString();
+    }
+
+    if (Number.isFinite(details.renderAtMs)) {
+      liveTraceCounters.lastRenderIso = new Date(details.renderAtMs).toISOString();
+    }
+
+    if (typeof details.issue === "string") {
+      liveTraceCounters.lastIssue = details.issue;
+    }
+
+    renderLiveTraceStatus();
+
+    if (typeof window !== "undefined") {
+      window.__liveTrace = {
+        stage: liveTraceCounters.lastStage,
+        received: liveTraceCounters.received,
+        matched: liveTraceCounters.matched,
+        buffered: liveTraceCounters.buffered,
+        mergedFromBuffer: liveTraceCounters.mergedFromBuffer,
+        inserted: liveTraceCounters.inserted,
+        duplicates: liveTraceCounters.duplicates,
+        rendered: liveTraceCounters.rendered,
+        droppedByDevice: liveTraceCounters.droppedByDevice,
+        droppedByTime: liveTraceCounters.droppedByTime,
+        lastPacketIso: liveTraceCounters.lastPacketIso,
+        lastRenderIso: liveTraceCounters.lastRenderIso,
+        lastIssue: liveTraceCounters.lastIssue
+      };
+    }
+
+    if (typeof console !== "undefined" && typeof console.info === "function") {
+      console.info("[LiveTrace]", stage, details);
+    }
   }
 
   function parseDisplayFrequencyRange() {
@@ -1055,6 +1188,10 @@
       var opts = pendingRenderOptions || {};
       pendingRenderOptions = null;
       renderLatestPacket(opts);
+      if (expectingLiveRender) {
+        expectingLiveRender = false;
+        markLiveTrace("rendered", { renderAtMs: Date.now() });
+      }
     });
   }
 
@@ -1442,8 +1579,15 @@
       rebuildPacketKeySet();
 
       if (pendingLivePackets.length > 0) {
+        var mergedCount = 0;
         for (var p = 0; p < pendingLivePackets.length; p += 1) {
-          insertPacketSorted(pendingLivePackets[p]);
+          if (insertPacketSorted(pendingLivePackets[p])) {
+            mergedCount += 1;
+          }
+        }
+        if (mergedCount > 0) {
+          expectingLiveRender = true;
+          markLiveTrace("merged-from-buffer", { count: mergedCount });
         }
       }
       pendingLivePackets = [];
@@ -1572,8 +1716,7 @@
         ? selectedDeviceMinFrequency + " Hz -> " + selectedDeviceMaxFrequency + " Hz"
         : "not configured");
     setActiveDevice(device.id);
-    var initialRange = getInitialLoadRangeIso();
-    await loadDeviceHistory(device.id, initialRange.fromIso, initialRange.toIso);
+    await loadDeviceHistory(device.id);
   }
 
   function renderDeviceSidebar() {
@@ -2532,25 +2675,34 @@
     }, 15000);
 
     socket.on("device:data", function (payload) {
+      markLiveTrace("socket-received");
+
       if (!payloadMatchesSelectedDevice(payload)) {
+        markLiveTrace("drop-device", { issue: "payload does not match selected device" });
         return;
       }
+      markLiveTrace("socket-matched");
 
       normalizePacketTiming(payload);
       var payloadTime = getPacketTimestampMs(payload);
       if (!Number.isFinite(payloadTime)) {
+        markLiveTrace("drop-time", { issue: "payload timestamp is invalid" });
         return;
       }
 
       if (isHistoryLoading) {
         pendingLivePackets.push(payload);
+        markLiveTrace("buffered", { packetTimeMs: payloadTime });
         return;
       }
 
       var inserted = insertPacketSorted(payload);
       if (!inserted) {
+        markLiveTrace("duplicate", { packetTimeMs: payloadTime });
         return;
       }
+      expectingLiveRender = true;
+      markLiveTrace("inserted", { packetTimeMs: payloadTime });
       if (liveFollowEnabled) {
         syncLatestLiveViewport();
       }
