@@ -1,4 +1,4 @@
-import { Between, LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
+import { Between, IsNull, LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
 import { gzipSync, gunzipSync } from "zlib";
 import { AppDataSource } from "../config/data-source";
 import { DeviceHistory } from "../entities/DeviceHistory";
@@ -17,6 +17,7 @@ import {
 import { DeviceService } from "./device.service";
 
 export class HistoryService {
+  private static readonly LEGACY_TIME_SKEW_MS = 3 * 60 * 60 * 1000;
   private readonly historyRepo: Repository<DeviceHistory>;
   private readonly deviceService: DeviceService;
 
@@ -252,14 +253,52 @@ export class HistoryService {
 
     await this.deviceService.verifyDeviceExists(deviceId);
 
+    const skewMs = HistoryService.LEGACY_TIME_SKEW_MS;
+    const fromPlusSkew = new Date(from.getTime() + skewMs);
+    const toPlusSkew = new Date(to.getTime() + skewMs);
+    const fromMinusSkew = new Date(from.getTime() - skewMs);
+    const toMinusSkew = new Date(to.getTime() - skewMs);
+
     const items = await this.historyRepo.find({
-      where: {
-        deviceId,
-        startTime: LessThanOrEqual(to),
-        endTime: MoreThanOrEqual(from)
-      },
+      where: [
+        {
+          deviceId,
+          startTime: LessThanOrEqual(to),
+          endTime: MoreThanOrEqual(from)
+        },
+        {
+          deviceId,
+          timestamp: Between(from, to)
+        },
+        {
+          deviceId,
+          timestamp: Between(fromPlusSkew, toPlusSkew)
+        },
+        {
+          deviceId,
+          timestamp: Between(fromMinusSkew, toMinusSkew)
+        },
+        {
+          deviceId,
+          startTime: IsNull(),
+          endTime: IsNull(),
+          timestamp: Between(from, to)
+        },
+        {
+          deviceId,
+          startTime: LessThanOrEqual(to),
+          endTime: IsNull(),
+          timestamp: MoreThanOrEqual(from)
+        },
+        {
+          deviceId,
+          startTime: IsNull(),
+          endTime: MoreThanOrEqual(from),
+          timestamp: LessThanOrEqual(to)
+        }
+      ],
       order: {
-        startTime: "ASC"
+        timestamp: "ASC"
       }
     });
 

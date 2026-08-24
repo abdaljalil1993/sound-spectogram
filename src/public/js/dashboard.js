@@ -1695,6 +1695,9 @@
       return;
     }
 
+    currentPackets = [latestPacket];
+    rebuildPacketKeySet();
+
     var effectiveEnd = Number.isFinite(latestEndMs) && latestEndMs > latestStartMs ? latestEndMs : latestStartMs + 1000;
     activeRangeMode = "lastPacket";
     followLatest24 = false;
@@ -2223,7 +2226,10 @@
     if (!selectedDeviceId) {
       return;
     }
-    await loadDeviceHistory(selectedDeviceId);
+    await loadDeviceHistory(selectedDeviceId, null, null, {
+      liveWindowMs: DEFAULT_LIVE_WINDOW_MS,
+      modeLabel: "latest30m"
+    });
   });
 
   applyIntensityBtn.addEventListener("click", function () {

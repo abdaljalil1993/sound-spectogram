@@ -23,11 +23,21 @@ export const historyController = {
         const fromDate = new Date(from);
         const toDate = new Date(to);
         const items = await historyService.getHistoryByDateRange(deviceId, fromDate, toDate);
+        console.info("[HistoryController] Range query", {
+          deviceId,
+          from,
+          to,
+          count: items.length
+        });
         res.json(items);
         return;
       }
 
       const items = await historyService.getLatest24Hours(deviceId);
+      console.info("[HistoryController] Latest24 query", {
+        deviceId,
+        count: items.length
+      });
       res.json(items);
     } catch (error) {
       next(error);

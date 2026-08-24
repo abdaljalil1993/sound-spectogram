@@ -4,6 +4,49 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function getNaiveTimezoneOffsetMinutes(): number {
+  const envValue = Number(process.env.DEVICE_NAIVE_TZ_OFFSET_MINUTES ?? 180);
+  if (!Number.isFinite(envValue)) {
+    return 180;
+  }
+
+  return Math.max(-14 * 60, Math.min(14 * 60, Math.round(envValue)));
+}
+
+function parseNaiveIsoWithOffset(value: string, offsetMinutes: number): Date | null {
+  const m = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/
+  );
+  if (!m) {
+    return null;
+  }
+
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  const second = Number(m[6] || 0);
+  const msRaw = String(m[7] || "0");
+  const millis = Number(msRaw.padEnd(3, "0"));
+
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    !Number.isFinite(second) ||
+    !Number.isFinite(millis)
+  ) {
+    return null;
+  }
+
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute, second, millis) - offsetMinutes * 60 * 1000;
+  const parsed = new Date(utcMs);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
 export function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
@@ -43,6 +86,15 @@ function parseTimestampLike(value: unknown): Date | null {
     const trimmed = value.trim();
     if (!trimmed) {
       return null;
+    }
+
+    const hasTimezone = /[zZ]$|[+\-]\d{2}:?\d{2}$/.test(trimmed);
+    if (!hasTimezone) {
+      const offsetMinutes = getNaiveTimezoneOffsetMinutes();
+      const parsedNaive = parseNaiveIsoWithOffset(trimmed, offsetMinutes);
+      if (parsedNaive) {
+        return parsedNaive;
+      }
     }
 
     const numeric = Number(trimmed);
