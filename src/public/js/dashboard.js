@@ -50,6 +50,7 @@
   var LIVE_WINDOW_LABEL = "Latest 1h";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
   var MAX_PACKETS_IN_MEMORY = 12000;
+  var liveRefreshTimer = null;
 
   var topNav = document.getElementById("topNav");
   var tabButtons = document.querySelectorAll(".tab-btn");
@@ -1067,6 +1068,29 @@
     followLatest24 = true;
   }
 
+  function stopLiveFollowPolling() {
+    if (liveRefreshTimer) {
+      clearInterval(liveRefreshTimer);
+      liveRefreshTimer = null;
+    }
+  }
+
+  function startLiveFollowPolling() {
+    if (liveRefreshTimer || !liveFollowEnabled || !selectedDeviceId) {
+      return;
+    }
+
+    liveRefreshTimer = setInterval(function () {
+      if (!liveFollowEnabled || !selectedDeviceId) {
+        return;
+      }
+
+      loadDeviceHistory(selectedDeviceId).catch(function (error) {
+        setGlobalMessage(error instanceof Error ? error.message : "Failed to refresh live data", true);
+      });
+    }, 3000);
+  }
+
   function getCurrentViewSpanMs() {
     if (!Number.isFinite(viewportFromMs) || !Number.isFinite(viewportToMs)) {
       return null;
@@ -1348,6 +1372,7 @@
       viewportToMs = effectiveToMs;
       followLatest24 = false;
       liveFollowEnabled = false;
+      stopLiveFollowPolling();
     } else {
       activeRangeMode = "latest1h";
       var latestToMs = nowMs;
@@ -1376,6 +1401,9 @@
       if (activeRangeMode === "latest1h") {
         followLatest24 = true;
         liveFollowEnabled = true;
+        startLiveFollowPolling();
+      } else {
+        stopLiveFollowPolling();
       }
 
       if (!currentPackets.length) {
