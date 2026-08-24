@@ -45,7 +45,6 @@
   var editingUserId = null;
   var editingDeviceId = null;
   var lastPersistenceWarningAt = 0;
-  var liveRefreshTimer = null;
   var LIVE_WINDOW_MS = 60 * 60 * 1000;
   var LIVE_WINDOW_LABEL = "Latest 1h";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -1065,27 +1064,6 @@
     viewportFromMs = latestFromMs;
     viewportToMs = latestToMs;
     followLatest24 = true;
-  }
-
-  function refreshLiveHistorySoon() {
-    if (!selectedDeviceId || activeRangeMode !== "latest1h" || !followLatest24) {
-      return;
-    }
-
-    if (liveRefreshTimer) {
-      clearTimeout(liveRefreshTimer);
-    }
-
-    liveRefreshTimer = setTimeout(function () {
-      liveRefreshTimer = null;
-      if (!selectedDeviceId || activeRangeMode !== "latest1h" || !followLatest24) {
-        return;
-      }
-
-      loadDeviceHistory(selectedDeviceId).catch(function (error) {
-        setGlobalMessage(error instanceof Error ? error.message : "Failed to refresh live data", true);
-      });
-    }, 150);
   }
 
   function getCurrentViewSpanMs() {
@@ -2474,7 +2452,9 @@
       insertPacketSorted(payload);
       if (activeRangeMode === "latest1h" && followLatest24) {
         syncLatestLiveViewport();
-        refreshLiveHistorySoon();
+        loadDeviceHistory(selectedDeviceId).catch(function (error) {
+          setGlobalMessage(error instanceof Error ? error.message : "Failed to refresh live data", true);
+        });
       }
       scheduleRender({ skipTable: false });
 
