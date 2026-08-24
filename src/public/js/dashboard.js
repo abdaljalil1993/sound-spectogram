@@ -32,6 +32,7 @@
   var viewportFromMs = null;
   var viewportToMs = null;
   var followLatest24 = true;
+  var liveFollowEnabled = true;
   var isPanning = false;
   var panStartClientX = 0;
   var panStartFromMs = 0;
@@ -758,7 +759,7 @@
 
     var fromMs;
     var toMs;
-    if (activeRangeMode === "latest1h" && followLatest24) {
+    if (liveFollowEnabled) {
       toMs = Date.now();
       fromMs = toMs - LIVE_WINDOW_MS;
       activeFromIso = new Date(fromMs).toISOString();
@@ -1209,6 +1210,7 @@
     }
 
     followLatest24 = false;
+    liveFollowEnabled = false;
     var padding = Math.max(60 * 1000, Math.round((maxEnd - minStart) * 0.04));
     viewportFromMs = minStart - padding;
     viewportToMs = maxEnd + padding;
@@ -1224,6 +1226,7 @@
     }
 
     followLatest24 = false;
+    liveFollowEnabled = false;
     var panRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 0.2;
     var shift = Math.max(30 * 1000, Math.round(span * panRatio));
     viewportFromMs += direction * shift;
@@ -1277,6 +1280,7 @@
     }
 
     followLatest24 = false;
+    liveFollowEnabled = false;
     var anchor = clamp(anchorFraction, 0, 1);
     var anchorTime = viewportFromMs + span * anchor;
     var newSpan = Math.round(span * factor);
@@ -1291,8 +1295,9 @@
   }
 
   function resetViewport() {
-    if (activeRangeMode === "latest1h") {
+    if (liveFollowEnabled) {
       followLatest24 = true;
+      liveFollowEnabled = true;
       scheduleRender({ skipTable: false });
       return;
     }
@@ -1342,6 +1347,7 @@
       viewportFromMs = effectiveFromMs;
       viewportToMs = effectiveToMs;
       followLatest24 = false;
+      liveFollowEnabled = false;
     } else {
       activeRangeMode = "latest1h";
       var latestToMs = nowMs;
@@ -1349,6 +1355,7 @@
       activeFromIso = new Date(latestFromMs).toISOString();
       activeToIso = new Date(latestToMs).toISOString();
       followLatest24 = true;
+      liveFollowEnabled = true;
       viewportFromMs = latestFromMs;
       viewportToMs = latestToMs;
       endpoint += "?from=" + encodeURIComponent(activeFromIso) + "&to=" + encodeURIComponent(activeToIso);
@@ -1365,6 +1372,11 @@
       currentPackets = await apiRequest(endpoint);
       currentPackets.forEach(normalizePacketTiming);
       activeTimeStepMs = 1000;
+
+      if (activeRangeMode === "latest1h") {
+        followLatest24 = true;
+        liveFollowEnabled = true;
+      }
 
       if (!currentPackets.length) {
         historyInfoEl.textContent = "No data available for the selected device.";
@@ -1911,6 +1923,7 @@
       viewportFromMs = new Date(activeFromIso).getTime();
       viewportToMs = new Date(activeToIso).getTime();
       followLatest24 = false;
+      liveFollowEnabled = false;
       scheduleRender({ skipTable: false });
       setGlobalMessage("Example range loaded (includes intentional 10-minute data gap)", false);
     } catch (error) {
@@ -2450,11 +2463,8 @@
       }
 
       insertPacketSorted(payload);
-      if (activeRangeMode === "latest1h" && followLatest24) {
+      if (liveFollowEnabled) {
         syncLatestLiveViewport();
-        loadDeviceHistory(selectedDeviceId).catch(function (error) {
-          setGlobalMessage(error instanceof Error ? error.message : "Failed to refresh live data", true);
-        });
       }
       scheduleRender({ skipTable: false });
 
