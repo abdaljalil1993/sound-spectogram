@@ -33,6 +33,10 @@
   var viewportToMs = null;
   var followLatest24 = true;
   var liveFollowEnabled = true;
+  var isHistoryLoading = false;
+  var historyLoadSequence = 0;
+  var pendingLivePackets = [];
+  var currentPacketKeys = new Set();
   var isPanning = false;
   var panStartClientX = 0;
   var panStartFromMs = 0;
@@ -50,7 +54,6 @@
   var LIVE_WINDOW_LABEL = "Latest 1h";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
   var MAX_PACKETS_IN_MEMORY = 12000;
-  var liveRefreshTimer = null;
 
   var topNav = document.getElementById("topNav");
   var tabButtons = document.querySelectorAll(".tab-btn");
@@ -560,6 +563,42 @@
     return packet;
   }
 
+  function getPacketKey(packet) {
+    if (!packet) {
+      return "";
+    }
+
+    var deviceId = Number(packet.deviceId);
+    if (!Number.isFinite(deviceId)) {
+      deviceId = Number(selectedDeviceId);
+    }
+
+    var startMs = getPacketStartMs(packet);
+    var endMs = getPacketEndMs(packet);
+    var timeMs = getPacketTimestampMs(packet);
+    if (!Number.isFinite(startMs)) {
+      startMs = timeMs;
+    }
+    if (!Number.isFinite(endMs)) {
+      endMs = startMs;
+    }
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+      return "";
+    }
+
+    return String(deviceId) + "|" + String(startMs) + "|" + String(endMs);
+  }
+
+  function rebuildPacketKeySet() {
+    currentPacketKeys = new Set();
+    for (var i = 0; i < currentPackets.length; i += 1) {
+      var key = getPacketKey(currentPackets[i]);
+      if (key) {
+        currentPacketKeys.add(key);
+      }
+    }
+  }
+
   function getInitialLoadRangeIso() {
     var toMs = Date.now();
     var fromMs = toMs - LIVE_WINDOW_MS;
@@ -1034,7 +1073,12 @@
     normalizePacketTiming(packet);
     var packetTime = getPacketStartMs(packet);
     if (!Number.isFinite(packetTime)) {
-      return;
+      return false;
+    }
+
+    var packetKey = getPacketKey(packet);
+    if (packetKey && currentPacketKeys.has(packetKey)) {
+      return false;
     }
 
     var low = 0;
@@ -1050,11 +1094,22 @@
     }
 
     currentPackets.splice(low, 0, packet);
+    if (packetKey) {
+      currentPacketKeys.add(packetKey);
+    }
 
     if (currentPackets.length > MAX_PACKETS_IN_MEMORY) {
       var overflow = currentPackets.length - MAX_PACKETS_IN_MEMORY;
-      currentPackets.splice(0, overflow);
+      var removed = currentPackets.splice(0, overflow);
+      for (var r = 0; r < removed.length; r += 1) {
+        var removedKey = getPacketKey(removed[r]);
+        if (removedKey) {
+          currentPacketKeys.delete(removedKey);
+        }
+      }
     }
+
+    return true;
   }
 
   function syncLatestLiveViewport() {
@@ -1066,29 +1121,6 @@
     viewportFromMs = latestFromMs;
     viewportToMs = latestToMs;
     followLatest24 = true;
-  }
-
-  function stopLiveFollowPolling() {
-    if (liveRefreshTimer) {
-      clearInterval(liveRefreshTimer);
-      liveRefreshTimer = null;
-    }
-  }
-
-  function startLiveFollowPolling() {
-    if (liveRefreshTimer || !liveFollowEnabled || !selectedDeviceId) {
-      return;
-    }
-
-    liveRefreshTimer = setInterval(function () {
-      if (!liveFollowEnabled || !selectedDeviceId) {
-        return;
-      }
-
-      loadDeviceHistory(selectedDeviceId).catch(function (error) {
-        setGlobalMessage(error instanceof Error ? error.message : "Failed to refresh live data", true);
-      });
-    }, 3000);
   }
 
   function getCurrentViewSpanMs() {
@@ -1372,7 +1404,6 @@
       viewportToMs = effectiveToMs;
       followLatest24 = false;
       liveFollowEnabled = false;
-      stopLiveFollowPolling();
     } else {
       activeRangeMode = "latest1h";
       var latestToMs = nowMs;
@@ -1386,7 +1417,13 @@
       endpoint += "?from=" + encodeURIComponent(activeFromIso) + "&to=" + encodeURIComponent(activeToIso);
     }
 
+    var loadSequence = historyLoadSequence + 1;
+    historyLoadSequence = loadSequence;
+    isHistoryLoading = true;
+    pendingLivePackets = [];
+
     currentPackets = [];
+    rebuildPacketKeySet();
     lastRenderMeta = null;
     gapTooltipEl.classList.add("hidden");
     historyInfoEl.textContent = "Loading data for selected device...";
@@ -1394,16 +1431,26 @@
     setSpectrogramLoading(true);
 
     try {
-      currentPackets = await apiRequest(endpoint);
+      var snapshotPackets = await apiRequest(endpoint);
+      if (loadSequence !== historyLoadSequence) {
+        return;
+      }
+
+      currentPackets = Array.isArray(snapshotPackets) ? snapshotPackets : [];
       currentPackets.forEach(normalizePacketTiming);
       activeTimeStepMs = 1000;
+      rebuildPacketKeySet();
+
+      if (pendingLivePackets.length > 0) {
+        for (var p = 0; p < pendingLivePackets.length; p += 1) {
+          insertPacketSorted(pendingLivePackets[p]);
+        }
+      }
+      pendingLivePackets = [];
 
       if (activeRangeMode === "latest1h") {
         followLatest24 = true;
         liveFollowEnabled = true;
-        startLiveFollowPolling();
-      } else {
-        stopLiveFollowPolling();
       }
 
       if (!currentPackets.length) {
@@ -1422,6 +1469,9 @@
 
       scheduleRender({ skipTable: false });
     } finally {
+      if (loadSequence === historyLoadSequence) {
+        isHistoryLoading = false;
+      }
       setSpectrogramLoading(false);
     }
   }
@@ -1469,6 +1519,7 @@
     var effectiveEnd = Number.isFinite(latestEndMs) && latestEndMs > latestStartMs ? latestEndMs : latestStartMs + 1000;
     activeRangeMode = "lastPacket";
     followLatest24 = false;
+    liveFollowEnabled = false;
     viewportFromMs = latestStartMs;
     viewportToMs = effectiveEnd;
     activeFromIso = new Date(viewportFromMs).toISOString();
@@ -2061,6 +2112,7 @@
 
     isPanning = true;
     followLatest24 = false;
+    liveFollowEnabled = false;
     panStartClientX = event.clientX;
     panStartFromMs = viewportFromMs;
     panStartToMs = viewportToMs;
@@ -2490,7 +2542,15 @@
         return;
       }
 
-      insertPacketSorted(payload);
+      if (isHistoryLoading) {
+        pendingLivePackets.push(payload);
+        return;
+      }
+
+      var inserted = insertPacketSorted(payload);
+      if (!inserted) {
+        return;
+      }
       if (liveFollowEnabled) {
         syncLatestLiveViewport();
       }
