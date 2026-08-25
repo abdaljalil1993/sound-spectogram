@@ -31,6 +31,7 @@
             <div class="inline-form range-actions-row">
               <button id="loadExampleBtn" type="button" class="hidden">تحميل مثال</button>
               <button id="resetViewBtn" type="button">إعادة الضبط</button>
+              <button id="clearMarkersBtn" type="button" class="ghost-btn">إزالة كل الماركرات</button>
             </div>
 
             <div class="spectro-toolbar" id="spectroToolbar">
@@ -41,19 +42,7 @@
               <button id="fitPacketsBtn" type="button" class="ghost-btn" title="ملاءمة كل الباكتات في العرض (F)">ملاءمة الباكتات</button>
               <button id="colorMapBtn" type="button" class="ghost-btn hidden" title="تبديل خريطة الألوان">الألوان: magma</button>
               <button id="followLiveBtn" type="button" class="ghost-btn" title="العودة إلى آخر ساعة مباشرة (L)">متابعة البث</button>
-            </div>
-            <div class="frequency-range-controls">
-              <label>
-                أقل تردد (Hz)
-                <input id="freqMinInput" type="number" step="1" placeholder="أقل Hz" />
-              </label>
-              <label>
-                أعلى تردد (Hz)
-                <input id="freqMaxInput" type="number" step="1" placeholder="أعلى Hz" />
-              </label>
-              <button id="applyFreqRangeBtn" type="button" class="ghost-btn">تطبيق</button>
-              <button id="clearFreqRangeBtn" type="button" class="ghost-btn">مسح</button>
-              <div class="ai-status-legend" aria-label="دليل حالات الذكاء الاصطناعي">
+              <div class="ai-status-legend ai-status-legend-toolbar" aria-label="دليل حالات الذكاء الاصطناعي">
                 <span class="ai-status-item">
                   <span class="ai-status-swatch status-not-detected"></span>
                   غير مكتشف
@@ -71,6 +60,18 @@
                   غير محدد
                 </span>
               </div>
+            </div>
+            <div class="frequency-range-controls">
+              <label>
+                أقل تردد (Hz)
+                <input id="freqMinInput" type="number" step="1" placeholder="أقل Hz" />
+              </label>
+              <label>
+                أعلى تردد (Hz)
+                <input id="freqMaxInput" type="number" step="1" placeholder="أعلى Hz" />
+              </label>
+              <button id="applyFreqRangeBtn" type="button" class="ghost-btn">تطبيق</button>
+              <button id="clearFreqRangeBtn" type="button" class="ghost-btn">مسح</button>
               <label class="gain-slider-label" for="displayGainInput">
                 الكسب (dB)
                 <div class="gain-slider-wrap">

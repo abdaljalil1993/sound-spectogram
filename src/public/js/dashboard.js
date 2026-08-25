@@ -105,6 +105,7 @@
   var latestPacketBtn = document.getElementById("latestPacketBtn");
   var loadExampleBtn = document.getElementById("loadExampleBtn");
   var resetViewBtn = document.getElementById("resetViewBtn");
+  var clearMarkersBtn = document.getElementById("clearMarkersBtn");
   var panLeftBtn = document.getElementById("panLeftBtn");
   var panRightBtn = document.getElementById("panRightBtn");
   var zoomInBtn = document.getElementById("zoomInBtn");
@@ -185,6 +186,7 @@
     !latestPacketBtn ||
     !loadExampleBtn ||
     !resetViewBtn ||
+    !clearMarkersBtn ||
     !panLeftBtn ||
     !panRightBtn ||
     !zoomInBtn ||
@@ -1340,7 +1342,7 @@
       var boxWidth = Math.max(40, Math.round(textWidth + boxPaddingX * 2));
       var rawBoxLeft = x - boxWidth / 2;
       var boxLeft = clamp(rawBoxLeft, layout.plotLeft, layout.plotRight - boxWidth);
-      var boxTop = layout.plotTop + 24;
+      var boxTop = layout.plotTop + 34;
 
       ctx.fillStyle = "rgba(18, 22, 30, 0.86)";
       ctx.fillRect(boxLeft, boxTop, boxWidth, boxHeight);
@@ -2439,6 +2441,16 @@
 
   resetViewBtn.addEventListener("click", function () {
     resetViewport();
+  });
+
+  clearMarkersBtn.addEventListener("click", function () {
+    if (!timeMarkers.length) {
+      return;
+    }
+
+    timeMarkers = [];
+    renderedTimeMarkerHits = [];
+    scheduleRender({ skipTable: true });
   });
 
   bindHoldAction(panLeftBtn, function () {

@@ -285,6 +285,10 @@ select:focus-visible {
   background: #fff;
 }
 
+.ai-status-legend-toolbar {
+  margin-left: auto;
+}
+
 .ai-status-item {
   display: inline-flex;
   align-items: center;
