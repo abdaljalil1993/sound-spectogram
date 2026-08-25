@@ -1951,8 +1951,16 @@
       var yPos = p.top + Math.round(yF * plotH);
       var label;
       if (hasFrequencyBins) {
-        var screenRowIndex = Math.max(0, Math.min(binCount - 1, Math.round(yF * (binCount - 1))));
-        var rawRowIndex = FrequencyMapping.mapScreenYToRawRow(screenRowIndex, frequencyBins, binCount);
+        var surfaceRowIndex;
+        if (hasDisplayFrequencyRange) {
+          // Axis labels must follow the displayed/cropped vertical slice.
+          surfaceRowIndex = sourceY + Math.round(yF * Math.max(0, sourceHeight - 1));
+        } else {
+          surfaceRowIndex = Math.round(yF * (binCount - 1));
+        }
+
+        surfaceRowIndex = Math.max(0, Math.min(binCount - 1, surfaceRowIndex));
+        var rawRowIndex = FrequencyMapping.mapScreenYToRawRow(surfaceRowIndex, frequencyBins, binCount);
         var mappedHz = frequencyBins[rawRowIndex];
         label = formatDisplayedFrequencyLabel(mappedHz);
       } else if (hasRealFrequency) {
