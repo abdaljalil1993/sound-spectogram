@@ -1340,7 +1340,7 @@
       var boxWidth = Math.max(40, Math.round(textWidth + boxPaddingX * 2));
       var rawBoxLeft = x - boxWidth / 2;
       var boxLeft = clamp(rawBoxLeft, layout.plotLeft, layout.plotRight - boxWidth);
-      var boxTop = Math.max(1, layout.plotTop - boxHeight - 2);
+      var boxTop = layout.plotTop + 6;
 
       ctx.fillStyle = "rgba(18, 22, 30, 0.86)";
       ctx.fillRect(boxLeft, boxTop, boxWidth, boxHeight);
