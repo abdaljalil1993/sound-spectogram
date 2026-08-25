@@ -54,6 +54,8 @@
   var lastPersistenceWarningAt = 0;
   var liveTraceEl = null;
   var expectingLiveRender = false;
+  var timeMarkers = [];
+  var renderedTimeMarkerHits = [];
   var liveTraceCounters = {
     received: 0,
     matched: 0,
@@ -1036,6 +1038,7 @@
       historyInfoEl.textContent = "No data available for the selected device.";
       historyTableBody.innerHTML = "";
       lastRenderMeta = null;
+      renderedTimeMarkerHits = [];
       gapTooltipEl.classList.add("hidden");
       clearSpectrogramCanvas("No data available for the selected device.");
       return;
@@ -1065,6 +1068,7 @@
 
     if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs) {
       lastRenderMeta = null;
+      renderedTimeMarkerHits = [];
       gapTooltipEl.classList.add("hidden");
       clearSpectrogramCanvas("No data available for the selected device.");
       return;
@@ -1160,6 +1164,7 @@
       displayMaxFrequency: displayFrequencyRange ? displayFrequencyRange.max : null
     });
     lastRenderMeta = renderResult || null;
+    drawTimeMarkersOverlay();
 
     if (renderResult) {
       var selectedScaleText = activeIntensityMode;
@@ -1282,6 +1287,149 @@
         "</td>";
       historyTableBody.appendChild(tr);
     });
+  }
+
+  function formatMarkerLabelTime(timeMs) {
+    return formatNaiveDateTimeMs(timeMs, true);
+  }
+
+  function drawTimeMarkersOverlay() {
+    renderedTimeMarkerHits = [];
+    if (!lastRenderMeta || !lastRenderMeta.layout) {
+      return;
+    }
+
+    if (!Number.isFinite(lastRenderMeta.fromMs) || !Number.isFinite(lastRenderMeta.toMs)) {
+      return;
+    }
+
+    var layout = lastRenderMeta.layout;
+    var range = lastRenderMeta.toMs - lastRenderMeta.fromMs;
+    if (!Number.isFinite(range) || range <= 0) {
+      return;
+    }
+
+    var ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 214, 10, 0.95)";
+    ctx.fillStyle = "rgba(255, 214, 10, 0.95)";
+    ctx.lineWidth = 1.2;
+    ctx.font = "11px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+
+    for (var i = 0; i < timeMarkers.length; i += 1) {
+      var marker = timeMarkers[i];
+      var timeMs = Number(marker && marker.timeMs);
+      if (!Number.isFinite(timeMs)) {
+        continue;
+      }
+
+      var xFrac = (timeMs - lastRenderMeta.fromMs) / range;
+      var x = layout.plotLeft + xFrac * (layout.plotRight - layout.plotLeft);
+      if (x < layout.plotLeft || x > layout.plotRight) {
+        continue;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(x + 0.5, layout.plotBottom);
+      ctx.lineTo(x + 0.5, layout.plotTop);
+      ctx.stroke();
+
+      var label = formatMarkerLabelTime(timeMs);
+      var textWidth = ctx.measureText(label).width;
+      var boxPaddingX = 5;
+      var boxHeight = 16;
+      var boxWidth = Math.max(40, Math.round(textWidth + boxPaddingX * 2));
+      var rawBoxLeft = x - boxWidth / 2;
+      var boxLeft = clamp(rawBoxLeft, layout.plotLeft, layout.plotRight - boxWidth);
+      var boxTop = Math.max(1, layout.plotTop - boxHeight - 2);
+
+      ctx.fillStyle = "rgba(18, 22, 30, 0.86)";
+      ctx.fillRect(boxLeft, boxTop, boxWidth, boxHeight);
+      ctx.strokeStyle = "rgba(255, 214, 10, 0.95)";
+      ctx.strokeRect(boxLeft + 0.5, boxTop + 0.5, boxWidth - 1, boxHeight - 1);
+      ctx.fillStyle = "rgba(255, 238, 142, 1)";
+      ctx.fillText(label, boxLeft + boxWidth / 2, boxTop + boxHeight - 4);
+
+      renderedTimeMarkerHits.push({
+        markerIndex: i,
+        lineX: x,
+        lineTop: layout.plotTop,
+        lineBottom: layout.plotBottom,
+        labelLeft: boxLeft,
+        labelTop: boxTop,
+        labelRight: boxLeft + boxWidth,
+        labelBottom: boxTop + boxHeight
+      });
+
+      ctx.strokeStyle = "rgba(255, 214, 10, 0.95)";
+      ctx.fillStyle = "rgba(255, 214, 10, 0.95)";
+    }
+
+    ctx.restore();
+  }
+
+  function removeTimeMarkerAtCanvasPoint(event) {
+    if (!renderedTimeMarkerHits.length) {
+      return false;
+    }
+
+    var rect = canvas.getBoundingClientRect();
+    var x = event.clientX - rect.left;
+    var y = event.clientY - rect.top;
+
+    for (var i = renderedTimeMarkerHits.length - 1; i >= 0; i -= 1) {
+      var hit = renderedTimeMarkerHits[i];
+      var onLabel =
+        x >= hit.labelLeft && x <= hit.labelRight && y >= hit.labelTop && y <= hit.labelBottom;
+      var onLine =
+        Math.abs(x - hit.lineX) <= 4 && y >= hit.lineTop && y <= hit.lineBottom;
+
+      if (!onLabel && !onLine) {
+        continue;
+      }
+
+      if (hit.markerIndex >= 0 && hit.markerIndex < timeMarkers.length) {
+        timeMarkers.splice(hit.markerIndex, 1);
+        scheduleRender({ skipTable: true });
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function addTimeMarkerFromEvent(event) {
+    if (!lastRenderMeta || !lastRenderMeta.layout) {
+      return false;
+    }
+
+    if (!Number.isFinite(lastRenderMeta.fromMs) || !Number.isFinite(lastRenderMeta.toMs)) {
+      return false;
+    }
+
+    var rect = canvas.getBoundingClientRect();
+    var x = event.clientX - rect.left;
+    var layout = lastRenderMeta.layout;
+    if (x < layout.plotLeft || x > layout.plotRight) {
+      return false;
+    }
+
+    var span = lastRenderMeta.toMs - lastRenderMeta.fromMs;
+    if (!Number.isFinite(span) || span <= 0) {
+      return false;
+    }
+
+    var xFrac = (x - layout.plotLeft) / Math.max(1e-9, layout.plotRight - layout.plotLeft);
+    var timeMs = lastRenderMeta.fromMs + xFrac * span;
+    timeMarkers.push({ timeMs: timeMs });
+    scheduleRender({ skipTable: true });
+    return true;
   }
 
   function updateFollowLiveButtonState() {
@@ -2463,7 +2611,11 @@
   );
 
   canvas.addEventListener("dblclick", function (event) {
-    // Disable double-click zoom interaction on the canvas.
+    if (event.button !== 0) {
+      event.preventDefault();
+      return;
+    }
+    addTimeMarkerFromEvent(event);
     event.preventDefault();
   });
 
@@ -2753,6 +2905,11 @@
 
   canvas.addEventListener("click", function (event) {
     if (isPanning) {
+      return;
+    }
+
+    if (removeTimeMarkerAtCanvasPoint(event)) {
+      probeTooltipEl.classList.add("hidden");
       return;
     }
 
