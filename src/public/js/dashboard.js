@@ -38,6 +38,7 @@
   var pendingLivePackets = [];
   var currentPacketKeys = new Set();
   var isPanning = false;
+  var panHasMoved = false;
   var panStartClientX = 0;
   var panStartFromMs = 0;
   var panStartToMs = 0;
@@ -2443,8 +2444,7 @@
     }
 
     isPanning = true;
-    followLatest24 = false;
-    liveFollowEnabled = false;
+    panHasMoved = false;
     panStartClientX = event.clientX;
     panStartFromMs = viewportFromMs;
     panStartToMs = viewportToMs;
@@ -2465,6 +2465,14 @@
 
     var canvasWidth = Math.max(1, canvas.clientWidth || 1);
     var dx = event.clientX - panStartClientX;
+
+    if (!panHasMoved && Math.abs(dx) >= 3) {
+      panHasMoved = true;
+      followLatest24 = false;
+      liveFollowEnabled = false;
+      updateFollowLiveButtonState();
+    }
+
     var shiftMs = Math.round((-dx / canvasWidth) * span);
 
     viewportFromMs = panStartFromMs + shiftMs;
@@ -2478,6 +2486,7 @@
       return;
     }
     isPanning = false;
+    panHasMoved = false;
     canvas.style.cursor = "grab";
     scheduleRender({ skipTable: false });
   });
