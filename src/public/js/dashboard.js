@@ -101,7 +101,6 @@
   var latest5hBtn = document.getElementById("latest5hBtn");
   var latest24hBtn = document.getElementById("latest24hBtn");
   var latestPacketBtn = document.getElementById("latestPacketBtn");
-  var stepBack5mBtn = document.getElementById("stepBack5mBtn");
   var loadExampleBtn = document.getElementById("loadExampleBtn");
   var resetViewBtn = document.getElementById("resetViewBtn");
   var panLeftBtn = document.getElementById("panLeftBtn");
@@ -182,7 +181,6 @@
     !latest5hBtn ||
     !latest24hBtn ||
     !latestPacketBtn ||
-    !stepBack5mBtn ||
     !loadExampleBtn ||
     !resetViewBtn ||
     !panLeftBtn ||
@@ -1827,60 +1825,7 @@
     activeFromIso = formatNaiveDateTimeMs(viewportFromMs, true);
     activeToIso = formatNaiveDateTimeMs(viewportToMs, true);
     scheduleRender({ skipTable: false });
-    setGlobalMessage("Latest packet focused. Use -5m to step backward.", false);
-  }
-
-  async function stepBackByMinutes(minutes) {
-    if (!selectedDeviceId) {
-      setGlobalMessage("Select a device first", true);
-      return;
-    }
-
-    var stepMinutes = Number(minutes);
-    if (!Number.isFinite(stepMinutes) || stepMinutes <= 0) {
-      stepMinutes = 5;
-    }
-
-    var stepMs = Math.round(stepMinutes * 60 * 1000);
-    var baseToMs = Number.isFinite(viewportToMs) ? viewportToMs : Date.now();
-    var targetToMs = baseToMs - stepMs;
-    var targetFromMs = targetToMs - stepMs;
-
-    await loadDeviceHistory(
-      selectedDeviceId,
-      formatNaiveDateTimeMs(targetFromMs, true),
-      formatNaiveDateTimeMs(targetToMs, true)
-    );
-
-    if (currentPackets.length > 0) {
-      var latestPacket = currentPackets[currentPackets.length - 1];
-      var latestStartMs = getPacketStartMs(latestPacket);
-      var latestEndMs = getPacketEndMs(latestPacket);
-      if (!Number.isFinite(latestStartMs)) {
-        latestStartMs = getPacketTimestampMs(latestPacket);
-      }
-      if (!Number.isFinite(latestEndMs)) {
-        latestEndMs = latestStartMs;
-      }
-
-      if (Number.isFinite(latestStartMs)) {
-        currentPackets = [latestPacket];
-        rebuildPacketKeySet();
-        activeRangeMode = "lastPacket";
-        followLatest24 = false;
-        liveFollowEnabled = false;
-        liveManualBrowseActive = false;
-        var effectiveEnd =
-          Number.isFinite(latestEndMs) && latestEndMs > latestStartMs ? latestEndMs : latestStartMs + 1000;
-        viewportFromMs = latestStartMs;
-        viewportToMs = effectiveEnd;
-        activeFromIso = formatNaiveDateTimeMs(viewportFromMs, true);
-        activeToIso = formatNaiveDateTimeMs(viewportToMs, true);
-      }
-    }
-
-    scheduleRender({ skipTable: false });
-    setGlobalMessage("Shifted backward by one packet (~" + stepMinutes + "m)", false);
+    setGlobalMessage("Latest packet focused.", false);
   }
 
   async function selectDevice(device) {
@@ -2285,14 +2230,6 @@
     }
   });
 
-  stepBack5mBtn.addEventListener("click", async function () {
-    try {
-      await stepBackByMinutes(5);
-    } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to step back", true);
-    }
-  });
-
   loadExampleBtn.addEventListener("click", async function () {
     try {
       var example = await apiRequest("/public/example.json");
@@ -2526,17 +2463,12 @@
   );
 
   canvas.addEventListener("dblclick", function (event) {
-    var rect = canvas.getBoundingClientRect();
-    var x = event.clientX - rect.left;
-    var anchor = clamp(x / Math.max(1, rect.width), 0, 1);
-    zoomViewportAt(0.78, anchor);
+    // Disable double-click zoom interaction on the canvas.
+    event.preventDefault();
   });
 
   canvas.addEventListener("contextmenu", function (event) {
-    var rect = canvas.getBoundingClientRect();
-    var x = event.clientX - rect.left;
-    var anchor = clamp(x / Math.max(1, rect.width), 0, 1);
-    zoomViewportAt(1.22, anchor);
+    // Disable right-click zoom interaction on the canvas.
     event.preventDefault();
   });
 
