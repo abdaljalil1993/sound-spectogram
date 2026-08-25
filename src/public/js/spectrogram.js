@@ -490,13 +490,13 @@
 
   function formatTimeLabel(ms, withDate) {
     var d = new Date(ms);
-    var hh = String(d.getUTCHours()).padStart(2, "0");
-    var mm = String(d.getUTCMinutes()).padStart(2, "0");
+    var hh = String(d.getHours()).padStart(2, "0");
+    var mm = String(d.getMinutes()).padStart(2, "0");
     if (!withDate) return hh + ":" + mm;
 
-    var yyyy = d.getUTCFullYear();
-    var mon = String(d.getUTCMonth() + 1).padStart(2, "0");
-    var day = String(d.getUTCDate()).padStart(2, "0");
+    var yyyy = d.getFullYear();
+    var mon = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
     return yyyy + "-" + mon + "-" + day + " " + hh + ":" + mm;
   }
 
@@ -506,12 +506,12 @@
       return "";
     }
 
-    var yyyy = String(d.getUTCFullYear());
-    var mon = String(d.getUTCMonth() + 1).padStart(2, "0");
-    var day = String(d.getUTCDate()).padStart(2, "0");
-    var hh = String(d.getUTCHours()).padStart(2, "0");
-    var mm = String(d.getUTCMinutes()).padStart(2, "0");
-    var ss = String(d.getUTCSeconds()).padStart(2, "0");
+    var yyyy = String(d.getFullYear());
+    var mon = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    var hh = String(d.getHours()).padStart(2, "0");
+    var mm = String(d.getMinutes()).padStart(2, "0");
+    var ss = String(d.getSeconds()).padStart(2, "0");
     return yyyy + "-" + mon + "-" + day + "T" + hh + ":" + mm + ":" + ss;
   }
 
