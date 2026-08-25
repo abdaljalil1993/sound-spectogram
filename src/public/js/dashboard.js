@@ -1024,11 +1024,9 @@
   });
 
   function setActiveDevice(deviceId) {
-    var listItems = deviceListEl.querySelectorAll("li");
-    listItems.forEach(function (item) {
-      var isActive = Number(item.getAttribute("data-id")) === deviceId;
-      item.classList.toggle("active", isActive);
-    });
+    if (deviceListEl instanceof HTMLSelectElement) {
+      deviceListEl.value = String(deviceId);
+    }
   }
 
   function renderLatestPacket(options) {
@@ -1999,15 +1997,10 @@
   function renderDeviceSidebar() {
     deviceListEl.innerHTML = "";
     devicesCache.forEach(function (device) {
-      var item = document.createElement("li");
-      item.textContent = device.name;
-      item.setAttribute("data-id", String(device.id));
-      item.addEventListener("click", function () {
-        selectDevice(device).catch(function (error) {
-          historyInfoEl.textContent = error instanceof Error ? error.message : "فشل تحميل السجل";
-        });
-      });
-      deviceListEl.appendChild(item);
+      var option = document.createElement("option");
+      option.value = String(device.id);
+      option.textContent = device.name;
+      deviceListEl.appendChild(option);
     });
   }
 
@@ -2034,6 +2027,24 @@
       sideDeviceInfoEl.textContent = "لا يوجد جهاز محدد.";
     }
   }
+
+  deviceListEl.addEventListener("change", function () {
+    var selectedId = Number(deviceListEl.value);
+    if (!Number.isFinite(selectedId)) {
+      return;
+    }
+
+    var device = devicesCache.find(function (d) {
+      return Number(d.id) === selectedId;
+    });
+    if (!device) {
+      return;
+    }
+
+    selectDevice(device).catch(function (error) {
+      historyInfoEl.textContent = error instanceof Error ? error.message : "فشل تحميل السجل";
+    });
+  });
 
   function resetUserForm() {
     editingUserId = null;
