@@ -702,7 +702,7 @@
       if (normalizedValue) {
         var matched = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/);
         if (matched) {
-          return Date.UTC(
+          return new Date(
             Number(matched[1]),
             Number(matched[2]) - 1,
             Number(matched[3]),
@@ -710,7 +710,7 @@
             Number(matched[5]),
             Number(matched[6]),
             0
-          );
+          ).getTime();
         }
       }
     }

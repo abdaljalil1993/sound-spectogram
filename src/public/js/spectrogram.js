@@ -423,7 +423,7 @@
       var trimmed = value.trim();
       var naiveMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
       if (naiveMatch) {
-        return Date.UTC(
+        return new Date(
           Number(naiveMatch[1]),
           Number(naiveMatch[2]) - 1,
           Number(naiveMatch[3]),
@@ -431,7 +431,7 @@
           Number(naiveMatch[5]),
           Number(naiveMatch[6] || 0),
           Number(String(naiveMatch[7] || "0").padEnd(3, "0"))
-        );
+        ).getTime();
       }
     }
 
