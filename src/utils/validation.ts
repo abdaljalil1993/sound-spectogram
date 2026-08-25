@@ -4,16 +4,26 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function getNaiveTimezoneOffsetMinutes(): number {
-  const envValue = Number(process.env.DEVICE_NAIVE_TZ_OFFSET_MINUTES ?? 180);
-  if (!Number.isFinite(envValue)) {
-    return 180;
-  }
-
-  return Math.max(-14 * 60, Math.min(14 * 60, Math.round(envValue)));
+function formatPartsToNaiveIso(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+  millis: number
+): string {
+  const yyyy = String(year).padStart(4, "0");
+  const mm = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  const hh = String(hour).padStart(2, "0");
+  const min = String(minute).padStart(2, "0");
+  const ss = String(second).padStart(2, "0");
+  const mmm = String(millis).padStart(3, "0");
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}.${mmm}`.replace(/\.000$/, "");
 }
 
-function parseNaiveIsoWithOffset(value: string, offsetMinutes: number): Date | null {
+function parseNaiveIsoString(value: string): string | null {
   const m = value.match(
     /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/
   );
@@ -42,9 +52,7 @@ function parseNaiveIsoWithOffset(value: string, offsetMinutes: number): Date | n
     return null;
   }
 
-  const utcMs = Date.UTC(year, month - 1, day, hour, minute, second, millis) - offsetMinutes * 60 * 1000;
-  const parsed = new Date(utcMs);
-  return Number.isFinite(parsed.getTime()) ? parsed : null;
+  return formatPartsToNaiveIso(year, month, day, hour, minute, second, millis);
 }
 
 export function isPositiveInteger(value: unknown): value is number {
@@ -71,51 +79,37 @@ export function validateDeviceMatrix(data: unknown): { valid: boolean; message?:
   return { valid: true };
 }
 
-function parseTimestampLike(value: unknown): Date | null {
-  if (value instanceof Date) {
-    return Number.isFinite(value.getTime()) ? value : null;
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const normalized = Math.abs(value) < 1e12 ? value * 1000 : value;
-    const parsed = new Date(normalized);
-    return Number.isFinite(parsed.getTime()) ? parsed : null;
-  }
-
+function parseTimestampLike(value: unknown): string | null {
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) {
       return null;
     }
 
-    const hasTimezone = /[zZ]$|[+\-]\d{2}:?\d{2}$/.test(trimmed);
-    if (!hasTimezone) {
-      const offsetMinutes = getNaiveTimezoneOffsetMinutes();
-      const parsedNaive = parseNaiveIsoWithOffset(trimmed, offsetMinutes);
-      if (parsedNaive) {
-        return parsedNaive;
-      }
-    }
-
-    const numeric = Number(trimmed);
-    if (Number.isFinite(numeric)) {
-      const normalized = Math.abs(numeric) < 1e12 ? numeric * 1000 : numeric;
-      const parsedNumeric = new Date(normalized);
-      return Number.isFinite(parsedNumeric.getTime()) ? parsedNumeric : null;
-    }
-
-    const parsed = new Date(trimmed);
-    return Number.isFinite(parsed.getTime()) ? parsed : null;
+    return parseNaiveIsoString(trimmed);
   }
 
   return null;
+}
+
+export function normalizeNaiveDateTimeString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return parseNaiveIsoString(trimmed);
 }
 
 export function validateIncomingDevicePayload(payload: unknown): {
   valid: boolean;
   message?: string;
   parsed?: IncomingDeviceDataPayload;
-  parsedDate?: Date;
+  parsedTimestamp?: string;
 } {
   if (typeof payload !== "object" || payload === null) {
     return { valid: false, message: "payload must be an object" };
@@ -135,20 +129,6 @@ export function validateIncomingDevicePayload(payload: unknown): {
   if (!isPositiveInteger(deviceIdRaw) && !isStringDeviceId) {
     return { valid: false, message: "deviceId must be a positive integer or non-empty string" };
   }
-
-  const timestampCandidate =
-    raw.timestamp ??
-    raw.end_time ??
-    raw.endTime ??
-    raw.start_time ??
-    raw.startTime ??
-    new Date().toISOString();
-
-  const parsedDate = parseTimestampLike(timestampCandidate);
-  if (!parsedDate) {
-    return { valid: false, message: "timestamp is invalid" };
-  }
-  const timestamp = parsedDate.toISOString();
 
   const matrixValidation = validateDeviceMatrix(raw.data);
   if (!matrixValidation.valid) {
@@ -214,8 +194,8 @@ export function validateIncomingDevicePayload(payload: unknown): {
     parsedFrequencyBins = bins;
   }
 
-  const startTimeCandidate = raw.start_time ?? raw.startTime ?? timestamp;
-  const endTimeCandidate = raw.end_time ?? raw.endTime ?? timestamp;
+  const startTimeCandidate = raw.start_time ?? raw.startTime ?? raw.timestamp;
+  const endTimeCandidate = raw.end_time ?? raw.endTime ?? raw.timestamp;
 
   const parsedStart = parseTimestampLike(startTimeCandidate);
   const parsedEnd = parseTimestampLike(endTimeCandidate);
@@ -223,21 +203,23 @@ export function validateIncomingDevicePayload(payload: unknown): {
     return { valid: false, message: "start_time/end_time are invalid" };
   }
 
-  const startTime = parsedStart.toISOString();
-  const endTime = parsedEnd.toISOString();
-
-  if (parsedStart.getTime() > parsedEnd.getTime()) {
+  if (parsedStart > parsedEnd) {
     return { valid: false, message: "start_time must be before or equal to end_time" };
+  }
+
+  const parsedTimestamp = parseTimestampLike(raw.timestamp ?? parsedEnd);
+  if (!parsedTimestamp) {
+    return { valid: false, message: "timestamp is invalid" };
   }
 
   return {
     valid: true,
-    parsedDate,
+    parsedTimestamp,
     parsed: {
       deviceId: isStringDeviceId ? deviceIdRaw.trim() : (deviceIdRaw as number),
-      timestamp,
-      startTime,
-      endTime,
+      timestamp: parsedTimestamp,
+      startTime: parsedStart,
+      endTime: parsedEnd,
       data: raw.data as number[][],
       frequencyBins: parsedFrequencyBins,
       intensityType: parsedIntensityType

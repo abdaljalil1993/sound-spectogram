@@ -419,15 +419,28 @@
       return NaN;
     }
 
-    var numericValue = Number(value);
-    var ms;
-    if (Number.isFinite(numericValue)) {
-      ms = Math.abs(numericValue) < 1e12 ? numericValue * 1000 : numericValue;
-    } else {
-      ms = new Date(value).getTime();
+    if (typeof value === "string") {
+      var trimmed = value.trim();
+      var naiveMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
+      if (naiveMatch) {
+        return Date.UTC(
+          Number(naiveMatch[1]),
+          Number(naiveMatch[2]) - 1,
+          Number(naiveMatch[3]),
+          Number(naiveMatch[4]),
+          Number(naiveMatch[5]),
+          Number(naiveMatch[6] || 0),
+          Number(String(naiveMatch[7] || "0").padEnd(3, "0"))
+        );
+      }
     }
 
-    return Number.isFinite(ms) ? ms : NaN;
+    var numericValue = Number(value);
+    if (Number.isFinite(numericValue)) {
+      return numericValue;
+    }
+
+    return NaN;
   }
 
   function getCachedMs(block, cacheKey, fallbackKeys) {
@@ -468,14 +481,29 @@
 
   function formatTimeLabel(ms, withDate) {
     var d = new Date(ms);
-    var hh = String(d.getHours()).padStart(2, "0");
-    var mm = String(d.getMinutes()).padStart(2, "0");
+    var hh = String(d.getUTCHours()).padStart(2, "0");
+    var mm = String(d.getUTCMinutes()).padStart(2, "0");
     if (!withDate) return hh + ":" + mm;
 
-    var yyyy = d.getFullYear();
-    var mon = String(d.getMonth() + 1).padStart(2, "0");
-    var day = String(d.getDate()).padStart(2, "0");
+    var yyyy = d.getUTCFullYear();
+    var mon = String(d.getUTCMonth() + 1).padStart(2, "0");
+    var day = String(d.getUTCDate()).padStart(2, "0");
     return yyyy + "-" + mon + "-" + day + " " + hh + ":" + mm;
+  }
+
+  function formatNaiveDateTimeMs(ms) {
+    var d = new Date(ms);
+    if (Number.isNaN(d.getTime())) {
+      return "";
+    }
+
+    var yyyy = String(d.getUTCFullYear());
+    var mon = String(d.getUTCMonth() + 1).padStart(2, "0");
+    var day = String(d.getUTCDate()).padStart(2, "0");
+    var hh = String(d.getUTCHours()).padStart(2, "0");
+    var mm = String(d.getUTCMinutes()).padStart(2, "0");
+    var ss = String(d.getUTCSeconds()).padStart(2, "0");
+    return yyyy + "-" + mon + "-" + day + "T" + hh + ":" + mm + ":" + ss;
   }
 
   function formatDisplayedFrequencyLabel(hz) {
@@ -1987,8 +2015,8 @@
       },
       gaps: gapRenderInfo.map(function (gap) {
         return {
-          start: new Date(gap.start).toISOString(),
-          end: new Date(gap.end).toISOString(),
+          start: formatNaiveDateTimeMs(gap.start),
+          end: formatNaiveDateTimeMs(gap.end),
           durationMs: gap.durationMs,
           xStart: gap.xStart,
           xEnd: gap.xEnd

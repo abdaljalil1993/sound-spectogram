@@ -11,6 +11,7 @@ import {
 } from "../utils/types";
 import {
   isPositiveInteger,
+  normalizeNaiveDateTimeString,
   validateDeviceMatrix,
   validateIncomingDevicePayload
 } from "../utils/validation";
@@ -79,8 +80,8 @@ export class HistoryService {
 
   private decodeHistoryItems(items: DeviceHistory[]): DeviceHistory[] {
     return items.map((item) => {
-      const resolvedEnd = item.endTime || item.timestamp;
-      const resolvedStart = item.startTime || resolvedEnd;
+      const resolvedEnd = normalizeNaiveDateTimeString(item.endTime || item.timestamp) || item.timestamp;
+      const resolvedStart = normalizeNaiveDateTimeString(item.startTime || resolvedEnd) || resolvedEnd;
 
       return {
         ...item,
@@ -93,27 +94,38 @@ export class HistoryService {
     });
   }
 
+  private formatLocalNaiveDateTime(value: Date): string {
+    const year = String(value.getFullYear()).padStart(4, "0");
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    const hours = String(value.getHours()).padStart(2, "0");
+    const minutes = String(value.getMinutes()).padStart(2, "0");
+    const seconds = String(value.getSeconds()).padStart(2, "0");
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  }
+
   private async normalizeIncomingPayload(payload: unknown): Promise<{
     parsed: IncomingDeviceDataPayload;
-    parsedDate: Date;
-    parsedStartDate: Date;
-    parsedEndDate: Date;
+    parsedTimestamp: string;
+    parsedStartTime: string;
+    parsedEndTime: string;
     resolvedDeviceId: number;
     resolvedDeviceName: string;
   }> {
     const validation = validateIncomingDevicePayload(payload);
-    if (!validation.valid || !validation.parsed || !validation.parsedDate) {
+    if (!validation.valid || !validation.parsed || !validation.parsedTimestamp) {
       throw new HttpError(400, validation.message || "Invalid payload");
     }
 
     const parsed: IncomingDeviceDataPayload = validation.parsed;
-    const parsedStartDate = new Date(parsed.startTime || parsed.timestamp);
-    const parsedEndDate = new Date(parsed.endTime || parsed.timestamp);
-    if (Number.isNaN(parsedStartDate.getTime()) || Number.isNaN(parsedEndDate.getTime())) {
+    const parsedStartTime = normalizeNaiveDateTimeString(parsed.startTime || parsed.timestamp);
+    const parsedEndTime = normalizeNaiveDateTimeString(parsed.endTime || parsed.timestamp);
+    if (!parsedStartTime || !parsedEndTime) {
       throw new HttpError(400, "start_time/end_time are invalid");
     }
 
-    if (parsedStartDate.getTime() > parsedEndDate.getTime()) {
+    if (parsedStartTime > parsedEndTime) {
       throw new HttpError(400, "start_time must be before or equal to end_time");
     }
 
@@ -121,9 +133,9 @@ export class HistoryService {
 
     return {
       parsed,
-      parsedDate: validation.parsedDate,
-      parsedStartDate,
-      parsedEndDate,
+      parsedTimestamp: validation.parsedTimestamp,
+      parsedStartTime,
+      parsedEndTime,
       resolvedDeviceId: device.id,
       resolvedDeviceName: device.name
     };
@@ -136,9 +148,9 @@ export class HistoryService {
       deviceId: normalized.resolvedDeviceId,
       deviceName: normalized.resolvedDeviceName,
       sourceDeviceId: normalized.parsed.deviceId,
-      timestamp: normalized.parsedDate.toISOString(),
-      startTime: normalized.parsedStartDate.toISOString(),
-      endTime: normalized.parsedEndDate.toISOString(),
+      timestamp: normalized.parsedTimestamp,
+      startTime: normalized.parsedStartTime,
+      endTime: normalized.parsedEndTime,
       data: normalized.parsed.data,
       frequencyBins: normalized.parsed.frequencyBins,
       intensityType: normalized.parsed.intensityType,
@@ -152,8 +164,8 @@ export class HistoryService {
     const existing = await this.historyRepo.findOne({
       where: {
         deviceId: normalized.resolvedDeviceId,
-        startTime: normalized.parsedStartDate,
-        endTime: normalized.parsedEndDate
+        startTime: normalized.parsedStartTime,
+        endTime: normalized.parsedEndTime
       }
     });
 
@@ -163,8 +175,8 @@ export class HistoryService {
       console.info("[HistoryService] Duplicate packet skipped", {
         deviceId: normalized.resolvedDeviceId,
         deviceName: normalized.resolvedDeviceName,
-        startTime: normalized.parsedStartDate.toISOString(),
-        endTime: normalized.parsedEndDate.toISOString(),
+        startTime: normalized.parsedStartTime,
+        endTime: normalized.parsedEndTime,
         existingHistoryId: existing.id,
         preservedFrequencyBins: preservedFrequencyBins ? preservedFrequencyBins.length : 0
       });
@@ -173,9 +185,9 @@ export class HistoryService {
         deviceId: existing.deviceId,
         deviceName: normalized.resolvedDeviceName,
         sourceDeviceId: normalized.parsed.deviceId,
-        timestamp: existing.timestamp.toISOString(),
-        startTime: (existing.startTime || normalized.parsedStartDate).toISOString(),
-        endTime: (existing.endTime || normalized.parsedEndDate).toISOString(),
+        timestamp: normalizeNaiveDateTimeString(existing.timestamp) || existing.timestamp,
+        startTime: normalizeNaiveDateTimeString(existing.startTime || normalized.parsedStartTime) || normalized.parsedStartTime,
+        endTime: normalizeNaiveDateTimeString(existing.endTime || normalized.parsedEndTime) || normalized.parsedEndTime,
         data: normalized.parsed.data,
         frequencyBins: preservedFrequencyBins ?? undefined,
         intensityType: normalized.parsed.intensityType,
@@ -185,9 +197,9 @@ export class HistoryService {
 
     const entity = this.historyRepo.create({
       deviceId: normalized.resolvedDeviceId,
-      timestamp: normalized.parsedEndDate,
-      startTime: normalized.parsedStartDate,
-      endTime: normalized.parsedEndDate,
+      timestamp: normalized.parsedTimestamp,
+      startTime: normalized.parsedStartTime,
+      endTime: normalized.parsedEndTime,
       data: this.compressMatrix(normalized.parsed.data),
       frequencyBins: normalized.parsed.frequencyBins ?? null
     });
@@ -197,8 +209,8 @@ export class HistoryService {
     console.info("[HistoryService] Packet inserted", {
       deviceId: saved.deviceId,
       deviceName: normalized.resolvedDeviceName,
-      startTime: normalized.parsedStartDate.toISOString(),
-      endTime: normalized.parsedEndDate.toISOString(),
+      startTime: normalized.parsedStartTime,
+      endTime: normalized.parsedEndTime,
       historyId: saved.id
     });
 
@@ -206,9 +218,9 @@ export class HistoryService {
       deviceId: saved.deviceId,
       deviceName: normalized.resolvedDeviceName,
       sourceDeviceId: normalized.parsed.deviceId,
-      timestamp: saved.timestamp.toISOString(),
-      startTime: (saved.startTime || normalized.parsedStartDate).toISOString(),
-      endTime: (saved.endTime || normalized.parsedEndDate).toISOString(),
+      timestamp: normalizeNaiveDateTimeString(saved.timestamp) || saved.timestamp,
+      startTime: normalizeNaiveDateTimeString(saved.startTime || normalized.parsedStartTime) || normalized.parsedStartTime,
+      endTime: normalizeNaiveDateTimeString(saved.endTime || normalized.parsedEndTime) || normalized.parsedEndTime,
       data: normalized.parsed.data,
       frequencyBins: normalized.parsed.frequencyBins,
       intensityType: normalized.parsed.intensityType,
@@ -223,7 +235,7 @@ export class HistoryService {
 
     await this.deviceService.verifyDeviceExists(deviceId);
 
-    const fromDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const fromDate = this.formatLocalNaiveDateTime(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
     const items = await this.historyRepo.find({
       where: {
@@ -238,63 +250,33 @@ export class HistoryService {
     return this.decodeHistoryItems(items);
   }
 
-  async getHistoryByDateRange(deviceId: number, from: Date, to: Date): Promise<DeviceHistory[]> {
+  async getHistoryByDateRange(deviceId: number, from: string, to: string): Promise<DeviceHistory[]> {
     if (!isPositiveInteger(deviceId)) {
       throw new HttpError(400, "device id must be a positive integer");
     }
 
-    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    const normalizedFrom = normalizeNaiveDateTimeString(from);
+    const normalizedTo = normalizeNaiveDateTimeString(to);
+    if (!normalizedFrom || !normalizedTo) {
       throw new HttpError(400, "from and to must be valid dates");
     }
 
-    if (from > to) {
+    if (normalizedFrom > normalizedTo) {
       throw new HttpError(400, "from must be before to");
     }
 
     await this.deviceService.verifyDeviceExists(deviceId);
 
-    const skewMs = HistoryService.LEGACY_TIME_SKEW_MS;
-    const fromPlusSkew = new Date(from.getTime() + skewMs);
-    const toPlusSkew = new Date(to.getTime() + skewMs);
-    const fromMinusSkew = new Date(from.getTime() - skewMs);
-    const toMinusSkew = new Date(to.getTime() - skewMs);
-
     const items = await this.historyRepo.find({
       where: [
         {
           deviceId,
-          startTime: LessThanOrEqual(to),
-          endTime: MoreThanOrEqual(from)
+          startTime: LessThanOrEqual(normalizedTo),
+          endTime: MoreThanOrEqual(normalizedFrom)
         },
         {
           deviceId,
-          timestamp: Between(from, to)
-        },
-        {
-          deviceId,
-          timestamp: Between(fromPlusSkew, toPlusSkew)
-        },
-        {
-          deviceId,
-          timestamp: Between(fromMinusSkew, toMinusSkew)
-        },
-        {
-          deviceId,
-          startTime: IsNull(),
-          endTime: IsNull(),
-          timestamp: Between(from, to)
-        },
-        {
-          deviceId,
-          startTime: LessThanOrEqual(to),
-          endTime: IsNull(),
-          timestamp: MoreThanOrEqual(from)
-        },
-        {
-          deviceId,
-          startTime: IsNull(),
-          endTime: MoreThanOrEqual(from),
-          timestamp: LessThanOrEqual(to)
+          timestamp: Between(normalizedFrom, normalizedTo)
         }
       ],
       order: {

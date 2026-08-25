@@ -24,13 +24,13 @@ export class DeviceHistory {
   device!: Device;
 
   @Column({ type: "datetime" })
-  timestamp!: Date;
+  timestamp!: string;
 
   @Column({ type: "datetime", nullable: true })
-  startTime!: Date | null;
+  startTime!: string | null;
 
   @Column({ type: "datetime", nullable: true })
-  endTime!: Date | null;
+  endTime!: string | null;
 
   @Column({ type: "json" })
   data!: StoredDeviceMatrix;

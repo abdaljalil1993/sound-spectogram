@@ -15,5 +15,8 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE,
   entities: [User, Device, DeviceHistory],
   synchronize: !isProduction,
-  logging: false
+  logging: false,
+  extra: {
+    dateStrings: true
+  }
 });

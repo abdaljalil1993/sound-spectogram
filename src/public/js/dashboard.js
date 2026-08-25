@@ -639,19 +639,88 @@
     applyColorMap(activeColorMap === "magma" ? "sunset" : "magma");
   }
 
+  function normalizeNaiveDateTimeString(value) {
+    if (value === null || value === undefined) {
+      return "";
+    }
+
+    if (typeof value !== "string") {
+      return "";
+    }
+
+    var trimmed = value.trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    var match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
+    if (!match) {
+      return "";
+    }
+
+    var year = match[1];
+    var month = match[2];
+    var day = match[3];
+    var hours = match[4];
+    var minutes = match[5];
+    var seconds = match[6] || "00";
+    return year + "-" + month + "-" + day + "T" + hours + ":" + minutes + ":" + seconds;
+  }
+
+  function formatNaiveDateTimeMs(value, withDate) {
+    var ms = Number(value);
+    if (!Number.isFinite(ms)) {
+      return "-";
+    }
+
+    var date = new Date(ms);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+
+    var year = String(date.getFullYear());
+    var month = String(date.getMonth() + 1).padStart(2, "0");
+    var day = String(date.getDate()).padStart(2, "0");
+    var hours = String(date.getHours()).padStart(2, "0");
+    var minutes = String(date.getMinutes()).padStart(2, "0");
+    var seconds = String(date.getSeconds()).padStart(2, "0");
+
+    if (!withDate) {
+      return hours + ":" + minutes;
+    }
+
+    return year + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
+  }
+
   function parseFlexibleTimeMs(value) {
     if (value === null || value === undefined || value === "") {
       return NaN;
     }
 
-    var numericValue = Number(value);
-    if (Number.isFinite(numericValue)) {
-      var normalized = Math.abs(numericValue) < 1e12 ? numericValue * 1000 : numericValue;
-      return Number.isFinite(normalized) ? normalized : NaN;
+    if (typeof value === "string") {
+      var normalizedValue = normalizeNaiveDateTimeString(value);
+      if (normalizedValue) {
+        var matched = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/);
+        if (matched) {
+          return Date.UTC(
+            Number(matched[1]),
+            Number(matched[2]) - 1,
+            Number(matched[3]),
+            Number(matched[4]),
+            Number(matched[5]),
+            Number(matched[6]),
+            0
+          );
+        }
+      }
     }
 
-    var parsed = new Date(value).getTime();
-    return Number.isFinite(parsed) ? parsed : NaN;
+    var numericValue = Number(value);
+    if (Number.isFinite(numericValue)) {
+      return numericValue;
+    }
+
+    return NaN;
   }
 
   function getPacketStartMs(packet) {
@@ -755,8 +824,8 @@
     var toMs = Date.now();
     var fromMs = toMs - DEFAULT_LIVE_WINDOW_MS;
     return {
-      fromIso: new Date(fromMs).toISOString(),
-      toIso: new Date(toMs).toISOString()
+      fromIso: formatNaiveDateTimeMs(fromMs, true),
+      toIso: formatNaiveDateTimeMs(toMs, true)
     };
   }
 
@@ -769,8 +838,8 @@
     var toMs = Date.now();
     var fromMs = toMs - Math.round(safeHours * 60 * 60 * 1000);
     return {
-      fromIso: new Date(fromMs).toISOString(),
-      toIso: new Date(toMs).toISOString()
+      fromIso: formatNaiveDateTimeMs(fromMs, true),
+      toIso: formatNaiveDateTimeMs(toMs, true)
     };
   }
 
@@ -805,7 +874,7 @@
   }
 
   function toIso(dateTimeLocalValue) {
-    return new Date(dateTimeLocalValue).toISOString();
+    return normalizeNaiveDateTimeString(dateTimeLocalValue);
   }
 
   function formatDateOnly(date) {
@@ -822,18 +891,14 @@
   }
 
   function formatLocalDateTime(value) {
-    var date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return "-";
+    if (typeof value === "string") {
+      var normalized = normalizeNaiveDateTimeString(value);
+      if (normalized) {
+        return normalized.replace("T", " ");
+      }
     }
 
-    var year = date.getFullYear();
-    var month = String(date.getMonth() + 1).padStart(2, "0");
-    var day = String(date.getDate()).padStart(2, "0");
-    var hours = String(date.getHours()).padStart(2, "0");
-    var minutes = String(date.getMinutes()).padStart(2, "0");
-    var seconds = String(date.getSeconds()).padStart(2, "0");
-    return year + "-" + month + "-" + day + " " + hours + ":" + minutes + ":" + seconds;
+    return formatNaiveDateTimeMs(value, true);
   }
 
   function buildSameDayRange(dayValue, fromTimeValue, toTimeValue) {
@@ -954,8 +1019,8 @@
     if (liveFollowEnabled) {
       toMs = Date.now();
       fromMs = toMs - currentLiveWindowMs;
-      activeFromIso = new Date(fromMs).toISOString();
-      activeToIso = new Date(toMs).toISOString();
+      activeFromIso = formatNaiveDateTimeMs(fromMs, true);
+      activeToIso = formatNaiveDateTimeMs(toMs, true);
       viewportFromMs = fromMs;
       viewportToMs = toMs;
 
@@ -968,8 +1033,8 @@
       fromMs = viewportFromMs;
       toMs = viewportToMs;
     } else {
-      fromMs = new Date(activeFromIso || "").getTime();
-      toMs = new Date(activeToIso || "").getTime();
+      fromMs = parseFlexibleTimeMs(activeFromIso);
+      toMs = parseFlexibleTimeMs(activeToIso);
       viewportFromMs = fromMs;
       viewportToMs = toMs;
     }
@@ -1044,8 +1109,8 @@
       canvas: canvas,
       legendCanvas: legendCanvas,
       blocks: visiblePackets,
-      from: new Date(fromMs).toISOString(),
-      to: new Date(toMs).toISOString(),
+      from: formatNaiveDateTimeMs(fromMs, true),
+      to: formatNaiveDateTimeMs(toMs, true),
       fastMode: !!renderOptions.skipTable,
       assumeSorted: true,
       intensityMode: activeIntensityMode,
@@ -1166,13 +1231,12 @@
     visiblePackets.forEach(function (packet) {
       var rowCount = Array.isArray(packet.data) ? packet.data.length : 0;
       var colCount = rowCount > 0 && Array.isArray(packet.data[0]) ? packet.data[0].length : 0;
-      var startLocal = formatLocalDateTime(getPacketStartMs(packet));
-      var endLocal = formatLocalDateTime(getPacketEndMs(packet));
+      var startLocal = formatLocalDateTime(packet.startTime || packet.start_time || packet.timestamp);
+      var endLocal = formatLocalDateTime(packet.endTime || packet.end_time || packet.timestamp);
       var durationMin = Math.max(
         0,
         Math.round(
-          (getPacketEndMs(packet) - getPacketStartMs(packet)) /
-            60000
+          (getPacketEndMs(packet) - getPacketStartMs(packet)) / 60000
         )
       );
 
@@ -1272,8 +1336,8 @@
     var latestToMs = Date.now();
     var latestFromMs = latestToMs - currentLiveWindowMs;
     activeRangeMode = currentLiveWindowMs === ONE_HOUR_WINDOW_MS ? "latest1h" : "latest30m";
-    activeFromIso = new Date(latestFromMs).toISOString();
-    activeToIso = new Date(latestToMs).toISOString();
+    activeFromIso = formatNaiveDateTimeMs(latestFromMs, true);
+    activeToIso = formatNaiveDateTimeMs(latestToMs, true);
     viewportFromMs = latestFromMs;
     viewportToMs = latestToMs;
     followLatest24 = true;
@@ -1426,8 +1490,8 @@
     var padding = Math.max(60 * 1000, Math.round((maxEnd - minStart) * 0.04));
     viewportFromMs = minStart - padding;
     viewportToMs = maxEnd + padding;
-    activeFromIso = new Date(viewportFromMs).toISOString();
-    activeToIso = new Date(viewportToMs).toISOString();
+    activeFromIso = formatNaiveDateTimeMs(viewportFromMs, true);
+    activeToIso = formatNaiveDateTimeMs(viewportToMs, true);
     scheduleRender({ skipTable: false });
   }
 
@@ -1546,8 +1610,8 @@
         throw new Error("Requested range is outside the allowed window.");
       }
 
-      var effectiveFromIso = new Date(effectiveFromMs).toISOString();
-      var effectiveToIso = new Date(effectiveToMs).toISOString();
+      var effectiveFromIso = formatNaiveDateTimeMs(effectiveFromMs, true);
+      var effectiveToIso = formatNaiveDateTimeMs(effectiveToMs, true);
 
       if (effectiveFromMs !== requestedFromMs || clampedByNow) {
         setGlobalMessage("Range was clamped to max 24 hours and current time.", false);
@@ -1580,8 +1644,8 @@
             : "latest30m";
       var latestToMs = nowMs;
       var latestFromMs = latestToMs - currentLiveWindowMs;
-      activeFromIso = new Date(latestFromMs).toISOString();
-      activeToIso = new Date(latestToMs).toISOString();
+      activeFromIso = formatNaiveDateTimeMs(latestFromMs, true);
+      activeToIso = formatNaiveDateTimeMs(latestToMs, true);
       followLatest24 = true;
       liveFollowEnabled = true;
       viewportFromMs = latestFromMs;
@@ -1704,8 +1768,8 @@
     liveFollowEnabled = false;
     viewportFromMs = latestStartMs;
     viewportToMs = effectiveEnd;
-    activeFromIso = new Date(viewportFromMs).toISOString();
-    activeToIso = new Date(viewportToMs).toISOString();
+    activeFromIso = formatNaiveDateTimeMs(viewportFromMs, true);
+    activeToIso = formatNaiveDateTimeMs(viewportToMs, true);
     scheduleRender({ skipTable: false });
     setGlobalMessage("Latest packet focused. Use -5m to step backward.", false);
   }
@@ -1731,7 +1795,7 @@
     var targetToMs = baseToMs - stepMs;
     var targetFromMs = targetToMs - span;
 
-    await loadDeviceHistory(selectedDeviceId, new Date(targetFromMs).toISOString(), new Date(targetToMs).toISOString());
+    await loadDeviceHistory(selectedDeviceId, formatNaiveDateTimeMs(targetFromMs, true), formatNaiveDateTimeMs(targetToMs, true));
     setGlobalMessage("Shifted backward by " + stepMinutes + " minutes", false);
   }
 
@@ -2445,9 +2509,9 @@
     return (
       "Data Gap<br>" +
       "Start: " +
-      new Date(gap.start).toISOString() +
+      formatLocalDateTime(gap.start) +
       "<br>End: " +
-      new Date(gap.end).toISOString() +
+      formatLocalDateTime(gap.end) +
       "<br>Duration: " +
       mins +
       " min"
@@ -2615,7 +2679,7 @@
     return (
       "Probe\u00a0Point<br>" +
       "Time: " +
-      new Date(info.timeMs).toISOString() +
+      new Date(info.timeMs).toISOString().replace(".000Z", "") +
       "<br>Frequency: " +
       frequencyText +
       "<br>Raw value: " +

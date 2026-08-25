@@ -58,7 +58,8 @@
       "T" +
       pad(date.getHours()) +
       ":" +
-      pad(date.getMinutes())
+      pad(date.getMinutes()) +
+      ":00"
     );
   }
 
@@ -317,7 +318,13 @@
     setStatus("جاري قراءة بيانات التاريخ من قاعدة البيانات...");
 
     try {
-      var url = "/api/devices/" + deviceId + "/history?from=" + encodeURIComponent(fromDate.toISOString()) + "&to=" + encodeURIComponent(toDate.toISOString());
+      var url =
+        "/api/devices/" +
+        deviceId +
+        "/history?from=" +
+        encodeURIComponent(fromInput.value) +
+        "&to=" +
+        encodeURIComponent(toInput.value);
       var items = await requestJson(url);
       var blocks = normalizeBlocks(items);
 

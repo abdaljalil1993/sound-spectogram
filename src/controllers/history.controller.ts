@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { HistoryService } from "../services/history.service";
 import { HttpError } from "../utils/http-error";
-import { isPositiveInteger } from "../utils/validation";
+import { isPositiveInteger, normalizeNaiveDateTimeString } from "../utils/validation";
 
 const historyService = new HistoryService();
 
@@ -20,9 +20,13 @@ export const historyController = {
           throw new HttpError(400, "both from and to are required for range queries");
         }
 
-        const fromDate = new Date(from);
-        const toDate = new Date(to);
-        const items = await historyService.getHistoryByDateRange(deviceId, fromDate, toDate);
+        const normalizedFrom = normalizeNaiveDateTimeString(from);
+        const normalizedTo = normalizeNaiveDateTimeString(to);
+        if (!normalizedFrom || !normalizedTo) {
+          throw new HttpError(400, "from and to must be valid dates");
+        }
+
+        const items = await historyService.getHistoryByDateRange(deviceId, normalizedFrom, normalizedTo);
         console.info("[HistoryController] Range query", {
           deviceId,
           from,
