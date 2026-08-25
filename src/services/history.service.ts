@@ -80,12 +80,13 @@ export class HistoryService {
 
   private decodeHistoryItems(items: DeviceHistory[]): DeviceHistory[] {
     return items.map((item) => {
-      const resolvedEnd = normalizeNaiveDateTimeString(item.endTime || item.timestamp) || item.timestamp;
+      const resolvedTimestamp = normalizeNaiveDateTimeString(item.timestamp) || String(item.timestamp);
+      const resolvedEnd = normalizeNaiveDateTimeString(item.endTime || item.timestamp) || resolvedTimestamp;
       const resolvedStart = normalizeNaiveDateTimeString(item.startTime || resolvedEnd) || resolvedEnd;
 
       return {
         ...item,
-        timestamp: resolvedEnd,
+        timestamp: resolvedTimestamp,
         startTime: resolvedStart,
         endTime: resolvedEnd,
         data: this.decodeMatrix(item.data),

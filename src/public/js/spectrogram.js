@@ -419,6 +419,10 @@
       return NaN;
     }
 
+    if (value instanceof Date) {
+      return Number.isFinite(value.getTime()) ? value.getTime() : NaN;
+    }
+
     if (typeof value === "string") {
       var trimmed = value.trim();
       var naiveMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
@@ -432,6 +436,11 @@
           Number(naiveMatch[6] || 0),
           Number(String(naiveMatch[7] || "0").padEnd(3, "0"))
         ).getTime();
+      }
+
+      var parsedFromString = new Date(trimmed).getTime();
+      if (Number.isFinite(parsedFromString)) {
+        return parsedFromString;
       }
     }
 

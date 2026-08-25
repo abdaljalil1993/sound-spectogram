@@ -55,6 +55,17 @@ function parseNaiveIsoString(value: string): string | null {
   return formatPartsToNaiveIso(year, month, day, hour, minute, second, millis);
 }
 
+function formatDateToNaiveIso(value: Date): string {
+  const year = String(value.getFullYear()).padStart(4, "0");
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  const hour = String(value.getHours()).padStart(2, "0");
+  const minute = String(value.getMinutes()).padStart(2, "0");
+  const second = String(value.getSeconds()).padStart(2, "0");
+  const millis = String(value.getMilliseconds()).padStart(3, "0");
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}.${millis}`.replace(/\.000$/, "");
+}
+
 export function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
@@ -93,6 +104,15 @@ function parseTimestampLike(value: unknown): string | null {
 }
 
 export function normalizeNaiveDateTimeString(value: unknown): string | null {
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? formatDateToNaiveIso(value) : null;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? formatDateToNaiveIso(parsed) : null;
+  }
+
   if (typeof value !== "string") {
     return null;
   }
@@ -102,7 +122,13 @@ export function normalizeNaiveDateTimeString(value: unknown): string | null {
     return null;
   }
 
-  return parseNaiveIsoString(trimmed);
+  const parsed = parseNaiveIsoString(trimmed);
+  if (parsed) {
+    return parsed;
+  }
+
+  const date = new Date(trimmed);
+  return Number.isFinite(date.getTime()) ? formatDateToNaiveIso(date) : null;
 }
 
 export function validateIncomingDevicePayload(payload: unknown): {

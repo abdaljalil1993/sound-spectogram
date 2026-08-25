@@ -644,6 +644,17 @@
       return "";
     }
 
+    if (value instanceof Date) {
+      if (Number.isNaN(value.getTime())) {
+        return "";
+      }
+      return formatNaiveDateTimeMs(value.getTime(), true).replace(" ", "T");
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return formatNaiveDateTimeMs(value, true).replace(" ", "T");
+    }
+
     if (typeof value !== "string") {
       return "";
     }
@@ -665,6 +676,20 @@
     var minutes = match[5];
     var seconds = match[6] || "00";
     return year + "-" + month + "-" + day + "T" + hours + ":" + minutes + ":" + seconds;
+  }
+
+  function normalizeAnyDateTimeString(value) {
+    var normalized = normalizeNaiveDateTimeString(value);
+    if (normalized) {
+      return normalized;
+    }
+
+    var parsed = value instanceof Date ? value : new Date(value);
+    if (!parsed || Number.isNaN(parsed.getTime())) {
+      return "";
+    }
+
+    return formatNaiveDateTimeMs(parsed.getTime(), true).replace(" ", "T");
   }
 
   function formatNaiveDateTimeMs(value, withDate) {
@@ -698,7 +723,7 @@
     }
 
     if (typeof value === "string") {
-      var normalizedValue = normalizeNaiveDateTimeString(value);
+      var normalizedValue = normalizeAnyDateTimeString(value);
       if (normalizedValue) {
         var matched = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/);
         if (matched) {
@@ -891,11 +916,9 @@
   }
 
   function formatLocalDateTime(value) {
-    if (typeof value === "string") {
-      var normalized = normalizeNaiveDateTimeString(value);
-      if (normalized) {
-        return normalized.replace("T", " ");
-      }
+    var normalized = normalizeAnyDateTimeString(value);
+    if (normalized) {
+      return normalized.replace("T", " ");
     }
 
     return formatNaiveDateTimeMs(value, true);
