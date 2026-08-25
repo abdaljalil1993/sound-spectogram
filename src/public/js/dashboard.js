@@ -1030,6 +1030,7 @@
 
   function renderLatestPacket(options) {
     var renderOptions = options || {};
+    updateFollowLiveButtonState();
     probeTooltipEl.classList.add("hidden");
     if (!currentPackets.length) {
       historyInfoEl.textContent = "No data available for the selected device.";
@@ -1043,12 +1044,9 @@
     var fromMs;
     var toMs;
     if (liveFollowEnabled) {
-      toMs = Date.now();
-      fromMs = toMs - currentLiveWindowMs;
-      activeFromIso = formatNaiveDateTimeMs(fromMs, true);
-      activeToIso = formatNaiveDateTimeMs(toMs, true);
-      viewportFromMs = fromMs;
-      viewportToMs = toMs;
+      syncLatestLiveViewport();
+      toMs = viewportToMs;
+      fromMs = viewportFromMs;
 
       // Keep only recent packets in memory for the rolling live view window.
       currentPackets = currentPackets.filter(function (packet) {
@@ -1286,6 +1284,12 @@
     });
   }
 
+  function updateFollowLiveButtonState() {
+    var isActive = !!liveFollowEnabled;
+    followLiveBtn.classList.toggle("follow-live-active", isActive);
+    followLiveBtn.setAttribute("aria-pressed", isActive ? "true" : "false");
+  }
+
   function scheduleRender(options) {
     pendingRenderOptions = Object.assign({}, pendingRenderOptions || {}, options || {});
     if (renderRafId !== null) {
@@ -1358,8 +1362,30 @@
     return true;
   }
 
-  function syncLatestLiveViewport() {
-    var latestToMs = Date.now();
+  function getLatestPacketEndMs() {
+    if (!currentPackets.length) {
+      return NaN;
+    }
+
+    var latest = currentPackets[currentPackets.length - 1];
+    var endMs = getPacketEndMs(latest);
+    if (Number.isFinite(endMs)) {
+      return endMs;
+    }
+
+    var startMs = getPacketStartMs(latest);
+    if (Number.isFinite(startMs)) {
+      return startMs;
+    }
+
+    return getPacketTimestampMs(latest);
+  }
+
+  function syncLatestLiveViewport(anchorMs) {
+    var latestToMs = Number.isFinite(anchorMs) ? anchorMs : getLatestPacketEndMs();
+    if (!Number.isFinite(latestToMs)) {
+      latestToMs = Date.now();
+    }
     var latestFromMs = latestToMs - currentLiveWindowMs;
     activeRangeMode = currentLiveWindowMs === ONE_HOUR_WINDOW_MS ? "latest1h" : "latest30m";
     activeFromIso = formatNaiveDateTimeMs(latestFromMs, true);
@@ -1812,17 +1838,44 @@
     }
 
     var stepMs = Math.round(stepMinutes * 60 * 1000);
-    var span = getCurrentViewSpanMs();
-    if (!Number.isFinite(span) || span <= 0) {
-      span = stepMs;
-    }
-
     var baseToMs = Number.isFinite(viewportToMs) ? viewportToMs : Date.now();
     var targetToMs = baseToMs - stepMs;
-    var targetFromMs = targetToMs - span;
+    var targetFromMs = targetToMs - stepMs;
 
-    await loadDeviceHistory(selectedDeviceId, formatNaiveDateTimeMs(targetFromMs, true), formatNaiveDateTimeMs(targetToMs, true));
-    setGlobalMessage("Shifted backward by " + stepMinutes + " minutes", false);
+    await loadDeviceHistory(
+      selectedDeviceId,
+      formatNaiveDateTimeMs(targetFromMs, true),
+      formatNaiveDateTimeMs(targetToMs, true)
+    );
+
+    if (currentPackets.length > 0) {
+      var latestPacket = currentPackets[currentPackets.length - 1];
+      var latestStartMs = getPacketStartMs(latestPacket);
+      var latestEndMs = getPacketEndMs(latestPacket);
+      if (!Number.isFinite(latestStartMs)) {
+        latestStartMs = getPacketTimestampMs(latestPacket);
+      }
+      if (!Number.isFinite(latestEndMs)) {
+        latestEndMs = latestStartMs;
+      }
+
+      if (Number.isFinite(latestStartMs)) {
+        currentPackets = [latestPacket];
+        rebuildPacketKeySet();
+        activeRangeMode = "lastPacket";
+        followLatest24 = false;
+        liveFollowEnabled = false;
+        var effectiveEnd =
+          Number.isFinite(latestEndMs) && latestEndMs > latestStartMs ? latestEndMs : latestStartMs + 1000;
+        viewportFromMs = latestStartMs;
+        viewportToMs = effectiveEnd;
+        activeFromIso = formatNaiveDateTimeMs(viewportFromMs, true);
+        activeToIso = formatNaiveDateTimeMs(viewportToMs, true);
+      }
+    }
+
+    scheduleRender({ skipTable: false });
+    setGlobalMessage("Shifted backward by one packet (~" + stepMinutes + "m)", false);
   }
 
   async function selectDevice(device) {
@@ -2320,6 +2373,7 @@
       liveWindowMs: DEFAULT_LIVE_WINDOW_MS,
       modeLabel: "latest30m"
     });
+    updateFollowLiveButtonState();
   });
 
   applyIntensityBtn.addEventListener("click", function () {
@@ -2839,7 +2893,7 @@
       expectingLiveRender = true;
       markLiveTrace("inserted", { packetTimeMs: payloadTime });
       if (liveFollowEnabled) {
-        syncLatestLiveViewport();
+        syncLatestLiveViewport(getPacketEndMs(payload));
       }
       scheduleRender({ skipTable: false });
 
@@ -2963,6 +3017,7 @@
   debugStatsEnabledInput.checked = activeDebugStatsEnabled;
   updateIntensityControlsState();
   applyNoiseSettings();
+  updateFollowLiveButtonState();
   window.Spectrogram.drawLegend(legendCanvas);
 
   setupSocket();
