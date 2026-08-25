@@ -27,14 +27,14 @@
       var result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Login failed");
+        throw new Error(result.message || "فشل تسجيل الدخول");
       }
 
       localStorage.setItem("token", result.token);
       localStorage.setItem("user", JSON.stringify(result.user));
       window.location.href = "/dashboard";
     } catch (error) {
-      errorText.textContent = error instanceof Error ? error.message : "Login failed";
+      errorText.textContent = error instanceof Error ? error.message : "فشل تسجيل الدخول";
     }
   });
 })();

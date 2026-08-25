@@ -1454,7 +1454,7 @@
         ctx.font = "16px Segoe UI";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("No data available for the selected device.", cssWidth / 2, cssHeight / 2);
+        ctx.fillText("لا توجد بيانات للجهاز المحدد.", cssWidth / 2, cssHeight / 2);
       }
       return { gaps: [] };
     }
@@ -1880,7 +1880,7 @@
         if (gw >= 52) {
           var gapMinutes = Math.round((gap.end - gap.start) / 60000);
           ctx.fillStyle = "rgba(225, 244, 255, 0.95)";
-          ctx.fillText("NO DATA " + gapMinutes + "m", p.left + gx0 + gw / 2, p.top + 4);
+          ctx.fillText("لا توجد بيانات " + gapMinutes + " د", p.left + gx0 + gw / 2, p.top + 4);
           ctx.fillStyle = DEFAULT_CONFIG.gapFill;
         }
       }
@@ -1968,7 +1968,7 @@
         label = formatDisplayedFrequencyLabel(hz);
       } else {
         var bin = Math.round((1 - yF) * (binCount - 1));
-        label = "Band " + bin;
+        label = "نطاق " + bin;
       }
       ctx.fillText(label, p.left - 8, yPos);
     }
@@ -1980,12 +1980,12 @@
     ctx.textBaseline = "middle";
     ctx.translate(14, p.top + plotH / 2);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillText(hasRealFrequency ? "Frequency (Hz)" : "Frequency bands (Hz unavailable)", 0, 0);
+    ctx.fillText(hasRealFrequency ? "التردد (Hz)" : "نطاقات التردد (Hz غير متاح)", 0, 0);
     ctx.restore();
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("Time", p.left + plotW / 2, cssHeight - 8);
+    ctx.fillText("الزمن", p.left + plotW / 2, cssHeight - 8);
 
     if (options.legendCanvas) {
       drawLegend(options.legendCanvas, intensityMapper.legend);

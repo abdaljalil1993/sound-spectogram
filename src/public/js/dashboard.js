@@ -74,7 +74,7 @@
   var DEFAULT_LIVE_WINDOW_MS = 30 * 60 * 1000;
   var ONE_HOUR_WINDOW_MS = 60 * 60 * 1000;
   var currentLiveWindowMs = DEFAULT_LIVE_WINDOW_MS;
-  var LIVE_WINDOW_LABEL = "Latest 30m";
+  var LIVE_WINDOW_LABEL = "آخر 30 دقيقة";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
   var MAX_PACKETS_IN_MEMORY = 12000;
 
@@ -240,7 +240,8 @@
   }
 
   var isAdmin = user.role === "admin";
-  userBadgeEl.textContent = user.name + " (" + user.role + ")";
+  var roleLabel = user.role === "admin" ? "مدير" : "موظف";
+  userBadgeEl.textContent = user.name + " (" + roleLabel + ")";
 
   if (!isAdmin) {
     document.querySelectorAll(".admin-only").forEach(function (el) {
@@ -254,7 +255,7 @@
   }
 
   function setSocketStatus(isConnected, detail) {
-    var label = isConnected ? "Connected" : "Disconnected";
+    var label = isConnected ? "متصل" : "غير متصل";
 
     socketStatusBadgeEl.textContent = label;
     socketStatusBadgeEl.title = detail ? label + " | " + detail : label;
@@ -290,33 +291,33 @@
   function renderLiveTraceStatus() {
     var traceTarget = ensureLiveTraceElement();
     var text =
-      "Live trace | stage=" +
+      "تتبع مباشر | المرحلة=" +
       liveTraceCounters.lastStage +
-      " | rx=" +
+      " | الاستقبال=" +
       liveTraceCounters.received +
-      " match=" +
+      " مطابق=" +
       liveTraceCounters.matched +
-      " buffered=" +
+      " مخزن مؤقتًا=" +
       liveTraceCounters.buffered +
-      " merged=" +
+      " مدمج=" +
       liveTraceCounters.mergedFromBuffer +
-      " inserted=" +
+      " مضاف=" +
       liveTraceCounters.inserted +
-      " dup=" +
+      " مكرر=" +
       liveTraceCounters.duplicates +
-      " rendered=" +
+      " مرسوم=" +
       liveTraceCounters.rendered +
-      " dropDevice=" +
+      " مرفوض-جهاز=" +
       liveTraceCounters.droppedByDevice +
-      " dropTime=" +
+      " مرفوض-وقت=" +
       liveTraceCounters.droppedByTime +
-      " | lastPacket=" +
+      " | آخر-باكت=" +
       liveTraceCounters.lastPacketIso +
-      " | lastRender=" +
+      " | آخر-رسم=" +
       liveTraceCounters.lastRenderIso;
 
     if (liveTraceCounters.lastIssue) {
-      text += " | issue=" + liveTraceCounters.lastIssue;
+      text += " | مشكلة=" + liveTraceCounters.lastIssue;
     }
 
     traceTarget.textContent = text;
@@ -401,18 +402,18 @@
   function applyFrequencyRangeFilter() {
     var range = parseDisplayFrequencyRange();
     if (!range) {
-      setGlobalMessage("Enter valid Min and Max frequency values in Hz.", true);
+      setGlobalMessage("أدخل قيمًا صحيحة لأقل وأعلى تردد (Hz).", true);
       return;
     }
 
-    setGlobalMessage("Frequency band set to " + range.min + " Hz - " + range.max + " Hz", false);
+    setGlobalMessage("تم ضبط نطاق التردد على " + range.min + " Hz - " + range.max + " Hz", false);
     scheduleRender({ skipTable: false });
   }
 
   function clearFrequencyRangeFilter() {
     freqMinInput.value = "";
     freqMaxInput.value = "";
-    setGlobalMessage("Vertical frequency filter cleared.", false);
+    setGlobalMessage("تم مسح مرشح التردد العمودي.", false);
     scheduleRender({ skipTable: false });
   }
 
@@ -549,7 +550,7 @@
     bucketAggregationSelect.value = activeBucketAggregation;
 
     scheduleRender({ skipTable: true });
-    setGlobalMessage("Noise settings applied", false);
+    setGlobalMessage("تم تطبيق إعدادات الضجيج", false);
   }
 
   function updateIntensityControlsState() {
@@ -610,7 +611,7 @@
 
     updateIntensityControlsState();
     scheduleRender({ skipTable: true });
-    setGlobalMessage("Scale settings applied", false);
+    setGlobalMessage("تم تطبيق إعدادات المقياس", false);
   }
 
   function applyDisplayGainSettings() {
@@ -623,12 +624,12 @@
     displayGainInput.value = String(activeDisplayGainDb);
     displayGainValue.textContent = String(activeDisplayGainDb) + " dB";
     scheduleRender({ skipTable: true });
-    setGlobalMessage("Display gain applied", false);
+    setGlobalMessage("تم تطبيق كسب العرض", false);
   }
 
   function updateColorMapButtonLabel() {
-    colorMapBtn.textContent = "Colors: " + activeColorMap;
-    colorMapBtn.title = "Toggle color map (current: " + activeColorMap + ")";
+    colorMapBtn.textContent = "الألوان: " + activeColorMap;
+    colorMapBtn.title = "تبديل خريطة الألوان (الحالية: " + activeColorMap + ")";
   }
 
   function applyColorMap(colorMap) {
@@ -935,22 +936,22 @@
     var toTime = String(toTimeValue || "").trim();
 
     if (!day || !fromTime || !toTime) {
-      throw new Error("Day, from time, and to time are required");
+      throw new Error("اليوم ووقت البداية ووقت النهاية حقول مطلوبة");
     }
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-      throw new Error("Invalid day value");
+      throw new Error("قيمة اليوم غير صالحة");
     }
 
     if (!/^\d{2}:\d{2}$/.test(fromTime) || !/^\d{2}:\d{2}$/.test(toTime)) {
-      throw new Error("Invalid time value");
+      throw new Error("قيمة الوقت غير صالحة");
     }
 
     var fromLocal = day + "T" + fromTime;
     var toLocal = day + "T" + toTime;
 
     if (new Date(fromLocal).getTime() > new Date(toLocal).getTime()) {
-      throw new Error("From time must be before or equal to to time");
+      throw new Error("وقت البداية يجب أن يكون قبل أو يساوي وقت النهاية");
     }
 
     return {
@@ -988,11 +989,11 @@
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";
-      throw new Error("Session expired");
+      throw new Error("انتهت الجلسة");
     }
 
     if (!response.ok) {
-      throw new Error((data && data.message) || "Request failed");
+      throw new Error((data && data.message) || "فشل تنفيذ الطلب");
     }
 
     return data;
@@ -1035,12 +1036,12 @@
     updateFollowLiveButtonState();
     probeTooltipEl.classList.add("hidden");
     if (!currentPackets.length) {
-      historyInfoEl.textContent = "No data available for the selected device.";
+      historyInfoEl.textContent = "لا توجد بيانات للجهاز المحدد.";
       historyTableBody.innerHTML = "";
       lastRenderMeta = null;
       renderedTimeMarkerHits = [];
       gapTooltipEl.classList.add("hidden");
-      clearSpectrogramCanvas("No data available for the selected device.");
+      clearSpectrogramCanvas("لا توجد بيانات للجهاز المحدد.");
       return;
     }
 
@@ -1070,7 +1071,7 @@
       lastRenderMeta = null;
       renderedTimeMarkerHits = [];
       gapTooltipEl.classList.add("hidden");
-      clearSpectrogramCanvas("No data available for the selected device.");
+      clearSpectrogramCanvas("لا توجد بيانات للجهاز المحدد.");
       return;
     }
 
@@ -1172,43 +1173,43 @@
       var selectedViewText = activeCompareView;
       var effectiveViewText = renderResult.compareView || activeCompareView;
       var infoText =
-        "Scale selected: " +
+        "المقياس المختار: " +
         selectedScaleText +
-        " | effective: " +
+        " | الفعلي: " +
         effectiveScaleText +
-        " | View selected: " +
+        " | العرض المختار: " +
         selectedViewText +
-        " | effective: " +
+        " | الفعلي: " +
         effectiveViewText +
-        " | Intensity type: " +
-        (renderResult.intensityType || "image");
+        " | نوع الشدة: " +
+        (renderResult.intensityType || "صورة");
 
       var isScaleFallback = selectedScaleText !== effectiveScaleText;
       if (isScaleFallback) {
-        infoText += " | Note: dB modes are ignored for image intensity input";
+        infoText += " | ملاحظة: أنماط dB تُتجاهل عند إدخال شدة من نوع صورة";
       }
       setProcessingStatus(infoText, isScaleFallback);
     }
 
-    var gapInfo = " | Gaps: 0";
+    var gapInfo = " | الفجوات: 0";
     if (renderResult && Array.isArray(renderResult.gaps) && renderResult.gaps.length > 0) {
       var firstGap = renderResult.gaps[0];
       var mins = Math.round(firstGap.durationMs / 60000);
       gapInfo =
-        " | Gaps: " +
+        " | الفجوات: " +
         renderResult.gaps.length +
-        " (first: " +
+        " (الأولى: " +
         formatLocalDateTime(firstGap.start) +
         " -> " +
         formatLocalDateTime(firstGap.end) +
         ", " +
         mins +
-        "m)";
+        "د)";
     }
 
     if (displayFrequencyRange) {
       historyInfoEl.textContent +=
-        " | Vertical freq: " +
+        " | التردد العمودي: " +
         Math.round(displayFrequencyRange.min) +
         "-" +
         Math.round(displayFrequencyRange.max) +
@@ -1220,9 +1221,9 @@
     }
 
     if (renderResult && renderResult.hasRealFrequency) {
-      historyInfoEl.textContent = historyInfoEl.textContent + " | Frequency axis: Hz";
+      historyInfoEl.textContent = historyInfoEl.textContent + " | محور التردد: Hz";
     } else {
-      historyInfoEl.textContent = historyInfoEl.textContent + " | Frequency axis: bands only (add sampleRate / minFrequency / maxFrequency for Hz labels)";
+      historyInfoEl.textContent = historyInfoEl.textContent + " | محور التردد: نطاقات فقط (أضف sampleRate / minFrequency / maxFrequency لعرض Hz)";
     }
 
     if (activeDebugStatsEnabled && renderResult && renderResult.debugStats) {
@@ -1258,8 +1259,6 @@
 
     historyTableBody.innerHTML = "";
     visiblePackets.forEach(function (packet) {
-      var rowCount = Array.isArray(packet.data) ? packet.data.length : 0;
-      var colCount = rowCount > 0 && Array.isArray(packet.data[0]) ? packet.data[0].length : 0;
       var startLocal = formatLocalDateTime(packet.startTime || packet.start_time || packet.timestamp);
       var endLocal = formatLocalDateTime(packet.endTime || packet.end_time || packet.timestamp);
       var durationMin = Math.max(
@@ -1279,11 +1278,7 @@
         endLocal +
         "</td><td>" +
         durationMin +
-        "m" +
-        "</td><td>" +
-        rowCount +
-        "</td><td>" +
-        colCount +
+        " د" +
         "</td>";
       historyTableBody.appendChild(tr);
     });
@@ -1812,7 +1807,7 @@
       var effectiveToIso = formatNaiveDateTimeMs(effectiveToMs, true);
 
       if (effectiveFromMs !== requestedFromMs || clampedByNow) {
-        setGlobalMessage("Range was clamped to max 24 hours and current time.", false);
+        setGlobalMessage("تم تقييد النطاق إلى 24 ساعة كحد أقصى وحتى الوقت الحالي.", false);
       }
 
       endpoint += "?from=" + encodeURIComponent(effectiveFromIso) + "&to=" + encodeURIComponent(effectiveToIso);
@@ -1834,7 +1829,7 @@
       }
 
       currentLiveWindowMs = liveWindowMs;
-      LIVE_WINDOW_LABEL = currentLiveWindowMs === ONE_HOUR_WINDOW_MS ? "Latest 1h" : "Latest 30m";
+      LIVE_WINDOW_LABEL = currentLiveWindowMs === ONE_HOUR_WINDOW_MS ? "آخر ساعة" : "آخر 30 دقيقة";
       activeRangeMode =
         typeof options.modeLabel === "string" && options.modeLabel.trim().length > 0
           ? options.modeLabel.trim()
@@ -1862,7 +1857,7 @@
     rebuildPacketKeySet();
     lastRenderMeta = null;
     gapTooltipEl.classList.add("hidden");
-    historyInfoEl.textContent = "Loading data for selected device...";
+    historyInfoEl.textContent = "جاري تحميل بيانات الجهاز المحدد...";
     historyTableBody.innerHTML = "";
     setSpectrogramLoading(true);
 
@@ -1898,15 +1893,15 @@
       }
 
       if (!currentPackets.length) {
-        historyInfoEl.textContent = "No data available for the selected device.";
-        selectedDeviceTitleEl.textContent = "Selected Device: " + selectedDeviceName + " (No data)";
+        historyInfoEl.textContent = "لا توجد بيانات للجهاز المحدد.";
+        selectedDeviceTitleEl.textContent = "الجهاز المحدد: " + selectedDeviceName + " (لا توجد بيانات)";
         sideDeviceInfoEl.textContent =
-          "ID: " +
+          "المعرّف: " +
           selectedDeviceId +
-          " | Name: " +
+          " | الاسم: " +
           selectedDeviceName +
-          " | Description: " +
-          "No history records found for this device.";
+          " | الوصف: " +
+          "لا توجد سجلات تاريخية لهذا الجهاز.";
         scheduleRender({ skipTable: false });
         return;
       }
@@ -1922,7 +1917,7 @@
 
   async function loadRecentHours(hours, label) {
     if (!selectedDeviceId) {
-      setGlobalMessage("Select a device first", true);
+      setGlobalMessage("يرجى اختيار جهاز أولًا", true);
       return;
     }
 
@@ -1933,7 +1928,7 @@
 
   async function loadLatestPacketOnly() {
     if (!selectedDeviceId) {
-      setGlobalMessage("Select a device first", true);
+      setGlobalMessage("يرجى اختيار جهاز أولًا", true);
       return;
     }
 
@@ -1941,7 +1936,7 @@
     await loadDeviceHistory(selectedDeviceId, range.fromIso, range.toIso);
 
     if (!currentPackets.length) {
-      setGlobalMessage("No packet found in the last 24 hours", true);
+      setGlobalMessage("لم يتم العثور على باكت خلال آخر 24 ساعة", true);
       return;
     }
 
@@ -1956,7 +1951,7 @@
     }
 
     if (!Number.isFinite(latestStartMs)) {
-      setGlobalMessage("Could not resolve latest packet time", true);
+      setGlobalMessage("تعذر تحديد وقت آخر باكت", true);
       return;
     }
 
@@ -1973,7 +1968,7 @@
     activeFromIso = formatNaiveDateTimeMs(viewportFromMs, true);
     activeToIso = formatNaiveDateTimeMs(viewportToMs, true);
     scheduleRender({ skipTable: false });
-    setGlobalMessage("Latest packet focused.", false);
+    setGlobalMessage("تم التركيز على آخر باكت.", false);
   }
 
   async function selectDevice(device) {
@@ -1982,18 +1977,18 @@
     selectedDeviceKey = normalizeDeviceKey(device.name);
     selectedDeviceMinFrequency = Number.isFinite(device.minFrequency) ? device.minFrequency : null;
     selectedDeviceMaxFrequency = Number.isFinite(device.maxFrequency) ? device.maxFrequency : null;
-    selectedDeviceTitleEl.textContent = "Selected Device: " + device.name;
+    selectedDeviceTitleEl.textContent = "الجهاز المحدد: " + device.name;
     sideDeviceInfoEl.textContent =
-      "ID: " +
+      "المعرّف: " +
       device.id +
-      " | Name: " +
+      " | الاسم: " +
       device.name +
-      " | Description: " +
+      " | الوصف: " +
       (device.description || "-") +
-      " | Freq Range: " +
+      " | نطاق التردد: " +
       (Number.isFinite(selectedDeviceMinFrequency) && Number.isFinite(selectedDeviceMaxFrequency)
         ? selectedDeviceMinFrequency + " Hz -> " + selectedDeviceMaxFrequency + " Hz"
-        : "not configured");
+        : "غير مضبوط");
     setActiveDevice(device.id);
     await loadDeviceHistory(device.id, null, null, {
       liveWindowMs: DEFAULT_LIVE_WINDOW_MS,
@@ -2009,7 +2004,7 @@
       item.setAttribute("data-id", String(device.id));
       item.addEventListener("click", function () {
         selectDevice(device).catch(function (error) {
-          historyInfoEl.textContent = error instanceof Error ? error.message : "Failed to load history";
+          historyInfoEl.textContent = error instanceof Error ? error.message : "فشل تحميل السجل";
         });
       });
       deviceListEl.appendChild(item);
@@ -2033,10 +2028,10 @@
       }
       await selectDevice(target);
     } else {
-      selectedDeviceTitleEl.textContent = "No devices available";
-      historyInfoEl.textContent = "Create devices using the API as admin.";
+      selectedDeviceTitleEl.textContent = "لا توجد أجهزة";
+      historyInfoEl.textContent = "قم بإنشاء أجهزة عبر الـAPI بصلاحية مدير.";
       historyTableBody.innerHTML = "";
-      sideDeviceInfoEl.textContent = "No selected device.";
+      sideDeviceInfoEl.textContent = "لا يوجد جهاز محدد.";
     }
   }
 
@@ -2047,7 +2042,7 @@
     userUsernameInput.value = "";
     userPasswordInput.value = "";
     userRoleInput.value = "emp";
-    userSaveBtn.textContent = "Add User";
+    userSaveBtn.textContent = "إضافة مستخدم";
     userFormMessage.textContent = "";
   }
 
@@ -2058,7 +2053,7 @@
     deviceDescriptionInput.value = "";
     deviceMinFrequencyInput.value = "";
     deviceMaxFrequencyInput.value = "";
-    deviceSaveBtn.textContent = "Add Device";
+    deviceSaveBtn.textContent = "إضافة جهاز";
     deviceFormMessage.textContent = "";
   }
 
@@ -2087,7 +2082,7 @@
           var editBtn = document.createElement("button");
           editBtn.type = "button";
           editBtn.className = "ghost-btn";
-          editBtn.textContent = "Edit";
+          editBtn.textContent = "تعديل";
           editBtn.addEventListener("click", function () {
             editingUserId = u.id;
             userIdInput.value = String(u.id);
@@ -2095,16 +2090,16 @@
             userUsernameInput.value = u.username;
             userRoleInput.value = u.role;
             userPasswordInput.value = "";
-            userSaveBtn.textContent = "Update User";
-            userFormMessage.textContent = "Editing user #" + u.id;
+            userSaveBtn.textContent = "تحديث مستخدم";
+            userFormMessage.textContent = "تعديل المستخدم رقم " + u.id;
           });
 
           var deleteBtn = document.createElement("button");
           deleteBtn.type = "button";
           deleteBtn.className = "danger-btn";
-          deleteBtn.textContent = "Delete";
+          deleteBtn.textContent = "حذف";
           deleteBtn.addEventListener("click", async function () {
-            if (!window.confirm("Delete user " + u.username + "?")) {
+            if (!window.confirm("هل تريد حذف المستخدم " + u.username + "؟")) {
               return;
             }
             try {
@@ -2113,9 +2108,9 @@
                 resetUserForm();
               }
               await loadUsers();
-              setGlobalMessage("User deleted successfully", false);
+              setGlobalMessage("تم حذف المستخدم بنجاح", false);
             } catch (error) {
-              setGlobalMessage(error instanceof Error ? error.message : "Delete failed", true);
+              setGlobalMessage(error instanceof Error ? error.message : "فشل الحذف", true);
             }
           });
 
@@ -2128,7 +2123,7 @@
       });
     } catch (error) {
       usersTableBody.innerHTML = "";
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to load users", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل المستخدمين", true);
     }
   }
 
@@ -2157,7 +2152,7 @@
         var editBtn = document.createElement("button");
         editBtn.type = "button";
         editBtn.className = "ghost-btn";
-        editBtn.textContent = "Edit";
+          editBtn.textContent = "تعديل";
         editBtn.addEventListener("click", function () {
           editingDeviceId = device.id;
           deviceIdInput.value = String(device.id);
@@ -2165,16 +2160,16 @@
           deviceDescriptionInput.value = device.description || "";
           deviceMinFrequencyInput.value = Number.isFinite(device.minFrequency) ? String(device.minFrequency) : "";
           deviceMaxFrequencyInput.value = Number.isFinite(device.maxFrequency) ? String(device.maxFrequency) : "";
-          deviceSaveBtn.textContent = "Update Device";
-          deviceFormMessage.textContent = "Editing device #" + device.id;
+          deviceSaveBtn.textContent = "تحديث جهاز";
+          deviceFormMessage.textContent = "تعديل الجهاز رقم " + device.id;
         });
 
         var deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
         deleteBtn.className = "danger-btn";
-        deleteBtn.textContent = "Delete";
+        deleteBtn.textContent = "حذف";
         deleteBtn.addEventListener("click", async function () {
-          if (!window.confirm("Delete device " + device.name + "?")) {
+          if (!window.confirm("هل تريد حذف الجهاز " + device.name + "؟")) {
             return;
           }
           try {
@@ -2189,9 +2184,9 @@
               resetDeviceForm();
             }
             await loadDevices();
-            setGlobalMessage("Device deleted successfully", false);
+            setGlobalMessage("تم حذف الجهاز بنجاح", false);
           } catch (error) {
-            setGlobalMessage(error instanceof Error ? error.message : "Delete failed", true);
+            setGlobalMessage(error instanceof Error ? error.message : "فشل الحذف", true);
           }
         });
 
@@ -2207,7 +2202,7 @@
   userForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     if (!isAdmin) {
-      setGlobalMessage("Only admin can manage users", true);
+      setGlobalMessage("فقط المدير يمكنه إدارة المستخدمين", true);
       return;
     }
 
@@ -2232,22 +2227,22 @@
           method: "PUT",
           body: JSON.stringify(updatePayload)
         });
-        setGlobalMessage("User updated successfully", false);
+        setGlobalMessage("تم تحديث المستخدم بنجاح", false);
       } else {
         if (!payload.password) {
-          throw new Error("Password is required for new user");
+          throw new Error("كلمة المرور مطلوبة عند إنشاء مستخدم جديد");
         }
         await apiRequest("/api/users", {
           method: "POST",
           body: JSON.stringify(payload)
         });
-        setGlobalMessage("User created successfully", false);
+        setGlobalMessage("تم إنشاء المستخدم بنجاح", false);
       }
 
       resetUserForm();
       await loadUsers();
     } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to save user", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل حفظ المستخدم", true);
     }
   });
 
@@ -2258,7 +2253,7 @@
   deviceForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     if (!isAdmin) {
-      setGlobalMessage("Only admin can manage devices", true);
+      setGlobalMessage("فقط المدير يمكنه إدارة الأجهزة", true);
       return;
     }
 
@@ -2274,7 +2269,7 @@
       Number.isFinite(payload.maxFrequency) &&
       payload.maxFrequency <= payload.minFrequency
     ) {
-      setGlobalMessage("Max Frequency must be greater than Min Frequency", true);
+      setGlobalMessage("يجب أن يكون أعلى تردد أكبر من أقل تردد", true);
       return;
     }
 
@@ -2284,19 +2279,19 @@
           method: "PUT",
           body: JSON.stringify(payload)
         });
-        setGlobalMessage("Device updated successfully", false);
+        setGlobalMessage("تم تحديث الجهاز بنجاح", false);
       } else {
         await apiRequest("/api/devices", {
           method: "POST",
           body: JSON.stringify(payload)
         });
-        setGlobalMessage("Device created successfully", false);
+        setGlobalMessage("تم إنشاء الجهاز بنجاح", false);
       }
 
       resetDeviceForm();
       await loadDevices();
     } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to save device", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل حفظ الجهاز", true);
     }
   });
 
@@ -2307,7 +2302,7 @@
   historyRangeForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     if (!selectedDeviceId) {
-      setGlobalMessage("Select a device first", true);
+      setGlobalMessage("يرجى اختيار جهاز أولًا", true);
       return;
     }
 
@@ -2323,7 +2318,7 @@
     }
 
     if (!queryDateInput.value || !fromTimeInput.value || !toTimeInput.value) {
-      setGlobalMessage("Day, from time, and to time are required", true);
+      setGlobalMessage("اليوم ووقت البداية ووقت النهاية حقول مطلوبة", true);
       return;
     }
 
@@ -2331,15 +2326,15 @@
       var range = buildSameDayRange(queryDateInput.value, fromTimeInput.value, toTimeInput.value);
 
       await loadDeviceHistory(selectedDeviceId, toIso(range.fromLocal), toIso(range.toLocal));
-      setGlobalMessage("Range history loaded for " + selectedDeviceName, false);
+      setGlobalMessage("تم تحميل سجل النطاق للجهاز " + selectedDeviceName, false);
     } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل السجل", true);
     }
   });
 
   latest24Btn.addEventListener("click", async function () {
     if (!selectedDeviceId) {
-      setGlobalMessage("Select a device first", true);
+      setGlobalMessage("يرجى اختيار جهاز أولًا", true);
       return;
     }
 
@@ -2348,25 +2343,25 @@
         liveWindowMs: ONE_HOUR_WINDOW_MS,
         modeLabel: "latest1h"
       });
-      setGlobalMessage("Latest 1 hour live feed loaded for " + selectedDeviceName, false);
+      setGlobalMessage("تم تحميل البث المباشر لآخر ساعة للجهاز " + selectedDeviceName, false);
     } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل السجل", true);
     }
   });
 
   latest5hBtn.addEventListener("click", async function () {
     try {
-      await loadRecentHours(5, "Latest 5 hours");
+      await loadRecentHours(5, "آخر 5 ساعات");
     } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل السجل", true);
     }
   });
 
   latest24hBtn.addEventListener("click", async function () {
     try {
-      await loadRecentHours(24, "Latest 24 hours");
+      await loadRecentHours(24, "آخر 24 ساعة");
     } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to load history", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل السجل", true);
     }
   });
 
@@ -2374,7 +2369,7 @@
     try {
       await loadLatestPacketOnly();
     } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to load latest packet", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل آخر باكت", true);
     }
   });
 
@@ -2382,7 +2377,7 @@
     try {
       var example = await apiRequest("/public/example.json");
       if (!example || !Array.isArray(example.packets) || example.packets.length === 0) {
-        throw new Error("Example file is empty or invalid");
+        throw new Error("ملف المثال فارغ أو غير صالح");
       }
 
       if (exampleTimer) {
@@ -2391,15 +2386,15 @@
       }
 
       selectedDeviceId = Number(example.deviceId) || selectedDeviceId;
-      selectedDeviceName = example.deviceName || "Example Device";
+      selectedDeviceName = example.deviceName || "جهاز مثال";
       selectedDeviceKey = normalizeDeviceKey(selectedDeviceName);
-      selectedDeviceTitleEl.textContent = "Selected Device: " + selectedDeviceName + " (Example)";
+      selectedDeviceTitleEl.textContent = "الجهاز المحدد: " + selectedDeviceName + " (مثال)";
       sideDeviceInfoEl.textContent =
-        "ID: " +
+        "المعرّف: " +
         (example.deviceId || "-") +
-        " | Name: " +
+        " | الاسم: " +
         selectedDeviceName +
-        " | Source: local example.json";
+        " | المصدر: ملف example.json المحلي";
 
       activeTimeStepMs = Number(example.timeStepMs || 1000);
       currentPackets = [];
@@ -2425,9 +2420,9 @@
       liveFollowEnabled = false;
       liveManualBrowseActive = false;
       scheduleRender({ skipTable: false });
-      setGlobalMessage("Example range loaded (includes intentional 10-minute data gap)", false);
+      setGlobalMessage("تم تحميل نطاق المثال (يتضمن فجوة بيانات مقصودة لمدة 10 دقائق)", false);
     } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "Failed to load example", true);
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل المثال", true);
     }
   });
 
@@ -2667,7 +2662,7 @@
 
     if ((event.key === "l" || event.key === "L") && selectedDeviceId) {
       loadDeviceHistory(selectedDeviceId).catch(function (error) {
-        setGlobalMessage(error instanceof Error ? error.message : "Failed to switch to live mode", true);
+        setGlobalMessage(error instanceof Error ? error.message : "فشل التبديل إلى الوضع المباشر", true);
       });
       event.preventDefault();
       return;
@@ -2681,14 +2676,14 @@
   function formatGapTooltip(gap) {
     var mins = Math.round(gap.durationMs / 60000);
     return (
-      "Data Gap<br>" +
-      "Start: " +
+      "فجوة بيانات<br>" +
+      "البداية: " +
       formatLocalDateTime(gap.start) +
-      "<br>End: " +
+      "<br>النهاية: " +
       formatLocalDateTime(gap.end) +
-      "<br>Duration: " +
+      "<br>المدة: " +
       mins +
-      " min"
+      " دقيقة"
     );
   }
 
@@ -2848,17 +2843,17 @@
   function formatProbeTooltip(info) {
     var frequencyText = Number.isFinite(info.freqHz)
       ? Math.round(info.freqHz) + " Hz"
-      : "Band " + info.rowIndex;
+      : "نطاق " + info.rowIndex;
 
     return (
-      "Probe\u00a0Point<br>" +
-      "Time: " +
+      "نقطة فحص<br>" +
+      "الوقت: " +
       new Date(info.timeMs).toISOString().replace(".000Z", "") +
-      "<br>Frequency: " +
+      "<br>التردد: " +
       frequencyText +
-      "<br>Raw value: " +
+      "<br>القيمة الخام: " +
       (Number.isFinite(info.rawValue) ? info.rawValue.toFixed(3) : "NaN") +
-      "<br>Amplitude: " +
+      "<br>السعة: " +
       formatDbValue(info.dbValue)
     );
   }
@@ -2931,7 +2926,7 @@
 
     function markHeartbeat() {
       lastHeartbeatAt = Date.now();
-      setSocketStatus(true, "Heartbeat OK");
+      setSocketStatus(true, "نبضة الاتصال سليمة");
     }
 
     socket.on("connect", function () {
@@ -2940,11 +2935,11 @@
     });
 
     socket.on("disconnect", function (reason) {
-      setSocketStatus(false, reason || "Connection lost");
+      setSocketStatus(false, reason || "انقطع الاتصال");
     });
 
     socket.on("connect_error", function () {
-      setSocketStatus(false, "Connection error");
+      setSocketStatus(false, "خطأ في الاتصال");
     });
 
     socket.on("server:heartbeat", function () {
@@ -2953,12 +2948,12 @@
 
     var heartbeatTimer = setInterval(function () {
       if (!socket.connected) {
-        setSocketStatus(false, "Retrying");
+        setSocketStatus(false, "جاري إعادة المحاولة");
         return;
       }
 
       if (lastHeartbeatAt && Date.now() - lastHeartbeatAt > 30000) {
-        setSocketStatus(false, "No heartbeat");
+        setSocketStatus(false, "لا توجد نبضات اتصال");
       }
 
       socket.emit("client:heartbeat", { ts: Date.now() });
@@ -3004,18 +2999,18 @@
         if (nowMs - lastPersistenceWarningAt > 10000) {
           lastPersistenceWarningAt = nowMs;
           setGlobalMessage(
-            "Live data received for " + selectedDeviceName + " but DB save failed for at least one packet.",
+            "تم استقبال بيانات مباشرة للجهاز " + selectedDeviceName + " لكن فشل حفظ باكت واحد على الأقل في قاعدة البيانات.",
             true
           );
         }
       }
 
       historyInfoEl.textContent =
-        "Live updated | packets: " +
+        "تحديث مباشر | عدد الباكتات: " +
         currentPackets.length +
-        " | Latest timestamp: " +
+        " | آخر توقيت: " +
         formatLocalDateTime(payload.timestamp) +
-        " | mode: " +
+        " | النمط: " +
         activeRangeMode;
     });
 

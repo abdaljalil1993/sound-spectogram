@@ -1,23 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard</title>
+    <title>لوحة التحكم</title>
     <link rel="stylesheet" href="/public/css/styles.css" />
   </head>
   <body>
     <header class="topbar">
-      <h1>Device Spectrogram Dashboard</h1>
+      <h1>لوحة طيف الأجهزة</h1>
       <div class="topbar-actions">
         <nav class="top-nav" id="topNav">
-          <button type="button" class="tab-btn active" data-tab="history">History</button>
-          <button type="button" class="tab-btn" data-tab="users">User</button>
-          <button type="button" class="tab-btn" data-tab="devices">Device</button>
+          <button type="button" class="tab-btn active" data-tab="history">السجل</button>
+          <button type="button" class="tab-btn" data-tab="users">المستخدمون</button>
+          <button type="button" class="tab-btn" data-tab="devices">الأجهزة</button>
         </nav>
-        <span id="socketStatusBadge" class="connection-badge disconnected" title="Socket connection status">Disconnected</span>
+        <span id="socketStatusBadge" class="connection-badge disconnected" title="حالة اتصال السوكِت">غير متصل</span>
         <span id="userBadge" class="user-badge"></span>
-        <button id="logoutBtn" type="button">Logout</button>
+        <button id="logoutBtn" type="button">تسجيل الخروج</button>
       </div>
     </header>
 
@@ -27,34 +27,34 @@
       <div class="dashboard-layout">
         <section class="left-panel">
           <section id="historyPanel" class="tab-panel active">
-            <h2 id="selectedDeviceTitle">Select a device</h2>
+            <h2 id="selectedDeviceTitle">اختر جهازًا</h2>
             <div class="inline-form range-actions-row">
-              <button id="loadExampleBtn" type="button" class="hidden">Load Example</button>
-              <button id="resetViewBtn" type="button">Reset View</button>
+              <button id="loadExampleBtn" type="button" class="hidden">تحميل مثال</button>
+              <button id="resetViewBtn" type="button">إعادة الضبط</button>
             </div>
 
             <div class="spectro-toolbar" id="spectroToolbar">
-              <button id="panLeftBtn" type="button" class="ghost-btn" title="Pan left (Arrow Left)">Pan Left</button>
-              <button id="panRightBtn" type="button" class="ghost-btn" title="Pan right (Arrow Right)">Pan Right</button>
-              <button id="zoomOutBtn" type="button" class="ghost-btn" title="Zoom out (-)">Zoom Out</button>
-              <button id="zoomInBtn" type="button" class="ghost-btn" title="Zoom in (+)">Zoom In</button>
-              <button id="fitPacketsBtn" type="button" class="ghost-btn" title="Fit all packets in view (F)">Fit Packets</button>
-              <button id="colorMapBtn" type="button" class="ghost-btn hidden" title="Toggle color map">Colors: magma</button>
-              <button id="followLiveBtn" type="button" class="ghost-btn" title="Return to live latest 1h (L)">Follow Live</button>
+              <button id="panLeftBtn" type="button" class="ghost-btn" title="تحريك لليسار (السهم الأيسر)">يسار</button>
+              <button id="panRightBtn" type="button" class="ghost-btn" title="تحريك لليمين (السهم الأيمن)">يمين</button>
+              <button id="zoomOutBtn" type="button" class="ghost-btn" title="تصغير (-)">تصغير</button>
+              <button id="zoomInBtn" type="button" class="ghost-btn" title="تكبير (+)">تكبير</button>
+              <button id="fitPacketsBtn" type="button" class="ghost-btn" title="ملاءمة كل الباكتات في العرض (F)">ملاءمة الباكتات</button>
+              <button id="colorMapBtn" type="button" class="ghost-btn hidden" title="تبديل خريطة الألوان">الألوان: magma</button>
+              <button id="followLiveBtn" type="button" class="ghost-btn" title="العودة إلى آخر ساعة مباشرة (L)">متابعة البث</button>
             </div>
             <div class="frequency-range-controls">
               <label>
-                Min Freq (Hz)
-                <input id="freqMinInput" type="number" step="1" placeholder="Min Hz" />
+                أقل تردد (Hz)
+                <input id="freqMinInput" type="number" step="1" placeholder="أقل Hz" />
               </label>
               <label>
-                Max Freq (Hz)
-                <input id="freqMaxInput" type="number" step="1" placeholder="Max Hz" />
+                أعلى تردد (Hz)
+                <input id="freqMaxInput" type="number" step="1" placeholder="أعلى Hz" />
               </label>
-              <button id="applyFreqRangeBtn" type="button" class="ghost-btn">Apply</button>
-              <button id="clearFreqRangeBtn" type="button" class="ghost-btn">Clear</button>
+              <button id="applyFreqRangeBtn" type="button" class="ghost-btn">تطبيق</button>
+              <button id="clearFreqRangeBtn" type="button" class="ghost-btn">مسح</button>
               <label class="gain-slider-label" for="displayGainInput">
-                Gain (dB)
+                الكسب (dB)
                 <div class="gain-slider-wrap">
                   <input
                     id="displayGainInput"
@@ -63,42 +63,40 @@
                     max="24"
                     step="1"
                     value="0"
-                    title="Visual display gain only"
+                    title="كسب بصري للعرض فقط"
                   />
                   <span id="displayGainValue" class="gain-slider-value">0 dB</span>
                 </div>
               </label>
             </div>
             <p class="spectro-hint">
-              Drag to pan. Mouse wheel zooms at cursor. Shift + wheel pans horizontally. Alt + wheel gives fine zoom.
-              Keyboard: Left/Right pan, +/- zoom, 0 reset, F fit packets, L latest 1h.
+              اسحب لتحريك العرض. عجلة الفأرة تكبر/تصغر عند المؤشر. Shift + العجلة للتحريك الأفقي. Alt + العجلة لتكبير دقيق.
+              لوحة المفاتيح: يسار/يمين للتحريك، +/- للتكبير، 0 لإعادة الضبط، F لملاءمة الباكتات، L لآخر ساعة مباشرة.
             </p>
 
             <div class="canvas-wrapper">
               <div id="spectrogramLoader" class="spectrogram-loader hidden" aria-live="polite">
                 <div class="spectrogram-loader-spinner"></div>
-                <div class="spectrogram-loader-text">Loading spectrogram data...</div>
+                <div class="spectrogram-loader-text">جاري تحميل بيانات الطيف...</div>
               </div>
-              <canvas id="spectrogramCanvas" width="960" height="480" tabindex="0" aria-label="Spectrogram viewport"></canvas>
+              <canvas id="spectrogramCanvas" width="960" height="480" tabindex="0" aria-label="منطقة عرض الطيف"></canvas>
             </div>
             <div id="gapTooltip" class="gap-tooltip hidden"></div>
             <div id="probeTooltip" class="probe-tooltip hidden"></div>
             <div class="legend-wrapper">
               <canvas id="spectrogramLegend" width="560" height="46"></canvas>
             </div>
-            <div id="historyInfo" class="history-info hidden">No data loaded.</div>
+            <div id="historyInfo" class="history-info hidden">لا توجد بيانات محمّلة.</div>
 
             <div class="table-wrap history-table-wrap">
-              <h3>History Packets</h3>
+              <h3>باكتات السجل</h3>
               <table class="data-table">
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Start</th>
-                    <th>End</th>
-                    <th>Duration</th>
-                    <th>Rows</th>
-                    <th>Cols</th>
+                    <th>البداية</th>
+                    <th>النهاية</th>
+                    <th>المدة</th>
                   </tr>
                 </thead>
                 <tbody id="historyTableBody"></tbody>
@@ -107,23 +105,23 @@
           </section>
 
           <section id="usersPanel" class="tab-panel">
-            <h2>User Management</h2>
+            <h2>إدارة المستخدمين</h2>
             <form id="userForm" class="crud-form admin-only">
               <input type="hidden" id="userId" />
-              <label for="userName">Name</label>
+              <label for="userName">الاسم</label>
               <input id="userName" name="name" type="text" required />
-              <label for="userUsername">Username</label>
+              <label for="userUsername">اسم المستخدم</label>
               <input id="userUsername" name="username" type="text" required />
-              <label for="userPassword">Password</label>
-              <input id="userPassword" name="password" type="password" placeholder="Required for add, optional for edit" />
-              <label for="userRole">Role</label>
+              <label for="userPassword">كلمة المرور</label>
+              <input id="userPassword" name="password" type="password" placeholder="مطلوبة عند الإضافة واختيارية عند التعديل" />
+              <label for="userRole">الدور</label>
               <select id="userRole" name="role" required>
                 <option value="admin">admin</option>
                 <option value="emp">emp</option>
               </select>
               <div class="form-actions">
-                <button type="submit" id="userSaveBtn">Add User</button>
-                <button type="button" id="userCancelBtn">Cancel</button>
+                <button type="submit" id="userSaveBtn">إضافة مستخدم</button>
+                <button type="button" id="userCancelBtn">إلغاء</button>
               </div>
             </form>
             <p id="userFormMessage" class="history-info"></p>
@@ -133,10 +131,10 @@
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Name</th>
-                    <th>Username</th>
-                    <th>Role</th>
-                    <th class="admin-only">Actions</th>
+                    <th>الاسم</th>
+                    <th>اسم المستخدم</th>
+                    <th>الدور</th>
+                    <th class="admin-only">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody id="usersTableBody"></tbody>
@@ -145,20 +143,20 @@
           </section>
 
           <section id="devicesPanel" class="tab-panel">
-            <h2>Device Management</h2>
+            <h2>إدارة الأجهزة</h2>
             <form id="deviceForm" class="crud-form admin-only">
               <input type="hidden" id="deviceId" />
-              <label for="deviceName">Name</label>
+              <label for="deviceName">الاسم</label>
               <input id="deviceName" name="name" type="text" required />
-              <label for="deviceDescription">Description</label>
+              <label for="deviceDescription">الوصف</label>
               <input id="deviceDescription" name="description" type="text" />
-              <label for="deviceMinFrequency">Min Frequency (Hz)</label>
+              <label for="deviceMinFrequency">أقل تردد (Hz)</label>
               <input id="deviceMinFrequency" name="minFrequency" type="number" min="0" step="0.01" />
-              <label for="deviceMaxFrequency">Max Frequency (Hz)</label>
+              <label for="deviceMaxFrequency">أعلى تردد (Hz)</label>
               <input id="deviceMaxFrequency" name="maxFrequency" type="number" min="0" step="0.01" />
               <div class="form-actions">
-                <button type="submit" id="deviceSaveBtn">Add Device</button>
-                <button type="button" id="deviceCancelBtn">Cancel</button>
+                <button type="submit" id="deviceSaveBtn">إضافة جهاز</button>
+                <button type="button" id="deviceCancelBtn">إلغاء</button>
               </div>
             </form>
             <p id="deviceFormMessage" class="history-info"></p>
@@ -168,10 +166,10 @@
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Name</th>
-                    <th>Description</th>
-                    <th>Freq Range</th>
-                    <th class="admin-only">Actions</th>
+                    <th>الاسم</th>
+                    <th>الوصف</th>
+                    <th>نطاق التردد</th>
+                    <th class="admin-only">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody id="devicesTableBody"></tbody>
@@ -182,72 +180,72 @@
 
         <aside class="right-panel">
           <div class="side-card">
-            <h3>Device Info</h3>
-            <p id="sideDeviceInfo" class="history-info">No selected device.</p>
+            <h3>معلومات الجهاز</h3>
+            <p id="sideDeviceInfo" class="history-info">لا يوجد جهاز محدد.</p>
           </div>
 
           <div class="side-card">
-            <h3>Devices</h3>
+            <h3>الأجهزة</h3>
             <div class="device-list-scroll">
               <ul id="deviceList" class="device-list"></ul>
             </div>
           </div>
 
           <div class="side-card">
-            <h3>Load Range</h3>
+            <h3>تحميل نطاق</h3>
             <form id="historyRangeForm" class="side-range-form">
-              <label for="queryDate">Day</label>
+              <label for="queryDate">اليوم</label>
               <input id="queryDate" name="queryDate" type="date" required />
-              <label for="fromTime">From</label>
+              <label for="fromTime">من</label>
               <input id="fromTime" name="fromTime" type="time" step="60" required />
-              <label for="toTime">To</label>
+              <label for="toTime">إلى</label>
               <input id="toTime" name="toTime" type="time" step="60" required />
-              <button type="submit">Load Range</button>
+              <button type="submit">تحميل النطاق</button>
             </form>
             <div class="quick-range-grid">
-              <button id="latest5hBtn" type="button" class="ghost-btn">Latest 5h</button>
-              <button id="latest24hBtn" type="button" class="ghost-btn">Latest 24h</button>
+              <button id="latest5hBtn" type="button" class="ghost-btn">آخر 5 ساعات</button>
+              <button id="latest24hBtn" type="button" class="ghost-btn">آخر 24 ساعة</button>
             </div>
             <div class="last-packet-row">
-              <button id="latestPacketBtn" type="button" class="ghost-btn">Last Packet</button>
+              <button id="latestPacketBtn" type="button" class="ghost-btn">آخر باكت</button>
             </div>
             <div class="last-hour-row">
-              <button id="latest24Btn" type="button" class="ghost-btn">Latest 1h</button>
+              <button id="latest24Btn" type="button" class="ghost-btn">آخر ساعة</button>
             </div>
           </div>
 
           <div class="side-card hidden">
-            <h3>Processing Controls</h3>
+            <h3>إعدادات المعالجة</h3>
             <p class="control-note" id="processingStatus">اختر الجهاز ثم عدل الإعدادات. التطبيق يتم مباشرة عند التغيير.</p>
             <div class="processing-controls-grid">
-              <label for="intensityModeSelect">Scale Mode</label>
-              <select id="intensityModeSelect" class="toolbar-select" title="Intensity scale mode">
-                <option value="linear">Linear (صورة intensity)</option>
-                <option value="db-fixed">dB fixed clip</option>
-                <option value="db-percentile">dB percentile</option>
+              <label for="intensityModeSelect">نمط المقياس</label>
+              <select id="intensityModeSelect" class="toolbar-select" title="نمط مقياس الشدة">
+                <option value="linear">خطي (صورة شدة)</option>
+                <option value="db-fixed">قص dB ثابت</option>
+                <option value="db-percentile">dB حسب النسب المئوية</option>
               </select>
 
-              <label for="dbMinInput">dB Min</label>
-              <input id="dbMinInput" class="toolbar-number" type="number" step="1" value="-95" title="dB minimum clip" />
+              <label for="dbMinInput">أدنى dB</label>
+              <input id="dbMinInput" class="toolbar-number" type="number" step="1" value="-95" title="حد القص الأدنى dB" />
 
-              <label for="dbMaxInput">dB Max</label>
-              <input id="dbMaxInput" class="toolbar-number" type="number" step="1" value="-20" title="dB maximum clip" />
+              <label for="dbMaxInput">أعلى dB</label>
+              <input id="dbMaxInput" class="toolbar-number" type="number" step="1" value="-20" title="حد القص الأعلى dB" />
 
-              <label for="pctLowInput">dB Percentile Low</label>
-              <input id="pctLowInput" class="toolbar-number" type="number" min="0" max="99" step="1" value="5" title="Percentile low" />
+              <label for="pctLowInput">النسبة المئوية الدنيا dB</label>
+              <input id="pctLowInput" class="toolbar-number" type="number" min="0" max="99" step="1" value="5" title="النسبة المئوية الدنيا" />
 
-              <label for="pctHighInput">dB Percentile High</label>
-              <input id="pctHighInput" class="toolbar-number" type="number" min="1" max="100" step="1" value="99" title="Percentile high" />
+              <label for="pctHighInput">النسبة المئوية العليا dB</label>
+              <input id="pctHighInput" class="toolbar-number" type="number" min="1" max="100" step="1" value="99" title="النسبة المئوية العليا" />
 
-              <label for="compareViewSelect">View Compare</label>
-              <select id="compareViewSelect" class="toolbar-select" title="Compare processing stage">
-                <option value="denoised">Denoised</option>
-                <option value="original">Original</option>
-                <option value="thresholded">Thresholded</option>
+              <label for="compareViewSelect">عرض المقارنة</label>
+              <select id="compareViewSelect" class="toolbar-select" title="مقارنة مراحل المعالجة">
+                <option value="denoised">بعد إزالة الضجيج</option>
+                <option value="original">الأصلي</option>
+                <option value="thresholded">بعد العتبة</option>
               </select>
 
-              <label class="toolbar-check" title="Enable adaptive noise suppression">
-                <input id="noiseSuppressionEnabledInput" type="checkbox" checked /> Noise Gate
+              <label class="toolbar-check" title="تفعيل تقليل الضجيج التكيفي">
+                <input id="noiseSuppressionEnabledInput" type="checkbox" checked /> بوابة الضجيج
               </label>
               <input
                 id="noiseFloorPercentileInput"
@@ -257,45 +255,45 @@
                 max="99"
                 step="1"
                 value="72"
-                title="Noise floor percentile"
+                title="النسبة المئوية لأرضية الضجيج"
               />
 
-              <label for="noiseThresholdInput">Noise Threshold</label>
-              <input id="noiseThresholdInput" class="toolbar-number" type="number" min="0" max="1" step="0.01" value="0.06" title="Minimum normalized threshold" />
+              <label for="noiseThresholdInput">عتبة الضجيج</label>
+              <input id="noiseThresholdInput" class="toolbar-number" type="number" min="0" max="1" step="0.01" value="0.06" title="أدنى عتبة بعد التطبيع" />
 
-              <label class="toolbar-check" title="Remove isolated active pixels using neighborhood test">
-                <input id="isolatedPixelRemovalEnabledInput" type="checkbox" checked /> De-speckle
+              <label class="toolbar-check" title="إزالة النقاط النشطة المنفردة باستخدام اختبار الجوار">
+                <input id="isolatedPixelRemovalEnabledInput" type="checkbox" checked /> إزالة التنقيط
               </label>
-              <input id="minActiveNeighborsInput" class="toolbar-number" type="number" min="0" max="8" step="1" value="1" title="Minimum active neighbors" />
+              <input id="minActiveNeighborsInput" class="toolbar-number" type="number" min="0" max="8" step="1" value="1" title="الحد الأدنى للجيران النشطين" />
 
-              <label for="neighborhoodSizeSelect">Neighborhood</label>
-              <select id="neighborhoodSizeSelect" class="toolbar-select" title="Neighborhood size">
+              <label for="neighborhoodSizeSelect">حجم الجوار</label>
+              <select id="neighborhoodSizeSelect" class="toolbar-select" title="حجم نافذة الجوار">
                 <option value="3" selected>3x3</option>
                 <option value="5">5x5</option>
               </select>
 
-              <label for="bucketAggregationSelect">Bucket Aggregation</label>
-              <select id="bucketAggregationSelect" class="toolbar-select" title="Column aggregation when compressed">
+              <label for="bucketAggregationSelect">تجميع الأعمدة</label>
+              <select id="bucketAggregationSelect" class="toolbar-select" title="طريقة تجميع الأعمدة عند الضغط">
                 <option value="max" selected>max</option>
                 <option value="hybrid">hybrid</option>
               </select>
 
-              <label class="toolbar-check" title="Show render statistics for current visible data">
-                <input id="debugStatsEnabledInput" type="checkbox" /> Show Stats
+              <label class="toolbar-check" title="عرض إحصاءات الرسم للبيانات الظاهرة">
+                <input id="debugStatsEnabledInput" type="checkbox" /> عرض الإحصاءات
               </label>
-              <button id="applyIntensityBtn" type="button" class="ghost-btn" title="Apply intensity scaling">Apply Scale</button>
-              <button id="applyNoiseBtn" type="button" class="ghost-btn" title="Apply noise suppression settings">Apply Noise</button>
+              <button id="applyIntensityBtn" type="button" class="ghost-btn" title="تطبيق مقياس الشدة">تطبيق المقياس</button>
+              <button id="applyNoiseBtn" type="button" class="ghost-btn" title="تطبيق إعدادات تقليل الضجيج">تطبيق الضجيج</button>
             </div>
 
             <ul class="control-help-list">
-              <li><strong>Linear:</strong> مناسب لبيانات الصورة (0..1 أو 0..255). الافتراضي الموصى به لحالتك.</li>
-              <li><strong>dB fixed / dB percentile:</strong> تعمل فعليا فقط عندما نوع الإدخال magnitude/db، وإلا يعود النظام تلقائيا لـ Linear.</li>
-              <li><strong>Noise Gate:</strong> يزيل الخلفية الضعيفة حسب عتبة تكيفية.</li>
-              <li><strong>Noise Floor Percentile:</strong> يحدد أرضية الضجيج من توزيع البيانات (مثلا 72 يعني قيم أقل من ذلك غالبا ضجيج).</li>
-              <li><strong>Noise Threshold:</strong> حد أدنى ثابت بعد التطبيع لضبط شدة القص.</li>
-              <li><strong>De-speckle + Min neighbors:</strong> يزيل النقاط المنفردة ويحافظ على الخطوط.</li>
-              <li><strong>View Compare:</strong> Original قبل المعالجة، Thresholded بعد البوابة، Denoised بعد إزالة النقاط.</li>
-              <li><strong>Bucket Aggregation:</strong> max يحافظ على القمم، hybrid يخفف تضخيم النقط المفردة عند ضغط الأعمدة.</li>
+              <li><strong>خطي:</strong> مناسب لبيانات الصورة (0..1 أو 0..255). الافتراضي الموصى به لحالتك.</li>
+              <li><strong>dB ثابت / dB نسبة مئوية:</strong> يعمل فعليًا فقط عندما يكون نوع الإدخال magnitude/db، وإلا يعود النظام تلقائيًا إلى النمط الخطي.</li>
+              <li><strong>بوابة الضجيج:</strong> تزيل الخلفية الضعيفة حسب عتبة تكيفية.</li>
+              <li><strong>نسبة أرضية الضجيج:</strong> تحدد أرضية الضجيج من توزيع البيانات (مثلًا 72 يعني أن القيم الأقل غالبًا ضجيج).</li>
+              <li><strong>عتبة الضجيج:</strong> حد أدنى ثابت بعد التطبيع لضبط شدة القص.</li>
+              <li><strong>إزالة التنقيط + أقل جيران:</strong> يزيل النقاط المنفردة ويحافظ على الخطوط.</li>
+              <li><strong>عرض المقارنة:</strong> الأصلي قبل المعالجة، بعد العتبة بعد البوابة، بعد إزالة الضجيج بعد إزالة النقاط.</li>
+              <li><strong>تجميع الأعمدة:</strong> max يحافظ على القمم، hybrid يخفف تضخيم النقاط المفردة عند ضغط الأعمدة.</li>
             </ul>
           </div>
         </aside>

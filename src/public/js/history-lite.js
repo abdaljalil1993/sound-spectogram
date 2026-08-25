@@ -93,7 +93,7 @@
 
     if (!response.ok) {
       var text = await response.text();
-      throw new Error(text || "Request failed");
+      throw new Error(text || "فشل تنفيذ الطلب");
     }
 
     return response.json();
@@ -291,7 +291,7 @@
     result.forEach(function (device) {
       var option = document.createElement("option");
       option.value = String(device.id);
-      option.textContent = device.name || ("Device " + device.id);
+      option.textContent = device.name || ("جهاز " + device.id);
       deviceSelect.appendChild(option);
     });
 
@@ -367,16 +367,16 @@
 
       var packetCount = blocks.length;
       var totalSeconds = Math.max(1, (toDate.getTime() - fromDate.getTime()) / 1000);
-      setStatus("تمت قراءة " + packetCount + " packet من تاريخ الجهاز ودمجها في raw render مباشر دون أي merge أو band أو معالجة إضافية.");
+      setStatus("تمت قراءة " + packetCount + " باكت من سجل الجهاز وعرضها مباشرة دون دمج إضافي.");
       metaEl.textContent =
         "المدى: " + fromDate.toLocaleString() + " → " + toDate.toLocaleString() +
-        " | packets: " + packetCount +
-        " | duration: " + Math.round(totalSeconds / 60) + " minute(s)" +
-        " | color map: " + (colorMapSelect.value || state.defaultColorMap) +
-        " | zoom: " + state.zoom +
-        " | matrix: " + state.matrix.length + " × " + (Array.isArray(state.matrix[0]) ? state.matrix[0].length : 0) +
-        " | intensity: " + (intensityType || "normalized") +
-        " | freq: " + (freqRange.minFrequency && freqRange.maxFrequency ? Math.round(freqRange.minFrequency) + "-" + Math.round(freqRange.maxFrequency) + " Hz" : "auto");
+        " | الباكتات: " + packetCount +
+        " | المدة: " + Math.round(totalSeconds / 60) + " دقيقة" +
+        " | خريطة الألوان: " + (colorMapSelect.value || state.defaultColorMap) +
+        " | التكبير: " + state.zoom +
+        " | المصفوفة: " + state.matrix.length + " × " + (Array.isArray(state.matrix[0]) ? state.matrix[0].length : 0) +
+        " | الشدة: " + (intensityType || "normalized") +
+        " | التردد: " + (freqRange.minFrequency && freqRange.maxFrequency ? Math.round(freqRange.minFrequency) + "-" + Math.round(freqRange.maxFrequency) + " Hz" : "تلقائي");
     } catch (error) {
       setStatus(error && error.message ? error.message : "فشل تحميل البيانات.", true);
       metaEl.textContent = "فشل في قراءة بيانات التاريخ.";
