@@ -187,6 +187,16 @@ export function validateIncomingDevicePayload(payload: unknown): {
     parsedIntensityType = intensityTypeRaw;
   }
 
+  const rawAiStatus = raw.aiStatus ?? raw.ai_status;
+  let parsedAiStatus: IncomingDeviceDataPayload["aiStatus"];
+  if (rawAiStatus !== undefined && rawAiStatus !== null && rawAiStatus !== "") {
+    const aiStatusNumber = Number(rawAiStatus);
+    if (!Number.isInteger(aiStatusNumber) || (aiStatusNumber !== 0 && aiStatusNumber !== 1 && aiStatusNumber !== 2)) {
+      return { valid: false, message: "aiStatus must be one of 0, 1, 2" };
+    }
+    parsedAiStatus = aiStatusNumber as IncomingDeviceDataPayload["aiStatus"];
+  }
+
   const rawFrequencyBins =
     raw.frequencyBins ??
     raw.frequency_bins ??
@@ -248,7 +258,8 @@ export function validateIncomingDevicePayload(payload: unknown): {
       endTime: parsedEnd,
       data: raw.data as number[][],
       frequencyBins: parsedFrequencyBins,
-      intensityType: parsedIntensityType
+      intensityType: parsedIntensityType,
+      aiStatus: parsedAiStatus
     }
   };
 }

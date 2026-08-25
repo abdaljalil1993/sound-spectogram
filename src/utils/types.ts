@@ -22,6 +22,7 @@ export interface IncomingDeviceDataPayload {
   data: DeviceMatrix;
   frequencyBins?: number[];
   intensityType?: IntensityType;
+  aiStatus?: 0 | 1 | 2;
 }
 
 export interface DeviceDataBroadcastPayload {
@@ -34,6 +35,7 @@ export interface DeviceDataBroadcastPayload {
   data: DeviceMatrix;
   frequencyBins?: number[];
   intensityType?: IntensityType;
+  aiStatus?: 0 | 1 | 2;
   persisted?: boolean;
 }
 

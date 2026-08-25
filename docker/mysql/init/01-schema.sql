@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS device_histories (
   endTime DATETIME NULL,
   data JSON NOT NULL,
   frequencyBins JSON NULL,
+  aiStatus TINYINT NULL,
   PRIMARY KEY (id),
   KEY idx_device_histories_device_timestamp (deviceId, timestamp),
   KEY idx_device_histories_device_start_end (deviceId, startTime, endTime),

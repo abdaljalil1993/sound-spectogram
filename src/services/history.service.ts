@@ -155,6 +155,7 @@ export class HistoryService {
       data: normalized.parsed.data,
       frequencyBins: normalized.parsed.frequencyBins,
       intensityType: normalized.parsed.intensityType,
+      aiStatus: normalized.parsed.aiStatus,
       persisted: false
     };
   }
@@ -192,6 +193,7 @@ export class HistoryService {
         data: normalized.parsed.data,
         frequencyBins: preservedFrequencyBins ?? undefined,
         intensityType: normalized.parsed.intensityType,
+        aiStatus: normalized.parsed.aiStatus ?? ((existing.aiStatus as 0 | 1 | 2 | null) ?? undefined),
         persisted: true
       };
     }
@@ -202,7 +204,8 @@ export class HistoryService {
       startTime: normalized.parsedStartTime,
       endTime: normalized.parsedEndTime,
       data: this.compressMatrix(normalized.parsed.data),
-      frequencyBins: normalized.parsed.frequencyBins ?? null
+      frequencyBins: normalized.parsed.frequencyBins ?? null,
+      aiStatus: normalized.parsed.aiStatus ?? null
     });
 
     const saved = await this.historyRepo.save(entity);
@@ -225,6 +228,7 @@ export class HistoryService {
       data: normalized.parsed.data,
       frequencyBins: normalized.parsed.frequencyBins,
       intensityType: normalized.parsed.intensityType,
+      aiStatus: normalized.parsed.aiStatus,
       persisted: true
     };
   }

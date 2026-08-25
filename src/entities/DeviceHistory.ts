@@ -9,6 +9,14 @@ import {
 import { Device } from "./Device";
 import { StoredDeviceMatrix } from "../utils/types";
 
+
+
+export enum AiStatus {
+  POSSIBLE = 0,
+  DETECTED = 1,
+  NOT_DETECTED = 2
+}
+
 @Entity({ name: "device_histories" })
 @Index(["deviceId", "timestamp"])
 @Index(["deviceId", "startTime", "endTime"], { unique: true })
@@ -37,4 +45,7 @@ export class DeviceHistory {
 
   @Column({ type: "json", nullable: true })
   frequencyBins!: number[] | null;
+
+  @Column({ type: "tinyint", nullable: true })
+  aiStatus!: AiStatus | null;
 }
