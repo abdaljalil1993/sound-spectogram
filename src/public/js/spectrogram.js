@@ -1476,7 +1476,7 @@
       left: 66,
       right: 14,
       top: 14,
-      bottom: 34
+      bottom: 46
     };
 
     var plotW = Math.max(10, cssWidth - p.left - p.right);
@@ -1560,6 +1560,20 @@
 
     function mapX(ms) {
       return Math.floor(((ms - fromMs) / (toMs - fromMs)) * (plotW - 1));
+    }
+
+    function resolveAiStatusColor(statusValue) {
+      var normalized = Number(statusValue);
+      if (normalized === 2) {
+        return "#21a366";
+      }
+      if (normalized === 1) {
+        return "#d13438";
+      }
+      if (normalized === 0) {
+        return "#f59e0b";
+      }
+      return "#8a94a6";
     }
 
     var rangeMs = toMs - fromMs;
@@ -1927,6 +1941,65 @@
       var labelMs = fromMs + lf * rangeMs;
       var labelX = p.left + Math.round(lf * plotW);
       ctx.fillText(formatTimeLabel(labelMs, withDate), labelX, p.top + plotH + 8);
+    }
+
+    var statusBarY = p.top + plotH + 24;
+    var statusBarHeight = 6;
+    var aiStatusBlocks = [];
+    for (var biStatus = 0; biStatus < blocks.length; biStatus += 1) {
+      var statusBlock = blocks[biStatus];
+      if (!statusBlock) {
+        continue;
+      }
+
+      var blockStartMs = getBlockStartMs(statusBlock);
+      var blockEndMs = getBlockEndMs(statusBlock);
+      if (!Number.isFinite(blockStartMs) || !Number.isFinite(blockEndMs)) {
+        var blockTs = getBlockTimestampMs(statusBlock);
+        if (!Number.isFinite(blockTs)) {
+          continue;
+        }
+
+        var matrix = statusBlock.data;
+        var cols = Array.isArray(matrix) && matrix.length > 0 && Array.isArray(matrix[0]) ? matrix[0].length : 1;
+        var stepMs = estimateStepMs(blocks, biStatus, rangeMs);
+        if (DEFAULT_CONFIG.blockTimestampMode === "end") {
+          blockStartMs = blockTs - (Math.max(1, cols) - 1) * stepMs;
+          blockEndMs = blockTs + stepMs;
+        } else {
+          blockStartMs = blockTs;
+          blockEndMs = blockTs + Math.max(1, cols) * stepMs;
+        }
+      }
+
+      if (blockEndMs < blockStartMs) {
+        var tmpMs = blockStartMs;
+        blockStartMs = blockEndMs;
+        blockEndMs = tmpMs;
+      }
+
+      var clippedStart = Math.max(fromMs, blockStartMs);
+      var clippedEnd = Math.min(toMs, blockEndMs);
+      if (clippedEnd <= clippedStart) {
+        continue;
+      }
+
+      aiStatusBlocks.push({
+        start: clippedStart,
+        end: clippedEnd,
+        color: resolveAiStatusColor(statusBlock.aiStatus ?? statusBlock.ai_status)
+      });
+    }
+
+    if (aiStatusBlocks.length > 0) {
+      for (var sb = 0; sb < aiStatusBlocks.length; sb += 1) {
+        var statusRange = aiStatusBlocks[sb];
+        var sx0 = Math.max(0, Math.min(plotW - 1, mapX(statusRange.start)));
+        var sx1 = Math.max(sx0 + 1, Math.min(plotW, mapX(statusRange.end) + 1));
+        var sw = Math.max(1, sx1 - sx0);
+        ctx.fillStyle = statusRange.color;
+        ctx.fillRect(p.left + sx0, statusBarY, sw, statusBarHeight);
+      }
     }
 
     ctx.textAlign = "right";

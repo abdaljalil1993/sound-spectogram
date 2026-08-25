@@ -263,6 +263,49 @@ select:focus-visible {
   min-width: 260px;
 }
 
+.ai-status-legend {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ai-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.ai-status-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+}
+
+.ai-status-swatch.status-not-detected {
+  background: #21a366;
+}
+
+.ai-status-swatch.status-detected {
+  background: #d13438;
+}
+
+.ai-status-swatch.status-possible {
+  background: #f59e0b;
+}
+
+.ai-status-swatch.status-unknown {
+  background: #8a94a6;
+}
+
 .gain-slider-wrap {
   display: flex;
   align-items: center;
