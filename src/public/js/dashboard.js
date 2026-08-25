@@ -110,6 +110,7 @@
   var colorMapBtn = document.getElementById("colorMapBtn");
   var followLiveBtn = document.getElementById("followLiveBtn");
   var displayGainInput = document.getElementById("displayGainInput");
+  var displayGainValue = document.getElementById("displayGainValue");
   var freqMinInput = document.getElementById("freqMinInput");
   var freqMaxInput = document.getElementById("freqMaxInput");
   var applyFreqRangeBtn = document.getElementById("applyFreqRangeBtn");
@@ -190,6 +191,7 @@
     !colorMapBtn ||
     !followLiveBtn ||
     !displayGainInput ||
+    !displayGainValue ||
     !freqMinInput ||
     !freqMaxInput ||
     !applyFreqRangeBtn ||
@@ -617,6 +619,7 @@
 
     activeDisplayGainDb = clamp(displayGainDb, -24, 24);
     displayGainInput.value = String(activeDisplayGainDb);
+    displayGainValue.textContent = String(activeDisplayGainDb) + " dB";
     scheduleRender({ skipTable: true });
     setGlobalMessage("Display gain applied", false);
   }
@@ -2340,13 +2343,11 @@
     applyIntensitySettings();
   });
 
-  displayGainInput.addEventListener("change", function () {
+  displayGainInput.addEventListener("input", function () {
     applyDisplayGainSettings();
   });
-  displayGainInput.addEventListener("keydown", function (event) {
-    if (event.key === "Enter") {
-      applyDisplayGainSettings();
-    }
+  displayGainInput.addEventListener("change", function () {
+    applyDisplayGainSettings();
   });
 
   [dbMinInput, dbMaxInput, pctLowInput, pctHighInput].forEach(function (inputEl) {
@@ -2945,6 +2946,7 @@
   activeColorMap = "magma";
   updateColorMapButtonLabel();
   displayGainInput.value = String(activeDisplayGainDb);
+  displayGainValue.textContent = String(activeDisplayGainDb) + " dB";
   intensityModeSelect.value = activeIntensityMode;
   dbMinInput.value = String(activeDbMin);
   dbMaxInput.value = String(activeDbMax);

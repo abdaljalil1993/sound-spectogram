@@ -258,6 +258,31 @@ select:focus-visible {
   font-size: 13px;
 }
 
+.gain-slider-label {
+  margin-left: auto;
+  min-width: 260px;
+}
+
+.gain-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#displayGainInput[type="range"] {
+  width: 190px;
+  min-width: 190px;
+  padding: 0;
+}
+
+.gain-slider-value {
+  min-width: 48px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .canvas-wrapper {
   position: relative;
   width: 100%;
