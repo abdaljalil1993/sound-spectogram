@@ -33,6 +33,7 @@
   var viewportToMs = null;
   var followLatest24 = true;
   var liveFollowEnabled = true;
+  var liveManualBrowseActive = false;
   var isHistoryLoading = false;
   var historyLoadSequence = 0;
   var pendingLivePackets = [];
@@ -1044,7 +1045,7 @@
 
     var fromMs;
     var toMs;
-    if (liveFollowEnabled) {
+    if (liveFollowEnabled && !liveManualBrowseActive) {
       syncLatestLiveViewport();
       toMs = viewportToMs;
       fromMs = viewportFromMs;
@@ -1538,8 +1539,7 @@
       return;
     }
 
-    followLatest24 = false;
-    liveFollowEnabled = false;
+    liveManualBrowseActive = true;
     var padding = Math.max(60 * 1000, Math.round((maxEnd - minStart) * 0.04));
     viewportFromMs = minStart - padding;
     viewportToMs = maxEnd + padding;
@@ -1554,8 +1554,7 @@
       return;
     }
 
-    followLatest24 = false;
-    liveFollowEnabled = false;
+    liveManualBrowseActive = true;
     var panRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 0.2;
     var shift = Math.max(30 * 1000, Math.round(span * panRatio));
     viewportFromMs += direction * shift;
@@ -1608,8 +1607,7 @@
       return;
     }
 
-    followLatest24 = false;
-    liveFollowEnabled = false;
+    liveManualBrowseActive = true;
     var anchor = clamp(anchorFraction, 0, 1);
     var anchorTime = viewportFromMs + span * anchor;
     var newSpan = Math.round(span * factor);
@@ -1627,6 +1625,7 @@
     if (liveFollowEnabled) {
       followLatest24 = true;
       liveFollowEnabled = true;
+      liveManualBrowseActive = false;
       scheduleRender({ skipTable: false });
       return;
     }
@@ -1678,6 +1677,7 @@
       viewportToMs = effectiveToMs;
       followLatest24 = false;
       liveFollowEnabled = false;
+      liveManualBrowseActive = false;
     } else {
       var liveWindowMs = Number(options.liveWindowMs);
       if (!Number.isFinite(liveWindowMs) || liveWindowMs <= 0) {
@@ -1701,6 +1701,7 @@
       activeToIso = formatNaiveDateTimeMs(latestToMs, true);
       followLatest24 = true;
       liveFollowEnabled = true;
+      liveManualBrowseActive = false;
       viewportFromMs = latestFromMs;
       viewportToMs = latestToMs;
       endpoint += "?from=" + encodeURIComponent(activeFromIso) + "&to=" + encodeURIComponent(activeToIso);
@@ -1747,6 +1748,7 @@
       if (activeRangeMode === "latest1h" || activeRangeMode === "latest30m") {
         followLatest24 = true;
         liveFollowEnabled = true;
+        liveManualBrowseActive = false;
       }
 
       if (!currentPackets.length) {
@@ -1819,6 +1821,7 @@
     activeRangeMode = "lastPacket";
     followLatest24 = false;
     liveFollowEnabled = false;
+    liveManualBrowseActive = false;
     viewportFromMs = latestStartMs;
     viewportToMs = effectiveEnd;
     activeFromIso = formatNaiveDateTimeMs(viewportFromMs, true);
@@ -1866,6 +1869,7 @@
         activeRangeMode = "lastPacket";
         followLatest24 = false;
         liveFollowEnabled = false;
+        liveManualBrowseActive = false;
         var effectiveEnd =
           Number.isFinite(latestEndMs) && latestEndMs > latestStartMs ? latestEndMs : latestStartMs + 1000;
         viewportFromMs = latestStartMs;
@@ -2334,6 +2338,7 @@
       viewportToMs = new Date(activeToIso).getTime();
       followLatest24 = false;
       liveFollowEnabled = false;
+      liveManualBrowseActive = false;
       scheduleRender({ skipTable: false });
       setGlobalMessage("Example range loaded (includes intentional 10-minute data gap)", false);
     } catch (error) {
@@ -2468,9 +2473,7 @@
 
     if (!panHasMoved && Math.abs(dx) >= 3) {
       panHasMoved = true;
-      followLatest24 = false;
-      liveFollowEnabled = false;
-      updateFollowLiveButtonState();
+      liveManualBrowseActive = true;
     }
 
     var shiftMs = Math.round((-dx / canvasWidth) * span);
@@ -2902,6 +2905,7 @@
       expectingLiveRender = true;
       markLiveTrace("inserted", { packetTimeMs: payloadTime });
       if (liveFollowEnabled) {
+        liveManualBrowseActive = false;
         syncLatestLiveViewport(getPacketEndMs(payload));
       }
       scheduleRender({ skipTable: false });
