@@ -270,57 +270,12 @@
   }
 
   function ensureLiveTraceElement() {
-    if (liveTraceEl) {
-      return liveTraceEl;
-    }
-
-    liveTraceEl = document.createElement("div");
-    liveTraceEl.id = "liveTraceStatus";
-    liveTraceEl.style.marginTop = "6px";
-    liveTraceEl.style.fontSize = "12px";
-    liveTraceEl.style.color = "#4f5f79";
-    liveTraceEl.style.wordBreak = "break-word";
-    if (historyInfoEl && historyInfoEl.parentElement) {
-      historyInfoEl.parentElement.insertBefore(liveTraceEl, historyInfoEl.nextSibling);
-    }
-
-    return liveTraceEl;
+    // Live trace status is kept internal only; no on-page debug text is rendered.
+    return null;
   }
 
   function renderLiveTraceStatus() {
-    var traceTarget = ensureLiveTraceElement();
-    var text =
-      "تتبع مباشر | المرحلة=" +
-      liveTraceCounters.lastStage +
-      " | الاستقبال=" +
-      liveTraceCounters.received +
-      " مطابق=" +
-      liveTraceCounters.matched +
-      " مخزن مؤقتًا=" +
-      liveTraceCounters.buffered +
-      " مدمج=" +
-      liveTraceCounters.mergedFromBuffer +
-      " مضاف=" +
-      liveTraceCounters.inserted +
-      " مكرر=" +
-      liveTraceCounters.duplicates +
-      " مرسوم=" +
-      liveTraceCounters.rendered +
-      " مرفوض-جهاز=" +
-      liveTraceCounters.droppedByDevice +
-      " مرفوض-وقت=" +
-      liveTraceCounters.droppedByTime +
-      " | آخر-باكت=" +
-      liveTraceCounters.lastPacketIso +
-      " | آخر-رسم=" +
-      liveTraceCounters.lastRenderIso;
-
-    if (liveTraceCounters.lastIssue) {
-      text += " | مشكلة=" + liveTraceCounters.lastIssue;
-    }
-
-    traceTarget.textContent = text;
-    socketStatusBadgeEl.title = text;
+    // Intentionally hidden from UI.
   }
 
   function markLiveTrace(stage, meta) {
