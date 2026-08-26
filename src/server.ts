@@ -19,6 +19,9 @@ async function bootstrap(): Promise<void> {
 
   const io = new Server(httpServer, {
     maxHttpBufferSize: 1e8,
+    perMessageDeflate: {
+    threshold: 1024 // فعّل الضغط بس للرسائل الأكبر من 1KB
+  },
     cors: {
       origin: "*",
       methods: ["GET", "POST"]

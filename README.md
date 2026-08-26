@@ -213,6 +213,8 @@ Broadcast occurs only after payload validation + database persistence.
 - `GET /api/devices/:id/history?from=...&to=...` (admin, emp)
 - `GET /api/devices/:id/history/latest` (admin, emp)
 - If `from` and `to` are missing, latest 24 hours are returned.
+- History endpoints return matrix payloads in stored compressed format by default (`gzip-base64-json-v1`).
+- Use `?decode=1` to force server-side matrix decode for compatibility clients.
 
 ## Authentication Behavior
 

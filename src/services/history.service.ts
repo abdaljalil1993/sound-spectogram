@@ -95,6 +95,16 @@ export class HistoryService {
     });
   }
 
+  private normalizeHistoryItemsRaw(items: DeviceHistory[]): DeviceHistory[] {
+    return items.map((item) => ({
+      ...item,
+      timestamp: normalizeNaiveDateTimeString(item.timestamp) || String(item.timestamp),
+      startTime: normalizeNaiveDateTimeString(item.startTime || item.timestamp) || String(item.timestamp),
+      endTime: normalizeNaiveDateTimeString(item.endTime || item.timestamp) || String(item.timestamp),
+      frequencyBins: Array.isArray(item.frequencyBins) ? item.frequencyBins : null
+    }));
+  }
+
   private formatLocalNaiveDateTime(value: Date): string {
     const year = String(value.getFullYear()).padStart(4, "0");
     const month = String(value.getMonth() + 1).padStart(2, "0");
@@ -233,7 +243,7 @@ export class HistoryService {
     };
   }
 
-  async getLatest24Hours(deviceId: number): Promise<DeviceHistory[]> {
+  async getLatest24Hours(deviceId: number, decodeData = false): Promise<DeviceHistory[]> {
     if (!isPositiveInteger(deviceId)) {
       throw new HttpError(400, "device id must be a positive integer");
     }
@@ -252,10 +262,14 @@ export class HistoryService {
       }
     });
 
-    return this.decodeHistoryItems(items);
+    if (decodeData) {
+      return this.decodeHistoryItems(items);
+    }
+
+    return this.normalizeHistoryItemsRaw(items);
   }
 
-  async getLatestPacket(deviceId: number): Promise<DeviceHistory | null> {
+  async getLatestPacket(deviceId: number, decodeData = false): Promise<DeviceHistory | null> {
     if (!isPositiveInteger(deviceId)) {
       throw new HttpError(400, "device id must be a positive integer");
     }
@@ -275,10 +289,14 @@ export class HistoryService {
       return null;
     }
 
-    return this.decodeHistoryItems([item])[0] || null;
+    if (decodeData) {
+      return this.decodeHistoryItems([item])[0] || null;
+    }
+
+    return this.normalizeHistoryItemsRaw([item])[0] || null;
   }
 
-  async getHistoryByDateRange(deviceId: number, from: string, to: string): Promise<DeviceHistory[]> {
+  async getHistoryByDateRange(deviceId: number, from: string, to: string, decodeData = false): Promise<DeviceHistory[]> {
     if (!isPositiveInteger(deviceId)) {
       throw new HttpError(400, "device id must be a positive integer");
     }
@@ -312,6 +330,10 @@ export class HistoryService {
       }
     });
 
-    return this.decodeHistoryItems(items);
+    if (decodeData) {
+      return this.decodeHistoryItems(items);
+    }
+
+    return this.normalizeHistoryItemsRaw(items);
   }
 }

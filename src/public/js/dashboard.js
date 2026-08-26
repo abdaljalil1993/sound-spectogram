@@ -434,6 +434,60 @@
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  function isCompressedMatrixPayload(value) {
+    return (
+      value &&
+      typeof value === "object" &&
+      value.format === "gzip-base64-json-v1" &&
+      typeof value.payload === "string"
+    );
+  }
+
+  function decodeCompressedMatrixPayload(stored) {
+    if (!isCompressedMatrixPayload(stored)) {
+      return stored;
+    }
+
+    var pako = typeof window !== "undefined" ? window.pako : null;
+    if (!pako || typeof pako.inflate !== "function") {
+      throw new Error("مكتبة فك الضغط pako غير متاحة في المتصفح");
+    }
+
+    var binary = atob(stored.payload);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    var inflated = pako.inflate(bytes, { to: "string" });
+    return JSON.parse(inflated);
+  }
+
+  function decodePacketMatrix(packet) {
+    if (!packet || typeof packet !== "object") {
+      return packet;
+    }
+
+    if (Array.isArray(packet.data)) {
+      return packet;
+    }
+
+    packet.data = decodeCompressedMatrixPayload(packet.data);
+    return packet;
+  }
+
+  function decodePacketsMatrix(packets) {
+    if (!Array.isArray(packets)) {
+      return [];
+    }
+
+    var decoded = [];
+    for (var i = 0; i < packets.length; i += 1) {
+      decoded.push(decodePacketMatrix(packets[i]));
+    }
+    return decoded;
+  }
+
   function normalizeFrequencyBins(rawBins) {
     if (!Array.isArray(rawBins) || rawBins.length === 0) {
       return null;
@@ -1867,7 +1921,7 @@
         return;
       }
 
-      currentPackets = Array.isArray(snapshotPackets) ? snapshotPackets : [];
+      currentPackets = decodePacketsMatrix(snapshotPackets);
       currentPackets.forEach(normalizePacketTiming);
       activeTimeStepMs = 1000;
       rebuildPacketKeySet();
@@ -1949,6 +2003,7 @@
       return;
     }
 
+    decodePacketMatrix(latestPacket);
     normalizePacketTiming(latestPacket);
     var latestStartMs = getPacketStartMs(latestPacket);
     var latestEndMs = getPacketEndMs(latestPacket);

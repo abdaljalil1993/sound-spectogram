@@ -104,9 +104,50 @@
       return [];
     }
 
-    return items.filter(function (item) {
+    return items
+      .map(function (item) {
+        if (!item || typeof item !== "object") {
+          return item;
+        }
+
+        if (!Array.isArray(item.data) && isCompressedMatrixPayload(item.data)) {
+          item.data = decodeCompressedMatrixPayload(item.data);
+        }
+
+        return item;
+      })
+      .filter(function (item) {
       return item && Array.isArray(item.data) && item.data.length > 0;
     });
+  }
+
+  function isCompressedMatrixPayload(value) {
+    return (
+      value &&
+      typeof value === "object" &&
+      value.format === "gzip-base64-json-v1" &&
+      typeof value.payload === "string"
+    );
+  }
+
+  function decodeCompressedMatrixPayload(stored) {
+    if (!isCompressedMatrixPayload(stored)) {
+      return stored;
+    }
+
+    var pako = typeof window !== "undefined" ? window.pako : null;
+    if (!pako || typeof pako.inflate !== "function") {
+      throw new Error("مكتبة فك الضغط pako غير متاحة في المتصفح");
+    }
+
+    var binary = atob(stored.payload);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    var inflated = pako.inflate(bytes, { to: "string" });
+    return JSON.parse(inflated);
   }
 
   function inferIntensityType(blocks) {

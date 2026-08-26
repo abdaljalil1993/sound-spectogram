@@ -1,6 +1,7 @@
 import path from "path";
 import cors from "cors";
 import express from "express";
+import compression from "compression";
 import helmet from "helmet";
 import deviceRoutes from "./routes/device.routes";
 import historyRoutes from "./routes/history.routes";
@@ -14,6 +15,12 @@ export function createApp() {
   app.use(
     cors({
       origin: "*"
+    })
+  );
+  app.use(
+    compression({
+      level: 6,
+      threshold: 1024
     })
   );
   app.use(express.json({ limit: "2mb" }));
