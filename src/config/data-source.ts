@@ -17,6 +17,7 @@ export const AppDataSource = new DataSource({
   synchronize: !isProduction,
   logging: false,
   extra: {
+    connectionLimit: 20,
     dateStrings: true
   }
 });
