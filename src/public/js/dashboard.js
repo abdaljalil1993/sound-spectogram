@@ -1932,15 +1932,24 @@
       return;
     }
 
-    var range = getRecentRangeIso(24);
-    await loadDeviceHistory(selectedDeviceId, range.fromIso, range.toIso);
+    var latestPacket;
+    try {
+      latestPacket = await apiRequest("/api/devices/" + selectedDeviceId + "/history/latest");
+    } catch (error) {
+      var message = error instanceof Error ? error.message : "فشل تحميل آخر باكت";
+      if (message === "No packets found for this device") {
+        setGlobalMessage("لا توجد باكتات لهذا الجهاز حتى الآن", true);
+        return;
+      }
+      throw error;
+    }
 
-    if (!currentPackets.length) {
-      setGlobalMessage("لم يتم العثور على باكت خلال آخر 24 ساعة", true);
+    if (!latestPacket || typeof latestPacket !== "object") {
+      setGlobalMessage("تعذر تحميل آخر باكت", true);
       return;
     }
 
-    var latestPacket = currentPackets[currentPackets.length - 1];
+    normalizePacketTiming(latestPacket);
     var latestStartMs = getPacketStartMs(latestPacket);
     var latestEndMs = getPacketEndMs(latestPacket);
     if (!Number.isFinite(latestStartMs)) {

@@ -6,6 +6,13 @@ import { authMiddleware, requireRole } from "../utils/auth.middleware";
 const router = Router();
 
 router.get(
+  "/devices/:id/history/latest",
+  authMiddleware,
+  requireRole(UserRole.ADMIN, UserRole.EMP),
+  historyController.getLatestDevicePacket
+);
+
+router.get(
   "/devices/:id/history",
   authMiddleware,
   requireRole(UserRole.ADMIN, UserRole.EMP),

@@ -6,6 +6,25 @@ import { isPositiveInteger, normalizeNaiveDateTimeString } from "../utils/valida
 const historyService = new HistoryService();
 
 export const historyController = {
+  getLatestDevicePacket: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const deviceId = Number(req.params.id);
+      if (!isPositiveInteger(deviceId)) {
+        throw new HttpError(400, "device id must be a positive integer");
+      }
+
+      const item = await historyService.getLatestPacket(deviceId);
+      if (!item) {
+        res.status(404).json({ message: "No packets found for this device" });
+        return;
+      }
+
+      res.json(item);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   getDeviceHistory: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const deviceId = Number(req.params.id);

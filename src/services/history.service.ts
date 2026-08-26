@@ -255,6 +255,29 @@ export class HistoryService {
     return this.decodeHistoryItems(items);
   }
 
+  async getLatestPacket(deviceId: number): Promise<DeviceHistory | null> {
+    if (!isPositiveInteger(deviceId)) {
+      throw new HttpError(400, "device id must be a positive integer");
+    }
+
+    await this.deviceService.verifyDeviceExists(deviceId);
+
+    const item = await this.historyRepo.findOne({
+      where: {
+        deviceId
+      },
+      order: {
+        timestamp: "DESC"
+      }
+    });
+
+    if (!item) {
+      return null;
+    }
+
+    return this.decodeHistoryItems([item])[0] || null;
+  }
+
   async getHistoryByDateRange(deviceId: number, from: string, to: string): Promise<DeviceHistory[]> {
     if (!isPositiveInteger(deviceId)) {
       throw new HttpError(400, "device id must be a positive integer");
