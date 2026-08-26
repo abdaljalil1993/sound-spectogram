@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "node scripts/free-port-3111.mjs",
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json && node scripts/copy-static.mjs",
+    "build": "tsc -p tsconfig.json && node scripts/copy-static.mjs && node scripts/bundle-client.mjs",
     "start": "node dist/server.js"
   },
   "keywords": [
@@ -43,6 +43,7 @@
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.3.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
