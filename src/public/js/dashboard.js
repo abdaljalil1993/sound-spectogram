@@ -39,6 +39,11 @@
   var pendingLivePackets = [];
   var currentPacketKeys = new Set();
   var isPanning = false;
+  var isDraggingMarker = false;
+  var draggedMarkerIndex = -1;
+  var markerDragStartClientX = 0;
+  var markerDragHasMoved = false;
+  var skipMarkerRemovalClick = false;
   var panHasMoved = false;
   var panStartClientX = 0;
   var panStartFromMs = 0;
@@ -1327,7 +1332,7 @@
     ctx.strokeStyle = "rgba(255, 214, 10, 0.95)";
     ctx.fillStyle = "rgba(255, 214, 10, 0.95)";
     ctx.lineWidth = 1.2;
-    ctx.font = "11px Segoe UI";
+    ctx.font = "bold 15px Segoe UI";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
 
@@ -1351,8 +1356,8 @@
 
       var label = formatMarkerLabelTime(timeMs);
       var textWidth = ctx.measureText(label).width;
-      var boxPaddingX = 5;
-      var boxHeight = 16;
+      var boxPaddingX = 10;
+      var boxHeight = 27;
       var boxWidth = Math.max(40, Math.round(textWidth + boxPaddingX * 2));
       var rawBoxLeft = x - boxWidth / 2;
       var boxLeft = clamp(rawBoxLeft, layout.plotLeft, layout.plotRight - boxWidth);
@@ -1363,7 +1368,7 @@
       ctx.strokeStyle = "rgba(255, 214, 10, 0.95)";
       ctx.strokeRect(boxLeft + 0.5, boxTop + 0.5, boxWidth - 1, boxHeight - 1);
       ctx.fillStyle = "rgba(255, 238, 142, 1)";
-      ctx.fillText(label, boxLeft + boxWidth / 2, boxTop + boxHeight - 4);
+      ctx.fillText(label, boxLeft + boxWidth / 2, boxTop + boxHeight - 6);
 
       renderedTimeMarkerHits.push({
         markerIndex: i,
@@ -1383,9 +1388,9 @@
     ctx.restore();
   }
 
-  function removeTimeMarkerAtCanvasPoint(event) {
+  function findMarkerHitAtCanvasPoint(event) {
     if (!renderedTimeMarkerHits.length) {
-      return false;
+      return null;
     }
 
     var rect = canvas.getBoundingClientRect();
@@ -1399,15 +1404,24 @@
       var onLine =
         Math.abs(x - hit.lineX) <= 4 && y >= hit.lineTop && y <= hit.lineBottom;
 
-      if (!onLabel && !onLine) {
-        continue;
+      if (onLabel || onLine) {
+        return hit;
       }
+    }
 
-      if (hit.markerIndex >= 0 && hit.markerIndex < timeMarkers.length) {
-        timeMarkers.splice(hit.markerIndex, 1);
-        scheduleRender({ skipTable: true });
-        return true;
-      }
+    return null;
+  }
+
+  function removeTimeMarkerAtCanvasPoint(event) {
+    var hit = findMarkerHitAtCanvasPoint(event);
+    if (!hit) {
+      return false;
+    }
+
+    if (hit.markerIndex >= 0 && hit.markerIndex < timeMarkers.length) {
+      timeMarkers.splice(hit.markerIndex, 1);
+      scheduleRender({ skipTable: true });
+      return true;
     }
 
     return false;
@@ -2517,6 +2531,18 @@
       return;
     }
 
+    var markerHit = findMarkerHitAtCanvasPoint(event);
+    if (markerHit && markerHit.markerIndex >= 0 && markerHit.markerIndex < timeMarkers.length) {
+      isDraggingMarker = true;
+      draggedMarkerIndex = markerHit.markerIndex;
+      markerDragStartClientX = event.clientX;
+      markerDragHasMoved = false;
+      canvas.style.cursor = "ew-resize";
+      gapTooltipEl.classList.add("hidden");
+      event.preventDefault();
+      return;
+    }
+
     var span = getCurrentViewSpanMs();
     if (!span || span <= 0) {
       return;
@@ -2533,6 +2559,39 @@
   });
 
   window.addEventListener("mousemove", function (event) {
+    if (isDraggingMarker) {
+      if (!lastRenderMeta || !lastRenderMeta.layout) {
+        return;
+      }
+
+      if (!Number.isFinite(lastRenderMeta.fromMs) || !Number.isFinite(lastRenderMeta.toMs)) {
+        return;
+      }
+
+      if (draggedMarkerIndex < 0 || draggedMarkerIndex >= timeMarkers.length) {
+        return;
+      }
+
+      var rect = canvas.getBoundingClientRect();
+      var layout = lastRenderMeta.layout;
+      var clampedX = clamp(event.clientX - rect.left, layout.plotLeft, layout.plotRight);
+      var spanMs = lastRenderMeta.toMs - lastRenderMeta.fromMs;
+      if (!Number.isFinite(spanMs) || spanMs <= 0) {
+        return;
+      }
+
+      var xFrac = (clampedX - layout.plotLeft) / Math.max(1e-9, layout.plotRight - layout.plotLeft);
+      var timeMs = lastRenderMeta.fromMs + xFrac * spanMs;
+
+      timeMarkers[draggedMarkerIndex].timeMs = timeMs;
+      if (!markerDragHasMoved && Math.abs(event.clientX - markerDragStartClientX) >= 3) {
+        markerDragHasMoved = true;
+      }
+
+      scheduleRender({ skipTable: true });
+      return;
+    }
+
     if (!isPanning) {
       return;
     }
@@ -2559,6 +2618,16 @@
   });
 
   window.addEventListener("mouseup", function () {
+    if (isDraggingMarker) {
+      isDraggingMarker = false;
+      draggedMarkerIndex = -1;
+      skipMarkerRemovalClick = markerDragHasMoved;
+      markerDragHasMoved = false;
+      canvas.style.cursor = "grab";
+      scheduleRender({ skipTable: false });
+      return;
+    }
+
     if (!isPanning) {
       return;
     }
@@ -2894,6 +2963,11 @@
 
   canvas.addEventListener("click", function (event) {
     if (isPanning) {
+      return;
+    }
+
+    if (skipMarkerRemovalClick) {
+      skipMarkerRemovalClick = false;
       return;
     }
 
