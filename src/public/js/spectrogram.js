@@ -1476,7 +1476,7 @@
       left: 66,
       right: 14,
       top: 14,
-      bottom: 46
+      bottom: 72
     };
 
     var plotW = Math.max(10, cssWidth - p.left - p.right);
@@ -1957,7 +1957,7 @@
       ctx.fillText(formatTimeLabel(labelMs, withDate), labelX, p.top + plotH + 8);
     }
 
-    var statusBarY = p.top + plotH + 24;
+    var statusBarY = p.top + plotH + 36;
     var statusBarHeight = 28;
     var aiStatusBlocks = [];
     for (var biStatus = 0; biStatus < blocks.length; biStatus += 1) {
@@ -2080,9 +2080,11 @@
     ctx.fillText(hasRealFrequency ? "التردد (Hz)" : "نطاقات التردد (Hz غير متاح)", 0, 0);
     ctx.restore();
 
+    ctx.fillStyle = DEFAULT_CONFIG.axisColor;
+    ctx.font = "11px Segoe UI";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("الزمن", p.left + plotW / 2, cssHeight - 8);
+    ctx.fillText("الزمن", p.left + plotW / 2, p.top + plotH + 27);
 
     if (options.legendCanvas) {
       drawLegend(options.legendCanvas, intensityMapper.legend);
