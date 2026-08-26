@@ -459,8 +459,16 @@
       bytes[i] = binary.charCodeAt(i);
     }
 
-    var inflated = pako.inflate(bytes, { to: "string" });
-    return JSON.parse(inflated);
+    try {
+      var inflatedText = pako.inflate(bytes, { to: "string" });
+      return JSON.parse(String(inflatedText).trim());
+    } catch (_firstError) {
+      // Fallback path: decode as UTF-8 bytes for payloads that break `to: "string"` parsing.
+      var inflatedBytes = pako.inflate(bytes);
+      var decoder = new TextDecoder("utf-8");
+      var text = decoder.decode(inflatedBytes);
+      return JSON.parse(String(text).trim());
+    }
   }
 
   function decodePacketMatrix(packet) {

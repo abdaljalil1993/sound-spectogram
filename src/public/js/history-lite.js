@@ -146,8 +146,15 @@
       bytes[i] = binary.charCodeAt(i);
     }
 
-    var inflated = pako.inflate(bytes, { to: "string" });
-    return JSON.parse(inflated);
+    try {
+      var inflatedText = pako.inflate(bytes, { to: "string" });
+      return JSON.parse(String(inflatedText).trim());
+    } catch (_firstError) {
+      var inflatedBytes = pako.inflate(bytes);
+      var decoder = new TextDecoder("utf-8");
+      var text = decoder.decode(inflatedBytes);
+      return JSON.parse(String(text).trim());
+    }
   }
 
   function inferIntensityType(blocks) {
