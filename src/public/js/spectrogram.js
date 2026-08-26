@@ -1958,7 +1958,7 @@
     }
 
     var statusBarY = p.top + plotH + 24;
-    var statusBarHeight = 20;
+    var statusBarHeight = 28;
     var aiStatusBlocks = [];
     for (var biStatus = 0; biStatus < blocks.length; biStatus += 1) {
       var statusBlock = blocks[biStatus];
@@ -2016,9 +2016,9 @@
         ctx.fillStyle = statusRange.color;
         ctx.fillRect(p.left + sx0, statusBarY, sw, statusBarHeight);
 
-        if (sw >= 62) {
+        if (sw >= 72) {
           ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 12px Segoe UI";
+          ctx.font = "bold 14px Segoe UI";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText(statusRange.label, p.left + sx0 + sw / 2, statusBarY + statusBarHeight / 2);
