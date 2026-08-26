@@ -1336,6 +1336,11 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
 
+    var baseBoxTop = layout.plotTop + 34;
+    var laneGap = 8;
+    var laneRightEdges = [];
+    var visibleMarkers = [];
+
     for (var i = 0; i < timeMarkers.length; i += 1) {
       var marker = timeMarkers[i];
       var timeMs = Number(marker && marker.timeMs);
@@ -1359,26 +1364,56 @@
       var boxPaddingX = 10;
       var boxHeight = 27;
       var boxWidth = Math.max(40, Math.round(textWidth + boxPaddingX * 2));
-      var rawBoxLeft = x - boxWidth / 2;
-      var boxLeft = clamp(rawBoxLeft, layout.plotLeft, layout.plotRight - boxWidth);
-      var boxTop = layout.plotTop + 34;
+
+      visibleMarkers.push({
+        markerIndex: i,
+        x: x,
+        label: label,
+        boxWidth: boxWidth,
+        boxHeight: boxHeight
+      });
+    }
+
+    visibleMarkers.sort(function (a, b) {
+      return a.x - b.x;
+    });
+
+    for (var vm = 0; vm < visibleMarkers.length; vm += 1) {
+      var visibleMarker = visibleMarkers[vm];
+      var rawBoxLeft = visibleMarker.x - visibleMarker.boxWidth / 2;
+      var boxLeft = clamp(rawBoxLeft, layout.plotLeft, layout.plotRight - visibleMarker.boxWidth);
+      var laneIndex = 0;
+      while (laneIndex < laneRightEdges.length && boxLeft <= laneRightEdges[laneIndex] + 6) {
+        laneIndex += 1;
+      }
+      if (laneIndex === laneRightEdges.length) {
+        laneRightEdges.push(boxLeft + visibleMarker.boxWidth);
+      } else {
+        laneRightEdges[laneIndex] = boxLeft + visibleMarker.boxWidth;
+      }
+
+      var boxTop = baseBoxTop + laneIndex * (visibleMarker.boxHeight + laneGap);
 
       ctx.fillStyle = "rgba(18, 22, 30, 0.86)";
-      ctx.fillRect(boxLeft, boxTop, boxWidth, boxHeight);
+      ctx.fillRect(boxLeft, boxTop, visibleMarker.boxWidth, visibleMarker.boxHeight);
       ctx.strokeStyle = "rgba(255, 214, 10, 0.95)";
-      ctx.strokeRect(boxLeft + 0.5, boxTop + 0.5, boxWidth - 1, boxHeight - 1);
+      ctx.strokeRect(boxLeft + 0.5, boxTop + 0.5, visibleMarker.boxWidth - 1, visibleMarker.boxHeight - 1);
       ctx.fillStyle = "rgba(255, 238, 142, 1)";
-      ctx.fillText(label, boxLeft + boxWidth / 2, boxTop + boxHeight - 6);
+      ctx.fillText(
+        visibleMarker.label,
+        boxLeft + visibleMarker.boxWidth / 2,
+        boxTop + visibleMarker.boxHeight - 6
+      );
 
       renderedTimeMarkerHits.push({
-        markerIndex: i,
-        lineX: x,
+        markerIndex: visibleMarker.markerIndex,
+        lineX: visibleMarker.x,
         lineTop: layout.plotTop,
         lineBottom: layout.plotBottom,
         labelLeft: boxLeft,
         labelTop: boxTop,
-        labelRight: boxLeft + boxWidth,
-        labelBottom: boxTop + boxHeight
+        labelRight: boxLeft + visibleMarker.boxWidth,
+        labelBottom: boxTop + visibleMarker.boxHeight
       });
 
       ctx.strokeStyle = "rgba(255, 214, 10, 0.95)";
