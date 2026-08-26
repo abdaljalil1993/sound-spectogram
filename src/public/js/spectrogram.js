@@ -1576,6 +1576,20 @@
       return "#8a94a6";
     }
 
+    function resolveAiStatusLabel(statusValue) {
+      var normalized = Number(statusValue);
+      if (normalized === 2) {
+        return "لا يوجد هدف";
+      }
+      if (normalized === 1) {
+        return "هدف مكتشف";
+      }
+      if (normalized === 0) {
+        return "هدف محتمل";
+      }
+      return "غير محدد";
+    }
+
     var rangeMs = toMs - fromMs;
     var coverageIntervals = [];
 
@@ -1944,7 +1958,7 @@
     }
 
     var statusBarY = p.top + plotH + 24;
-    var statusBarHeight = 6;
+    var statusBarHeight = 20;
     var aiStatusBlocks = [];
     for (var biStatus = 0; biStatus < blocks.length; biStatus += 1) {
       var statusBlock = blocks[biStatus];
@@ -1984,10 +1998,12 @@
         continue;
       }
 
+      var rawStatusValue = statusBlock.aiStatus ?? statusBlock.ai_status;
       aiStatusBlocks.push({
         start: clippedStart,
         end: clippedEnd,
-        color: resolveAiStatusColor(statusBlock.aiStatus ?? statusBlock.ai_status)
+        color: resolveAiStatusColor(rawStatusValue),
+        label: resolveAiStatusLabel(rawStatusValue)
       });
     }
 
@@ -1999,6 +2015,14 @@
         var sw = Math.max(1, sx1 - sx0);
         ctx.fillStyle = statusRange.color;
         ctx.fillRect(p.left + sx0, statusBarY, sw, statusBarHeight);
+
+        if (sw >= 62) {
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 12px Segoe UI";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(statusRange.label, p.left + sx0 + sw / 2, statusBarY + statusBarHeight / 2);
+        }
       }
     }
 
