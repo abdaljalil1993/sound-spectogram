@@ -42,10 +42,6 @@ export function createApp() {
     res.render("dashboard");
   });
 
-  app.get("/history-lite", (_req, res) => {
-    res.render("history-lite");
-  });
-
   app.use("/api", userRoutes);
   app.use("/api", deviceRoutes);
   app.use("/api", historyRoutes);

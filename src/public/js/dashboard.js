@@ -47,7 +47,6 @@
   var pendingRenderOptions = null;
   var interactionEndTimer = null;
   var lastRenderMeta = null;
-  var exampleTimer = null;
   var devicesCache = [];
   var editingUserId = null;
   var editingDeviceId = null;
@@ -103,7 +102,6 @@
   var latest5hBtn = document.getElementById("latest5hBtn");
   var latest24hBtn = document.getElementById("latest24hBtn");
   var latestPacketBtn = document.getElementById("latestPacketBtn");
-  var loadExampleBtn = document.getElementById("loadExampleBtn");
   var resetViewBtn = document.getElementById("resetViewBtn");
   var clearMarkersBtn = document.getElementById("clearMarkersBtn");
   var panLeftBtn = document.getElementById("panLeftBtn");
@@ -184,7 +182,6 @@
     !latest5hBtn ||
     !latest24hBtn ||
     !latestPacketBtn ||
-    !loadExampleBtn ||
     !resetViewBtn ||
     !clearMarkersBtn ||
     !panLeftBtn ||
@@ -2455,59 +2452,6 @@
       await loadLatestPacketOnly();
     } catch (error) {
       setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل آخر باكت", true);
-    }
-  });
-
-  loadExampleBtn.addEventListener("click", async function () {
-    try {
-      var example = await apiRequest("/public/example.json");
-      if (!example || !Array.isArray(example.packets) || example.packets.length === 0) {
-        throw new Error("ملف المثال فارغ أو غير صالح");
-      }
-
-      if (exampleTimer) {
-        clearInterval(exampleTimer);
-        exampleTimer = null;
-      }
-
-      selectedDeviceId = Number(example.deviceId) || selectedDeviceId;
-      selectedDeviceName = example.deviceName || "جهاز مثال";
-      selectedDeviceKey = normalizeDeviceKey(selectedDeviceName);
-      selectedDeviceTitleEl.textContent = "الجهاز المحدد: " + selectedDeviceName + " (مثال)";
-      sideDeviceInfoEl.textContent =
-        "المعرّف: " +
-        (example.deviceId || "-") +
-        " | الاسم: " +
-        selectedDeviceName +
-        " | المصدر: ملف example.json المحلي";
-
-      activeTimeStepMs = Number(example.timeStepMs || 1000);
-      currentPackets = [];
-
-      example.packets.forEach(function (packet, idx) {
-        insertPacketSorted({
-          id: "ex-" + (idx + 1),
-          deviceId: example.deviceId,
-          timestamp: packet.timestamp,
-          timeStepMs: activeTimeStepMs,
-          data: packet.data,
-          minFrequency: example.minFrequency,
-          maxFrequency: example.maxFrequency
-        });
-      });
-
-      activeRangeMode = "custom";
-      activeFromIso = example.rangeStart || example.packets[0].timestamp;
-      activeToIso = example.rangeEnd || example.packets[example.packets.length - 1].timestamp;
-      viewportFromMs = new Date(activeFromIso).getTime();
-      viewportToMs = new Date(activeToIso).getTime();
-      followLatest24 = false;
-      liveFollowEnabled = false;
-      liveManualBrowseActive = false;
-      scheduleRender({ skipTable: false });
-      setGlobalMessage("تم تحميل نطاق المثال (يتضمن فجوة بيانات مقصودة لمدة 10 دقائق)", false);
-    } catch (error) {
-      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل المثال", true);
     }
   });
 
