@@ -1,0 +1,4 @@
+export var DEFAULT_LIVE_WINDOW_MS = 30 * 60 * 1000;
+export var ONE_HOUR_WINDOW_MS = 60 * 60 * 1000;
+export var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
+export var MAX_PACKETS_IN_MEMORY = 12000;
