@@ -14,7 +14,9 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_DATABASE,
   entities: [User, Device, DeviceHistory],
-  synchronize: !isProduction,
+  migrations: [__dirname + "/../migrations/*.{js,ts}"],
+  migrationsRun: true,
+  synchronize: false,
   logging: false,
   extra: {
     connectionLimit: 20,

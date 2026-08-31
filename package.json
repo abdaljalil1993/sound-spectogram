@@ -7,7 +7,13 @@
     "predev": "node scripts/free-port-3111.mjs",
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json && node scripts/copy-static.mjs && node scripts/bundle-client.mjs",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "typeorm": "typeorm-ts-node-commonjs -d src/config/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate",
+    "migration:create": "npm run typeorm -- migration:create",
+    "migration:run": "npm run typeorm -- migration:run",
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "migration:show": "npm run typeorm -- migration:show"
   },
   "keywords": [
     "node",
@@ -45,6 +51,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.3.0",
     "esbuild": "^0.28.2",
+    "ts-node": "^10.9.2",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
