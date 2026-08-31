@@ -162,7 +162,8 @@ select:focus-visible {
 }
 
 .left-panel {
-  width: 80%;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 12px 16px 16px;
 }
 
@@ -173,7 +174,8 @@ select:focus-visible {
 }
 
 .right-panel {
-  width: 20%;
+  flex: 0 0 360px;
+  max-width: 420px;
   border-left: 1px solid var(--line);
   background: var(--panel);
   padding: 16px;
@@ -181,6 +183,31 @@ select:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: flex-basis 0.22s ease, padding 0.22s ease;
+}
+
+.right-panel-toggle {
+  width: 100%;
+  min-height: 38px;
+}
+
+.right-panel.collapsed {
+  flex-basis: 64px;
+  max-width: 64px;
+  padding: 10px 8px;
+  align-items: center;
+}
+
+.right-panel.collapsed .side-card {
+  display: none;
+}
+
+.right-panel.collapsed .right-panel-toggle {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  width: 46px;
+  min-height: 160px;
+  padding: 10px 8px;
 }
 
 .right-panel h3 {
@@ -463,6 +490,16 @@ select:focus-visible {
   margin-bottom: 12px;
 }
 
+.side-controls-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.side-controls-row button {
+  width: 100%;
+}
+
 .inline-form label {
   font-size: 12px;
   font-weight: 700;
@@ -533,6 +570,16 @@ select:focus-visible {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.side-spectro-toolbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.side-spectro-toolbar .ghost-btn {
+  width: 100%;
 }
 
 .spectro-toolbar .ghost-btn {
@@ -625,6 +672,38 @@ select:focus-visible {
   margin: 0 0 10px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.side-subtitle {
+  margin: 12px 0 8px;
+  font-size: 14px;
+}
+
+.side-frequency-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.side-frequency-controls input {
+  width: 100%;
+  min-width: 0;
+}
+
+.side-frequency-controls .ghost-btn {
+  width: 100%;
+}
+
+.side-frequency-controls .gain-slider-label {
+  grid-column: 1 / -1;
+  margin-left: 0;
+  min-width: 0;
+}
+
+.side-frequency-controls #displayGainInput[type="range"] {
+  width: 100%;
+  min-width: 0;
 }
 
 .crud-form {
@@ -772,14 +851,42 @@ select:focus-visible {
     flex-direction: column;
   }
 
-  .left-panel,
   .right-panel {
     width: 100%;
   }
 
+  .left-panel {
+    width: 100%;
+  }
+
   .right-panel {
+    flex: 1 1 auto;
+    max-width: none;
     border-left: none;
     border-top: 1px solid var(--line);
+  }
+
+  .right-panel.collapsed {
+    flex-basis: auto;
+    max-width: none;
+    padding: 16px;
+    align-items: stretch;
+  }
+
+  .right-panel.collapsed .side-card {
+    display: block;
+  }
+
+  .right-panel.collapsed .right-panel-toggle {
+    writing-mode: horizontal-tb;
+    width: 100%;
+    min-height: 38px;
+  }
+
+  .side-controls-row,
+  .side-spectro-toolbar,
+  .side-frequency-controls {
+    grid-template-columns: 1fr;
   }
 
   .device-list-scroll {

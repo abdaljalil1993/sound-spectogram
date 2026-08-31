@@ -83,6 +83,7 @@
   var MAX_PACKETS_IN_MEMORY = 12000;
 
   var topNav = document.getElementById("topNav");
+  var dashboardLayoutEl = document.getElementById("dashboardLayout");
   var tabButtons = document.querySelectorAll(".tab-btn");
   var historyPanel = document.getElementById("historyPanel");
   var usersPanel = document.getElementById("usersPanel");
@@ -90,6 +91,8 @@
   var globalMessageEl = document.getElementById("globalMessage");
   var userBadgeEl = document.getElementById("userBadge");
   var socketStatusBadgeEl = document.getElementById("socketStatusBadge");
+  var rightPanelEl = document.getElementById("rightPanel");
+  var toggleRightPanelBtn = document.getElementById("toggleRightPanelBtn");
 
   var deviceListEl = document.getElementById("deviceList");
   var selectedDeviceTitleEl = document.getElementById("selectedDeviceTitle");
@@ -165,12 +168,15 @@
 
   if (
     !topNav ||
+    !dashboardLayoutEl ||
     !historyPanel ||
     !usersPanel ||
     !devicesPanel ||
     !globalMessageEl ||
     !userBadgeEl ||
     !socketStatusBadgeEl ||
+    !rightPanelEl ||
+    !toggleRightPanelBtn ||
     !deviceListEl ||
     !selectedDeviceTitleEl ||
     !historyInfoEl ||
@@ -265,6 +271,12 @@
     socketStatusBadgeEl.title = detail ? label + " | " + detail : label;
     socketStatusBadgeEl.classList.toggle("connected", !!isConnected);
     socketStatusBadgeEl.classList.toggle("disconnected", !isConnected);
+  }
+
+  function setRightPanelCollapsed(collapsed) {
+    rightPanelEl.classList.toggle("collapsed", !!collapsed);
+    toggleRightPanelBtn.textContent = collapsed ? "فتح القائمة" : "إغلاق القائمة";
+    toggleRightPanelBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
   }
 
   function setProcessingStatus(text, isWarning) {
@@ -1021,6 +1033,10 @@
   }
 
   function activateTab(tabName) {
+    if (!isAdmin && (tabName === "users" || tabName === "devices")) {
+      tabName = "history";
+    }
+
     tabButtons.forEach(function (btn) {
       var active = btn.getAttribute("data-tab") === tabName;
       btn.classList.toggle("active", active);
@@ -3160,17 +3176,27 @@
   }
 
   if (!isAdmin) {
-    userFormMessage.textContent = "Only admin can add, edit, or delete users.";
-    deviceFormMessage.textContent = "Only admin can add, edit, or delete devices.";
+    userFormMessage.textContent = "فقط المدير يمكنه إضافة أو تعديل أو حذف المستخدمين.";
+    deviceFormMessage.textContent = "فقط المدير يمكنه إضافة أو تعديل أو حذف الأجهزة.";
     tabButtons.forEach(function (btn) {
-      if (btn.getAttribute("data-tab") === "users") {
+      var tabName = btn.getAttribute("data-tab");
+      if (tabName === "users" || tabName === "devices") {
         btn.classList.add("hidden");
       }
     });
-    if (usersPanel.classList.contains("active")) {
+    if (usersPanel.classList.contains("active") || devicesPanel.classList.contains("active")) {
       activateTab("history");
     }
   }
+
+  toggleRightPanelBtn.addEventListener("click", function () {
+    var willCollapse = !rightPanelEl.classList.contains("collapsed");
+    setRightPanelCollapsed(willCollapse);
+    scheduleRender({ skipTable: false });
+    window.setTimeout(function () {
+      scheduleRender({ skipTable: false });
+    }, 240);
+  });
 
   window.addEventListener("resize", function () {
     scheduleRender({ skipTable: false });
