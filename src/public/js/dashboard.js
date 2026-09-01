@@ -149,6 +149,8 @@
   var userUsernameInput = document.getElementById("userUsername");
   var userPasswordInput = document.getElementById("userPassword");
   var userRoleInput = document.getElementById("userRole");
+  var userDeviceAssignmentGroup = document.getElementById("userDeviceAssignmentGroup");
+  var userDeviceIdsInput = document.getElementById("userDeviceIds");
   var userSaveBtn = document.getElementById("userSaveBtn");
   var userCancelBtn = document.getElementById("userCancelBtn");
   var userFormMessage = document.getElementById("userFormMessage");
@@ -231,6 +233,8 @@
     !userUsernameInput ||
     !userPasswordInput ||
     !userRoleInput ||
+    !userDeviceAssignmentGroup ||
+    !userDeviceIdsInput ||
     !userSaveBtn ||
     !userCancelBtn ||
     !userFormMessage ||
@@ -2099,6 +2103,7 @@
     devicesCache = await apiRequest("/api/devices");
     renderDeviceSidebar();
     renderDevicesTable();
+    renderUserDeviceOptions();
 
     if (devicesCache.length > 0) {
       var target = devicesCache[0];
@@ -2144,8 +2149,84 @@
     userUsernameInput.value = "";
     userPasswordInput.value = "";
     userRoleInput.value = "emp";
+    updateUserDeviceAssignmentVisibility();
+    clearUserDeviceSelections();
     userSaveBtn.textContent = "إضافة مستخدم";
     userFormMessage.textContent = "";
+  }
+
+  function clearUserDeviceSelections() {
+    if (!(userDeviceIdsInput instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    Array.from(userDeviceIdsInput.options).forEach(function (option) {
+      option.selected = false;
+    });
+  }
+
+  function updateUserDeviceAssignmentVisibility() {
+    var isEmployee = userRoleInput.value === "emp";
+    userDeviceAssignmentGroup.classList.toggle("hidden", !isEmployee);
+    userDeviceIdsInput.required = isEmployee;
+  }
+
+  function renderUserDeviceOptions() {
+    if (!(userDeviceIdsInput instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    var selectedValues = new Set(
+      Array.from(userDeviceIdsInput.selectedOptions || []).map(function (option) {
+        return option.value;
+      })
+    );
+
+    userDeviceIdsInput.innerHTML = "";
+    devicesCache.forEach(function (device) {
+      var option = document.createElement("option");
+      option.value = String(device.id);
+      option.textContent = device.name;
+      option.selected = selectedValues.has(String(device.id));
+      userDeviceIdsInput.appendChild(option);
+    });
+
+    updateUserDeviceAssignmentVisibility();
+  }
+
+  function getSelectedUserDeviceIds() {
+    if (!(userDeviceIdsInput instanceof HTMLSelectElement)) {
+      return [];
+    }
+
+    return Array.from(userDeviceIdsInput.selectedOptions)
+      .map(function (option) {
+        return Number(option.value);
+      })
+      .filter(function (value) {
+        return Number.isFinite(value) && value > 0;
+      });
+  }
+
+  function formatUserDeviceSummary(deviceIds) {
+    if (!Array.isArray(deviceIds) || deviceIds.length === 0) {
+      return "كل الأجهزة";
+    }
+
+    var names = deviceIds
+      .map(function (deviceId) {
+        var device = devicesCache.find(function (item) {
+          return Number(item.id) === Number(deviceId);
+        });
+        return device ? device.name : "#" + deviceId;
+      })
+      .filter(Boolean);
+
+    if (!names.length) {
+      return "-";
+    }
+
+    return names.join("، ");
   }
 
   function resetDeviceForm() {
@@ -2166,6 +2247,18 @@
 
       users.forEach(function (u) {
         var tr = document.createElement("tr");
+        var deviceSummary = formatUserDeviceSummary(u.deviceIds);
+        var devicePills =
+          deviceSummary === "-"
+            ? "-"
+            : "<div class=\"device-pill-list\">" +
+              deviceSummary
+                .split("، ")
+                .map(function (label) {
+                  return "<span class='device-pill'>" + label + "</span>";
+                })
+                .join("") +
+              "</div>";
         tr.innerHTML =
           "<td>" +
           u.id +
@@ -2175,6 +2268,8 @@
           u.username +
           "</td><td>" +
           u.role +
+          "</td><td>" +
+          devicePills +
           "</td>";
 
         if (isAdmin) {
@@ -2192,6 +2287,16 @@
             userUsernameInput.value = u.username;
             userRoleInput.value = u.role;
             userPasswordInput.value = "";
+            updateUserDeviceAssignmentVisibility();
+            renderUserDeviceOptions();
+            clearUserDeviceSelections();
+            if (Array.isArray(u.deviceIds) && userDeviceIdsInput instanceof HTMLSelectElement) {
+              Array.from(userDeviceIdsInput.options).forEach(function (option) {
+                option.selected = u.deviceIds.some(function (deviceId) {
+                  return Number(deviceId) === Number(option.value);
+                });
+              });
+            }
             userSaveBtn.textContent = "تحديث مستخدم";
             userFormMessage.textContent = "تعديل المستخدم رقم " + u.id;
           });
@@ -2312,7 +2417,8 @@
       name: userNameInput.value.trim(),
       username: userUsernameInput.value.trim(),
       password: userPasswordInput.value,
-      role: userRoleInput.value
+      role: userRoleInput.value,
+      deviceIds: userRoleInput.value === "emp" ? getSelectedUserDeviceIds() : []
     };
 
     try {
@@ -2320,7 +2426,8 @@
         var updatePayload = {
           name: payload.name,
           username: payload.username,
-          role: payload.role
+          role: payload.role,
+          deviceIds: payload.deviceIds
         };
         if (payload.password) {
           updatePayload.password = payload.password;
@@ -2350,6 +2457,13 @@
 
   userCancelBtn.addEventListener("click", function () {
     resetUserForm();
+  });
+
+  userRoleInput.addEventListener("change", function () {
+    updateUserDeviceAssignmentVisibility();
+    if (userRoleInput.value !== "emp") {
+      clearUserDeviceSelections();
+    }
   });
 
   deviceForm.addEventListener("submit", async function (event) {
@@ -3040,7 +3154,11 @@
   });
 
   function setupSocket() {
-    var socket = io();
+    var socket = io({
+      auth: {
+        token: token
+      }
+    });
     var lastHeartbeatAt = 0;
 
     function markHeartbeat() {
