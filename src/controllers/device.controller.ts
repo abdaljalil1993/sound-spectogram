@@ -64,6 +64,15 @@ export const deviceController = {
     }
   },
 
+  getDevicesWithStatus: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const devices = await deviceService.getDevicesWithLatestStatus(req.user);
+      res.json(devices);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   getDeviceById: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const id = Number(req.params.id);

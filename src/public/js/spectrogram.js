@@ -1999,11 +1999,16 @@
       }
 
       var rawStatusValue = statusBlock.aiStatus ?? statusBlock.ai_status;
+      var statusLabel = resolveAiStatusLabel(rawStatusValue);
+      var rawConfidence = statusBlock.confidence ?? statusBlock.Confidence;
+      if (Number.isFinite(Number(rawConfidence))) {
+        statusLabel = statusLabel + " (" + Number(rawConfidence) + "%)";
+      }
       aiStatusBlocks.push({
         start: clippedStart,
         end: clippedEnd,
         color: resolveAiStatusColor(rawStatusValue),
-        label: resolveAiStatusLabel(rawStatusValue)
+        label: statusLabel
       });
     }
 

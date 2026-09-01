@@ -53,6 +53,7 @@
   var interactionEndTimer = null;
   var lastRenderMeta = null;
   var devicesCache = [];
+  var devicesStatusCache = [];
   var editingUserId = null;
   var editingDeviceId = null;
   var lastPersistenceWarningAt = 0;
@@ -124,6 +125,126 @@
   var clearMarkersBtn = document.getElementById("clearMarkersBtn");
   var panLeftBtn = document.getElementById("panLeftBtn");
   var panRightBtn = document.getElementById("panRightBtn");
+
+  async function loadDevicesWithStatus() {
+    if (!isAdmin) {
+      devicesStatusCache = [];
+      renderDevicesCards([]);
+      return;
+    }
+
+    try {
+      devicesStatusCache = await apiRequest("/api/devices/with-status");
+    } catch (error) {
+      devicesStatusCache = [];
+      setGlobalMessage(error instanceof Error ? error.message : "تعذر تحميل حالة الأجهزة", true);
+    }
+
+    renderDevicesCards(devicesStatusCache);
+  }
+
+  function renderDevicesCards(devicesWithStatus) {
+    if (!devicesCardsGrid) {
+      return;
+    }
+
+    devicesCardsGrid.innerHTML = "";
+
+    var list = Array.isArray(devicesWithStatus) ? devicesWithStatus : [];
+    if (!list.length) {
+      var emptyState = document.createElement("p");
+      emptyState.className = "history-info";
+      emptyState.textContent = "لا توجد أجهزة لعرضها";
+      devicesCardsGrid.appendChild(emptyState);
+      return;
+    }
+
+    list.forEach(function (item) {
+      var device = devicesCache.find(function (cached) {
+        return Number(cached.id) === Number(item.id);
+      }) || item;
+
+      var card = document.createElement("article");
+      card.className = "device-card";
+
+      var title = document.createElement("h3");
+      title.className = "device-card-title";
+      title.textContent = device.name;
+      card.appendChild(title);
+
+      var description = document.createElement("p");
+      description.className = "device-card-meta";
+      description.textContent = device.description || "بدون وصف";
+      card.appendChild(description);
+
+      var frequency = document.createElement("p");
+      frequency.className = "device-card-meta";
+      frequency.textContent =
+        "النطاق: " +
+        (Number.isFinite(device.minFrequency) ? device.minFrequency + " Hz" : "-") +
+        " / " +
+        (Number.isFinite(device.maxFrequency) ? device.maxFrequency + " Hz" : "-");
+      card.appendChild(frequency);
+
+      var status = document.createElement("p");
+      status.className = "device-card-status";
+      status.textContent = "الحالة الأخيرة: " + formatDeviceCardStatus(item.latestStatusAiStatus, item.latestStatusConfidence);
+      card.appendChild(status);
+
+      if (item.latestStatusTimestamp) {
+        var timestamp = document.createElement("p");
+        timestamp.className = "device-card-meta";
+        timestamp.textContent = "آخر تحديث: " + item.latestStatusTimestamp;
+        card.appendChild(timestamp);
+      }
+
+      if (isAdmin) {
+        var actions = document.createElement("div");
+        actions.className = "device-card-actions";
+
+        var editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "ghost-btn";
+        editBtn.textContent = "تعديل";
+        editBtn.addEventListener("click", function () {
+          startEditingDevice(device);
+        });
+
+        var deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "danger-btn";
+        deleteBtn.textContent = "حذف";
+        deleteBtn.addEventListener("click", async function () {
+          if (!window.confirm("هل تريد حذف الجهاز " + device.name + "؟")) {
+            return;
+          }
+          try {
+            await apiRequest("/api/devices/" + device.id, { method: "DELETE" });
+            if (Number(selectedDeviceId) === Number(device.id)) {
+              selectedDeviceId = null;
+              selectedDeviceName = "";
+              selectedDeviceKey = "";
+              currentPackets = [];
+            }
+            if (Number(editingDeviceId) === Number(device.id)) {
+              resetDeviceForm();
+              closeDeviceModal();
+            }
+            await loadDevices();
+            setGlobalMessage("تم حذف الجهاز بنجاح", false);
+          } catch (error) {
+            setGlobalMessage(error instanceof Error ? error.message : "فشل الحذف", true);
+          }
+        });
+
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+        card.appendChild(actions);
+      }
+
+      devicesCardsGrid.appendChild(card);
+    });
+  }
   var zoomInBtn = document.getElementById("zoomInBtn");
   var zoomOutBtn = document.getElementById("zoomOutBtn");
   var fitPacketsBtn = document.getElementById("fitPacketsBtn");
@@ -165,7 +286,10 @@
   var userCancelBtn = document.getElementById("userCancelBtn");
   var userFormMessage = document.getElementById("userFormMessage");
 
-  var devicesTableBody = document.getElementById("devicesTableBody");
+  var devicesCardsGrid = document.getElementById("devicesCardsGrid");
+  var openDeviceModalBtn = document.getElementById("openDeviceModalBtn");
+  var deviceModal = document.getElementById("deviceModal");
+  var deviceModalTitle = document.getElementById("deviceModalTitle");
   var deviceForm = document.getElementById("deviceForm");
   var deviceIdInput = document.getElementById("deviceId");
   var deviceNameInput = document.getElementById("deviceName");
@@ -256,7 +380,10 @@
     !userSaveBtn ||
     !userCancelBtn ||
     !userFormMessage ||
-    !devicesTableBody ||
+    !devicesCardsGrid ||
+    !openDeviceModalBtn ||
+    !deviceModal ||
+    !deviceModalTitle ||
     !deviceForm ||
     !deviceIdInput ||
     !deviceNameInput ||
@@ -2650,7 +2777,9 @@
   async function loadDevices() {
     devicesCache = await apiRequest("/api/devices");
     renderDeviceSidebar();
-    renderDevicesTable();
+    if (isAdmin) {
+      await loadDevicesWithStatus();
+    }
     renderUserDeviceOptions();
 
     if (devicesCache.length > 0) {
@@ -2785,7 +2914,59 @@
     deviceMinFrequencyInput.value = "";
     deviceMaxFrequencyInput.value = "";
     deviceSaveBtn.textContent = "إضافة جهاز";
+    deviceModalTitle.textContent = "إضافة جهاز";
     deviceFormMessage.textContent = "";
+  }
+
+  function openDeviceModal() {
+    deviceModal.classList.remove("hidden");
+    deviceModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeDeviceModal() {
+    deviceModal.classList.add("hidden");
+    deviceModal.setAttribute("aria-hidden", "true");
+  }
+
+  function resolveAiStatusLabelForCards(statusValue) {
+    var normalized = Number(statusValue);
+    if (normalized === 2) {
+      return "لا يوجد هدف";
+    }
+    if (normalized === 1) {
+      return "هدف مكتشف";
+    }
+    if (normalized === 0) {
+      return "هدف محتمل";
+    }
+    return "غير محدد";
+  }
+
+  function formatDeviceCardStatus(statusValue, confidenceValue) {
+    if (statusValue === null || statusValue === undefined) {
+      return "لا توجد بيانات بعد";
+    }
+
+    var label = resolveAiStatusLabelForCards(statusValue);
+    var confidence = Number(confidenceValue);
+    if (Number.isFinite(confidence)) {
+      return label + " (" + confidence + "%)";
+    }
+
+    return label;
+  }
+
+  function startEditingDevice(device) {
+    editingDeviceId = device.id;
+    deviceIdInput.value = String(device.id);
+    deviceNameInput.value = device.name;
+    deviceDescriptionInput.value = device.description || "";
+    deviceMinFrequencyInput.value = Number.isFinite(device.minFrequency) ? String(device.minFrequency) : "";
+    deviceMaxFrequencyInput.value = Number.isFinite(device.maxFrequency) ? String(device.maxFrequency) : "";
+    deviceSaveBtn.textContent = "تحديث جهاز";
+    deviceModalTitle.textContent = "تعديل جهاز";
+    deviceFormMessage.textContent = "تعديل الجهاز رقم " + device.id;
+    openDeviceModal();
   }
 
   async function loadUsers() {
@@ -2882,78 +3063,6 @@
     }
   }
 
-  function renderDevicesTable() {
-    devicesTableBody.innerHTML = "";
-
-    devicesCache.forEach(function (device) {
-      var tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td>" +
-        device.id +
-        "</td><td>" +
-        device.name +
-        "</td><td>" +
-        (device.description || "") +
-        "</td><td>" +
-        (Number.isFinite(device.minFrequency) && Number.isFinite(device.maxFrequency)
-          ? device.minFrequency + " - " + device.maxFrequency + " Hz"
-          : "-") +
-        "</td>";
-
-      if (isAdmin) {
-        var actionTd = document.createElement("td");
-        actionTd.className = "action-buttons";
-
-        var editBtn = document.createElement("button");
-        editBtn.type = "button";
-        editBtn.className = "ghost-btn";
-          editBtn.textContent = "تعديل";
-        editBtn.addEventListener("click", function () {
-          editingDeviceId = device.id;
-          deviceIdInput.value = String(device.id);
-          deviceNameInput.value = device.name;
-          deviceDescriptionInput.value = device.description || "";
-          deviceMinFrequencyInput.value = Number.isFinite(device.minFrequency) ? String(device.minFrequency) : "";
-          deviceMaxFrequencyInput.value = Number.isFinite(device.maxFrequency) ? String(device.maxFrequency) : "";
-          deviceSaveBtn.textContent = "تحديث جهاز";
-          deviceFormMessage.textContent = "تعديل الجهاز رقم " + device.id;
-        });
-
-        var deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.className = "danger-btn";
-        deleteBtn.textContent = "حذف";
-        deleteBtn.addEventListener("click", async function () {
-          if (!window.confirm("هل تريد حذف الجهاز " + device.name + "؟")) {
-            return;
-          }
-          try {
-            await apiRequest("/api/devices/" + device.id, { method: "DELETE" });
-            if (Number(selectedDeviceId) === Number(device.id)) {
-              selectedDeviceId = null;
-              selectedDeviceName = "";
-              selectedDeviceKey = "";
-              currentPackets = [];
-            }
-            if (Number(editingDeviceId) === Number(device.id)) {
-              resetDeviceForm();
-            }
-            await loadDevices();
-            setGlobalMessage("تم حذف الجهاز بنجاح", false);
-          } catch (error) {
-            setGlobalMessage(error instanceof Error ? error.message : "فشل الحذف", true);
-          }
-        });
-
-        actionTd.appendChild(editBtn);
-        actionTd.appendChild(deleteBtn);
-        tr.appendChild(actionTd);
-      }
-
-      devicesTableBody.appendChild(tr);
-    });
-  }
-
   userForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     if (!isAdmin) {
@@ -3014,6 +3123,18 @@
     }
   });
 
+  openDeviceModalBtn.addEventListener("click", function () {
+    resetDeviceForm();
+    openDeviceModal();
+  });
+
+  deviceModal.addEventListener("click", function (event) {
+    if (event.target === deviceModal) {
+      closeDeviceModal();
+      resetDeviceForm();
+    }
+  });
+
   deviceForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     if (!isAdmin) {
@@ -3053,6 +3174,7 @@
       }
 
       resetDeviceForm();
+      closeDeviceModal();
       await loadDevices();
     } catch (error) {
       setGlobalMessage(error instanceof Error ? error.message : "فشل حفظ الجهاز", true);
@@ -3061,6 +3183,7 @@
 
   deviceCancelBtn.addEventListener("click", function () {
     resetDeviceForm();
+    closeDeviceModal();
   });
 
   historyRangeForm.addEventListener("submit", async function (event) {

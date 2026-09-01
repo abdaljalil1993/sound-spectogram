@@ -1,6 +1,7 @@
 import { In, Repository } from "typeorm";
 import { AppDataSource } from "../config/data-source";
 import { Device } from "../entities/Device";
+import { DeviceHistory } from "../entities/DeviceHistory";
 import { UserRole } from "../entities/User";
 import { HttpError } from "../utils/http-error";
 import { AuthorizedUser } from "../utils/types";
@@ -20,11 +21,19 @@ interface UpdateDeviceInput {
   maxFrequency?: number | null;
 }
 
+export interface DeviceWithLatestStatus extends Device {
+  latestStatusAiStatus: number | null;
+  latestStatusConfidence: number | null;
+  latestStatusTimestamp: string | null;
+}
+
 export class DeviceService {
   private readonly deviceRepo: Repository<Device>;
+  private readonly historyRepo: Repository<DeviceHistory>;
 
   constructor() {
     this.deviceRepo = AppDataSource.getRepository(Device);
+    this.historyRepo = AppDataSource.getRepository(DeviceHistory);
   }
 
   async createDevice(input: CreateDeviceInput): Promise<Device> {
@@ -58,6 +67,51 @@ export class DeviceService {
     return this.deviceRepo.find({
       where: { id: In(allowedIds) },
       order: { id: "ASC" }
+    });
+  }
+
+  async getDevicesWithLatestStatus(user?: AuthorizedUser): Promise<DeviceWithLatestStatus[]> {
+    const devices = await this.getDevicesForUser(user);
+    if (!devices.length) {
+      return [];
+    }
+
+    const deviceIds = devices.map((device) => device.id);
+    const latestRows = await this.historyRepo
+      .createQueryBuilder("dh")
+      .select("dh.deviceId", "deviceId")
+      .addSelect("dh.aiStatus", "aiStatus")
+      .addSelect("dh.confidence", "confidence")
+      .addSelect("dh.timestamp", "timestamp")
+      .where("dh.deviceId IN (:...deviceIds)", { deviceIds })
+      .andWhere(
+        "dh.id = (SELECT dh2.id FROM device_histories dh2 WHERE dh2.deviceId = dh.deviceId ORDER BY dh2.timestamp DESC, dh2.id DESC LIMIT 1)"
+      )
+      .getRawMany<{
+        deviceId: number;
+        aiStatus: number | null;
+        confidence: string | number | null;
+        timestamp: string | null;
+      }>();
+
+    const latestByDeviceId = new Map<number, { aiStatus: number | null; confidence: number | null; timestamp: string | null }>();
+    latestRows.forEach((row) => {
+      const confidenceNumber = Number(row.confidence);
+      latestByDeviceId.set(Number(row.deviceId), {
+        aiStatus: row.aiStatus === null || row.aiStatus === undefined ? null : Number(row.aiStatus),
+        confidence: Number.isFinite(confidenceNumber) ? confidenceNumber : null,
+        timestamp: row.timestamp ?? null
+      });
+    });
+
+    return devices.map((device) => {
+      const latest = latestByDeviceId.get(device.id);
+      return {
+        ...device,
+        latestStatusAiStatus: latest ? latest.aiStatus : null,
+        latestStatusConfidence: latest ? latest.confidence : null,
+        latestStatusTimestamp: latest ? latest.timestamp : null
+      };
     });
   }
 

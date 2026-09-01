@@ -146,37 +146,38 @@
 
           <section id="devicesPanel" class="tab-panel">
             <h2>إدارة الأجهزة</h2>
-            <form id="deviceForm" class="crud-form admin-only">
-              <input type="hidden" id="deviceId" />
-              <label for="deviceName">الاسم</label>
-              <input id="deviceName" name="name" type="text" required />
-              <label for="deviceDescription">الوصف</label>
-              <input id="deviceDescription" name="description" type="text" />
-              <label for="deviceMinFrequency">أقل تردد (Hz)</label>
-              <input id="deviceMinFrequency" name="minFrequency" type="number" min="0" step="0.01" />
-              <label for="deviceMaxFrequency">أعلى تردد (Hz)</label>
-              <input id="deviceMaxFrequency" name="maxFrequency" type="number" min="0" step="0.01" />
-              <div class="form-actions">
-                <button type="submit" id="deviceSaveBtn">إضافة جهاز</button>
-                <button type="button" id="deviceCancelBtn">إلغاء</button>
-              </div>
-            </form>
+            <div class="device-admin-toolbar admin-only">
+              <button type="button" id="openDeviceModalBtn">إضافة جهاز</button>
+            </div>
             <p id="deviceFormMessage" class="history-info"></p>
 
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>الاسم</th>
-                    <th>الوصف</th>
-                    <th>نطاق التردد</th>
-                    <th class="admin-only">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody id="devicesTableBody"></tbody>
-              </table>
+            <div
+              id="deviceModal"
+              class="hidden"
+              aria-hidden="true"
+              style="position: fixed; inset: 0; z-index: 1002; background: rgba(9, 12, 18, 0.55); padding: 20px;"
+            >
+              <div class="side-card" style="max-width: 560px; margin: 0 auto; max-height: calc(100vh - 40px); overflow: auto;">
+                <h3 id="deviceModalTitle" style="margin-bottom: 8px;">إضافة جهاز</h3>
+                <form id="deviceForm" class="crud-form admin-only">
+                  <input type="hidden" id="deviceId" />
+                  <label for="deviceName">الاسم</label>
+                  <input id="deviceName" name="name" type="text" required />
+                  <label for="deviceDescription">الوصف</label>
+                  <input id="deviceDescription" name="description" type="text" />
+                  <label for="deviceMinFrequency">أقل تردد (Hz)</label>
+                  <input id="deviceMinFrequency" name="minFrequency" type="number" min="0" step="0.01" />
+                  <label for="deviceMaxFrequency">أعلى تردد (Hz)</label>
+                  <input id="deviceMaxFrequency" name="maxFrequency" type="number" min="0" step="0.01" />
+                  <div class="form-actions">
+                    <button type="submit" id="deviceSaveBtn">إضافة جهاز</button>
+                    <button type="button" id="deviceCancelBtn" class="ghost-btn">إلغاء</button>
+                  </div>
+                </form>
+              </div>
             </div>
+
+            <div id="devicesCardsGrid" class="devices-cards-grid"></div>
           </section>
         </section>
 

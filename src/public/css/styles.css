@@ -846,6 +846,54 @@ select:focus-visible {
   margin-top: 8px;
 }
 
+.device-admin-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.devices-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.device-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.device-card-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.device-card-meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.device-card-status {
+  font-size: 13px;
+  font-weight: 700;
+  color: #31414f;
+}
+
+.device-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.device-card-actions .ghost-btn,
+.device-card-actions .danger-btn {
+  flex: 1;
+}
+
 .table-wrap {
   overflow-x: auto;
   background: #fff;
