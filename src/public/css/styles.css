@@ -862,31 +862,52 @@ select:focus-visible {
 .device-card {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
-  padding: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  padding: 14px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  cursor: pointer;
+}
+
+.device-card:hover {
+  transform: translateY(-3px);
+  border-color: #c9d5e6;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
 }
 
 .device-card-title {
   margin: 0;
-  font-size: 16px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #edf1f6;
+  font-size: 17px;
+  font-weight: 700;
+  color: #162333;
 }
 
 .device-card-meta {
-  font-size: 13px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--muted);
 }
 
 .device-card-status {
-  font-size: 13px;
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #e8edf3;
+  border-radius: 10px;
+  background: #f5f8fc;
+  font-size: 12px;
   font-weight: 700;
-  color: #31414f;
+  color: #2d3b4a;
 }
 
 .device-card-actions {
   display: flex;
   gap: 8px;
+  margin-top: 2px;
 }
 
 .device-card-actions .ghost-btn,

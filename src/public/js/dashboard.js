@@ -187,7 +187,11 @@
 
       var status = document.createElement("p");
       status.className = "device-card-status";
-      status.textContent = "الحالة الأخيرة: " + formatDeviceCardStatus(item.latestStatusAiStatus, item.latestStatusConfidence);
+      status.appendChild(document.createTextNode("الحالة الأخيرة: "));
+      var statusValue = document.createElement("span");
+      statusValue.style.color = resolveAiStatusColorForCards(item.latestStatusAiStatus);
+      statusValue.textContent = formatDeviceCardStatus(item.latestStatusAiStatus, item.latestStatusConfidence);
+      status.appendChild(statusValue);
       card.appendChild(status);
 
       if (item.latestStatusTimestamp) {
@@ -2930,6 +2934,21 @@
       return "هدف محتمل";
     }
     return "غير محدد";
+  }
+
+  // Keep these colors identical to resolveAiStatusColor in spectrogram.js.
+  function resolveAiStatusColorForCards(statusValue) {
+    var normalized = Number(statusValue);
+    if (normalized === 2) {
+      return "#21a366";
+    }
+    if (normalized === 1) {
+      return "#d13438";
+    }
+    if (normalized === 0) {
+      return "#f59e0b";
+    }
+    return "#000000";
   }
 
   function formatDeviceCardStatus(statusValue, confidenceValue) {

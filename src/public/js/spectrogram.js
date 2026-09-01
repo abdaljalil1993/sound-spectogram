@@ -1573,7 +1573,7 @@
       if (normalized === 0) {
         return "#f59e0b";
       }
-      return "#8a94a6";
+      return "#000000";
     }
 
     function resolveAiStatusLabel(statusValue) {
