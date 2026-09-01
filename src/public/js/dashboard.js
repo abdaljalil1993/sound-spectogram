@@ -105,7 +105,6 @@
   var multiViewCancelBtn = document.getElementById("multiViewCancelBtn");
   var multiViewOverlay = document.getElementById("multiViewOverlay");
   var multiViewGrid = document.getElementById("multiViewGrid");
-  var multiViewCloseBtn = document.getElementById("multiViewCloseBtn");
   var selectedDeviceTitleEl = document.getElementById("selectedDeviceTitle");
   var historyInfoEl = document.getElementById("historyInfo");
   var historyTableBody = document.getElementById("historyTableBody");
@@ -321,7 +320,6 @@
     !multiViewCancelBtn ||
     !multiViewOverlay ||
     !multiViewGrid ||
-    !multiViewCloseBtn ||
     !selectedDeviceTitleEl ||
     !historyInfoEl ||
     !historyTableBody ||
@@ -2297,6 +2295,13 @@
   }
 
   function clearMultiViewPanels() {
+    Object.keys(multiViewPanels).forEach(function (panelKey) {
+      var panel = multiViewPanels[panelKey];
+      if (panel && typeof panel.cleanupInteractions === "function") {
+        panel.cleanupInteractions();
+      }
+    });
+
     multiViewPanels = {};
     multiViewGrid.innerHTML = "";
   }
@@ -2348,139 +2353,162 @@
     return { min: 30, max: 8000 };
   }
 
-  function normalizePanelViewport(panel) {
-    if (!panel) {
-      return null;
+  function clampMultiViewTransform(panel) {
+    if (!panel || !panel.transform || !panel.canvasWrap) {
+      return;
     }
 
-    var fullFromMs = Number(panel.fullFromMs);
-    var fullToMs = Number(panel.fullToMs);
-    if (!Number.isFinite(fullFromMs) || !Number.isFinite(fullToMs) || fullToMs <= fullFromMs) {
-      return null;
+    var transform = panel.transform;
+    if (!Number.isFinite(transform.scale) || transform.scale <= 1) {
+      transform.scale = 1;
+      transform.tx = 0;
+      transform.ty = 0;
+      return;
     }
 
-    var fullSpan = fullToMs - fullFromMs;
-    var minSpan = Math.max(250, Math.floor(fullSpan * 0.03));
-    var viewFromMs = Number(panel.viewFromMs);
-    var viewToMs = Number(panel.viewToMs);
+    var wrapWidth = Math.max(1, panel.canvasWrap.clientWidth || 1);
+    var wrapHeight = Math.max(1, panel.canvasWrap.clientHeight || 1);
+    var minTx = wrapWidth - wrapWidth * transform.scale;
+    var minTy = wrapHeight - wrapHeight * transform.scale;
 
-    if (!Number.isFinite(viewFromMs) || !Number.isFinite(viewToMs) || viewToMs <= viewFromMs) {
-      viewFromMs = fullFromMs;
-      viewToMs = fullToMs;
-    }
-
-    if (viewFromMs < fullFromMs) {
-      viewFromMs = fullFromMs;
-    }
-    if (viewToMs > fullToMs) {
-      viewToMs = fullToMs;
-    }
-
-    var viewSpan = viewToMs - viewFromMs;
-    if (viewSpan < minSpan) {
-      var center = (viewFromMs + viewToMs) / 2;
-      viewFromMs = center - minSpan / 2;
-      viewToMs = center + minSpan / 2;
-
-      if (viewFromMs < fullFromMs) {
-        viewFromMs = fullFromMs;
-        viewToMs = fullFromMs + minSpan;
-      }
-      if (viewToMs > fullToMs) {
-        viewToMs = fullToMs;
-        viewFromMs = fullToMs - minSpan;
-      }
-    }
-
-    panel.viewFromMs = viewFromMs;
-    panel.viewToMs = viewToMs;
-
-    return {
-      fromMs: viewFromMs,
-      toMs: viewToMs
-    };
+    transform.tx = clamp(transform.tx, minTx, 0);
+    transform.ty = clamp(transform.ty, minTy, 0);
   }
 
-  function resetPanelViewport(panel) {
-    if (!panel) {
+  function applyMultiViewTransform(panel) {
+    if (!panel || !panel.transform || !panel.canvas) {
       return;
     }
 
-    panel.manualView = false;
-    panel.viewFromMs = panel.fullFromMs;
-    panel.viewToMs = panel.fullToMs;
-  }
+    clampMultiViewTransform(panel);
 
-  function panOrZoomMultiViewPanel(deviceId, action) {
-    var panel = multiViewPanels[String(deviceId)];
-    if (!panel || !panel.lastPacket) {
+    var transform = panel.transform;
+    panel.canvas.style.transformOrigin = "0 0";
+    panel.canvas.style.transform =
+      "translate(" + transform.tx + "px, " + transform.ty + "px) scale(" + transform.scale + ")";
+
+    if (!panel.canvasWrap) {
       return;
     }
 
-    if (!Number.isFinite(panel.fullFromMs) || !Number.isFinite(panel.fullToMs) || panel.fullToMs <= panel.fullFromMs) {
-      return;
-    }
-
-    if (!panel.manualView) {
-      panel.viewFromMs = panel.fullFromMs;
-      panel.viewToMs = panel.fullToMs;
-    }
-
-    var viewport = normalizePanelViewport(panel);
-    if (!viewport) {
-      return;
-    }
-
-    var fullFromMs = panel.fullFromMs;
-    var fullToMs = panel.fullToMs;
-    var fullSpan = fullToMs - fullFromMs;
-    var span = viewport.toMs - viewport.fromMs;
-    var nextFrom = viewport.fromMs;
-    var nextTo = viewport.toMs;
-
-    if (action === "pan-left") {
-      var deltaLeft = span * 0.12;
-      nextFrom -= deltaLeft;
-      nextTo -= deltaLeft;
-    } else if (action === "pan-right") {
-      var deltaRight = span * 0.12;
-      nextFrom += deltaRight;
-      nextTo += deltaRight;
-    } else if (action === "zoom-in") {
-      var centerIn = (viewport.fromMs + viewport.toMs) / 2;
-      var targetSpanIn = Math.max(Math.max(250, fullSpan * 0.03), span * 0.82);
-      nextFrom = centerIn - targetSpanIn / 2;
-      nextTo = centerIn + targetSpanIn / 2;
-    } else if (action === "zoom-out") {
-      var centerOut = (viewport.fromMs + viewport.toMs) / 2;
-      var targetSpanOut = Math.min(fullSpan, span * 1.22);
-      nextFrom = centerOut - targetSpanOut / 2;
-      nextTo = centerOut + targetSpanOut / 2;
+    if (transform.scale > 1) {
+      panel.canvasWrap.style.cursor = transform.dragging ? "grabbing" : "grab";
     } else {
+      panel.canvasWrap.style.cursor = "default";
+    }
+  }
+
+  function resetMultiViewTransform(panel) {
+    if (!panel || !panel.transform) {
       return;
     }
 
-    if (nextFrom < fullFromMs) {
-      nextTo += fullFromMs - nextFrom;
-      nextFrom = fullFromMs;
-    }
-    if (nextTo > fullToMs) {
-      nextFrom -= nextTo - fullToMs;
-      nextTo = fullToMs;
-    }
-    if (nextFrom < fullFromMs) {
-      nextFrom = fullFromMs;
-    }
-    if (nextTo > fullToMs) {
-      nextTo = fullToMs;
+    panel.transform.scale = 1;
+    panel.transform.tx = 0;
+    panel.transform.ty = 0;
+    panel.transform.dragging = false;
+    panel.transform.dragStartX = 0;
+    panel.transform.dragStartY = 0;
+    panel.transform.startTx = 0;
+    panel.transform.startTy = 0;
+    applyMultiViewTransform(panel);
+  }
+
+  function attachMultiViewMouseInteractions(panel) {
+    if (!panel || !panel.canvasWrap || !panel.canvas || !panel.transform) {
+      return function () {};
     }
 
-    panel.manualView = true;
-    panel.viewFromMs = nextFrom;
-    panel.viewToMs = nextTo;
-    normalizePanelViewport(panel);
+    var onWheel = function (event) {
+      event.preventDefault();
 
-    renderMultiViewPacket(deviceId, panel.lastPacket, { preserveManualView: true, skipRemap: true });
+      var delta = Number(event.deltaY);
+      var factor = delta < 0 ? 1.12 : 1 / 1.12;
+      var prevScale = panel.transform.scale;
+      var nextScale = clamp(prevScale * factor, 1, 6);
+      if (!Number.isFinite(nextScale) || Math.abs(nextScale - prevScale) < 1e-6) {
+        return;
+      }
+
+      var rect = panel.canvasWrap.getBoundingClientRect();
+      var cursorX = clamp(event.clientX - rect.left, 0, rect.width || 0);
+      var cursorY = clamp(event.clientY - rect.top, 0, rect.height || 0);
+
+      var sourceX = (cursorX - panel.transform.tx) / prevScale;
+      var sourceY = (cursorY - panel.transform.ty) / prevScale;
+
+      panel.transform.scale = nextScale;
+      panel.transform.tx = cursorX - sourceX * nextScale;
+      panel.transform.ty = cursorY - sourceY * nextScale;
+
+      applyMultiViewTransform(panel);
+    };
+
+    var onMouseDown = function (event) {
+      if (event.button !== 0) {
+        return;
+      }
+      if (panel.transform.scale <= 1) {
+        return;
+      }
+
+      panel.transform.dragging = true;
+      panel.transform.dragStartX = event.clientX;
+      panel.transform.dragStartY = event.clientY;
+      panel.transform.startTx = panel.transform.tx;
+      panel.transform.startTy = panel.transform.ty;
+      applyMultiViewTransform(panel);
+      event.preventDefault();
+    };
+
+    var onMouseMove = function (event) {
+      if (!panel.transform.dragging) {
+        return;
+      }
+
+      var dx = event.clientX - panel.transform.dragStartX;
+      var dy = event.clientY - panel.transform.dragStartY;
+      panel.transform.tx = panel.transform.startTx + dx;
+      panel.transform.ty = panel.transform.startTy + dy;
+      applyMultiViewTransform(panel);
+    };
+
+    var stopDragging = function () {
+      if (!panel.transform.dragging) {
+        return;
+      }
+      panel.transform.dragging = false;
+      applyMultiViewTransform(panel);
+    };
+
+    var onDoubleClick = function (event) {
+      event.preventDefault();
+      resetMultiViewTransform(panel);
+    };
+
+    var onResize = function () {
+      applyMultiViewTransform(panel);
+    };
+
+    panel.canvasWrap.addEventListener("wheel", onWheel, { passive: false });
+    panel.canvasWrap.addEventListener("mousedown", onMouseDown);
+    panel.canvasWrap.addEventListener("dblclick", onDoubleClick);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", stopDragging);
+    window.addEventListener("blur", stopDragging);
+    window.addEventListener("resize", onResize);
+
+    applyMultiViewTransform(panel);
+
+    return function cleanup() {
+      panel.canvasWrap.removeEventListener("wheel", onWheel);
+      panel.canvasWrap.removeEventListener("mousedown", onMouseDown);
+      panel.canvasWrap.removeEventListener("dblclick", onDoubleClick);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", stopDragging);
+      window.removeEventListener("blur", stopDragging);
+      window.removeEventListener("resize", onResize);
+    };
   }
 
   function renderMultiViewPacket(deviceId, packet, options) {
@@ -2501,46 +2529,8 @@
       return;
     }
 
-    var previousFullFromMs = Number(panel.fullFromMs);
-    var previousFullToMs = Number(panel.fullToMs);
-    var hadPreviousFull =
-      Number.isFinite(previousFullFromMs) && Number.isFinite(previousFullToMs) && previousFullToMs > previousFullFromMs;
-
     panel.fullFromMs = range.fromMs;
     panel.fullToMs = range.toMs;
-
-    if (!panel.manualView) {
-      panel.viewFromMs = range.fromMs;
-      panel.viewToMs = range.toMs;
-    } else if (hadPreviousFull && !renderOptions.skipRemap) {
-      var prevSpan = previousFullToMs - previousFullFromMs;
-      var viewFromRatio = (Number(panel.viewFromMs) - previousFullFromMs) / prevSpan;
-      var viewToRatio = (Number(panel.viewToMs) - previousFullFromMs) / prevSpan;
-      if (!Number.isFinite(viewFromRatio)) {
-        viewFromRatio = 0;
-      }
-      if (!Number.isFinite(viewToRatio)) {
-        viewToRatio = 1;
-      }
-      viewFromRatio = Math.max(0, Math.min(1, viewFromRatio));
-      viewToRatio = Math.max(0, Math.min(1, viewToRatio));
-      if (viewToRatio <= viewFromRatio) {
-        viewFromRatio = 0;
-        viewToRatio = 1;
-      }
-
-      var newSpan = range.toMs - range.fromMs;
-      panel.viewFromMs = range.fromMs + newSpan * viewFromRatio;
-      panel.viewToMs = range.fromMs + newSpan * viewToRatio;
-    } else if (!hadPreviousFull) {
-      panel.viewFromMs = range.fromMs;
-      panel.viewToMs = range.toMs;
-    }
-
-    var viewport = normalizePanelViewport(panel);
-    if (!viewport) {
-      viewport = range;
-    }
 
     var device = getDeviceById(deviceId);
     var frequencyBins = getPacketFrequencyBins(packet);
@@ -2550,8 +2540,8 @@
       canvas: panel.canvas,
       legendCanvas: null,
       blocks: [packet],
-      from: formatNaiveDateTimeMs(viewport.fromMs, true),
-      to: formatNaiveDateTimeMs(viewport.toMs, true),
+      from: formatNaiveDateTimeMs(range.fromMs, true),
+      to: formatNaiveDateTimeMs(range.toMs, true),
       fastMode: true,
       assumeSorted: true,
       intensityMode: activeIntensityMode,
@@ -2577,6 +2567,7 @@
       displayMaxFrequency: null
     });
 
+    applyMultiViewTransform(panel);
     panel.lastPacket = packet;
   }
 
@@ -2607,50 +2598,36 @@
 
   function buildMultiViewPanel(device) {
     var wrapper = document.createElement("div");
-    wrapper.style.border = "1px solid rgba(255,255,255,0.16)";
-    wrapper.style.borderRadius = "10px";
+    wrapper.style.border = "1px solid rgba(255,255,255,0.18)";
     wrapper.style.background = "#0b101a";
-    wrapper.style.padding = "8px";
+    wrapper.style.padding = "0";
     wrapper.style.minHeight = "0";
-    wrapper.style.display = "flex";
-    wrapper.style.flexDirection = "column";
-
-    var title = document.createElement("div");
-    title.textContent = device.name;
-    title.style.color = "#eaf1ff";
-    title.style.fontSize = "13px";
-    title.style.fontWeight = "700";
-    title.style.marginBottom = "6px";
-
-    var controls = document.createElement("div");
-    controls.style.display = "grid";
-    controls.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
-    controls.style.gap = "6px";
-    controls.style.marginBottom = "8px";
-
-    function makeControlButton(text, titleText, action) {
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = text;
-      btn.title = titleText;
-      btn.className = "ghost-btn";
-      btn.style.padding = "6px 0";
-      btn.style.minHeight = "30px";
-      btn.style.fontSize = "15px";
-      btn.addEventListener("click", function () {
-        panOrZoomMultiViewPanel(device.id, action);
-      });
-      return btn;
-    }
-
-    controls.appendChild(makeControlButton("←", "تحريك يسار", "pan-left"));
-    controls.appendChild(makeControlButton("→", "تحريك يمين", "pan-right"));
-    controls.appendChild(makeControlButton("-", "تصغير", "zoom-out"));
-    controls.appendChild(makeControlButton("+", "تكبير", "zoom-in"));
+    wrapper.style.minWidth = "0";
+    wrapper.style.position = "relative";
+    wrapper.style.overflow = "hidden";
 
     var canvasWrap = document.createElement("div");
-    canvasWrap.style.flex = "1 1 auto";
+    canvasWrap.style.height = "100%";
+    canvasWrap.style.width = "100%";
+    canvasWrap.style.overflow = "hidden";
+    canvasWrap.style.position = "relative";
     canvasWrap.style.minHeight = "0";
+    canvasWrap.style.minWidth = "0";
+
+    var title = document.createElement("span");
+    title.textContent = device.name;
+    title.style.color = "#eaf1ff";
+    title.style.fontSize = "11px";
+    title.style.fontWeight = "600";
+    title.style.position = "absolute";
+    title.style.top = "4px";
+    title.style.left = "4px";
+    title.style.zIndex = "2";
+    title.style.padding = "2px 6px";
+    title.style.borderRadius = "4px";
+    title.style.background = "rgba(3, 8, 16, 0.52)";
+    title.style.pointerEvents = "none";
+    title.style.userSelect = "none";
 
     var canvasEl = document.createElement("canvas");
     canvasEl.width = 960;
@@ -2658,17 +2635,16 @@
     canvasEl.style.width = "100%";
     canvasEl.style.height = "100%";
     canvasEl.style.background = "#090b15";
-    canvasEl.style.borderRadius = "8px";
     canvasEl.style.display = "block";
 
     canvasWrap.appendChild(canvasEl);
-    wrapper.appendChild(title);
-    wrapper.appendChild(controls);
+    canvasWrap.appendChild(title);
     wrapper.appendChild(canvasWrap);
 
     return {
       wrapper: wrapper,
       canvas: canvasEl,
+      canvasWrap: canvasWrap,
       title: title
     };
   }
@@ -2691,20 +2667,34 @@
     var columns = selectedDevices.length === 1 ? 1 : 2;
     multiViewGrid.style.gridTemplateColumns = "repeat(" + columns + ", minmax(0, 1fr))";
     multiViewGrid.style.gridAutoRows = "minmax(0, 1fr)";
+    multiViewGrid.style.width = "100vw";
+    multiViewGrid.style.height = "100vh";
+    multiViewGrid.style.gap = "1px";
 
     selectedDevices.forEach(function (device) {
       var panel = buildMultiViewPanel(device);
-      multiViewPanels[String(device.id)] = {
+      var panelState = {
         deviceId: device.id,
         canvas: panel.canvas,
+        canvasWrap: panel.canvasWrap,
         title: panel.title,
         lastPacket: null,
         fullFromMs: null,
         fullToMs: null,
-        viewFromMs: null,
-        viewToMs: null,
-        manualView: false
+        transform: {
+          scale: 1,
+          tx: 0,
+          ty: 0,
+          dragging: false,
+          dragStartX: 0,
+          dragStartY: 0,
+          startTx: 0,
+          startTy: 0
+        },
+        cleanupInteractions: null
       };
+      panelState.cleanupInteractions = attachMultiViewMouseInteractions(panelState);
+      multiViewPanels[String(device.id)] = panelState;
       multiViewGrid.appendChild(panel.wrapper);
     });
 
@@ -3277,10 +3267,6 @@
 
     closeMultiViewPicker();
     await openMultiViewOverlay(selectedIds);
-  });
-
-  multiViewCloseBtn.addEventListener("click", function () {
-    closeMultiViewOverlay();
   });
 
   multiViewPickerModal.addEventListener("click", function (event) {
