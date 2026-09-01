@@ -191,6 +191,37 @@
           <div class="side-card">
             <h3>الأجهزة</h3>
             <select id="deviceList" class="device-select-dropdown" aria-label="اختيار الجهاز"></select>
+            <button id="multiViewBtn" type="button" class="ghost-btn" style="margin-top: 8px; width: 100%;">عرض متعدد</button>
+
+            <div
+              id="multiViewPickerModal"
+              class="hidden"
+              style="position: fixed; inset: 0; z-index: 1001; background: rgba(9, 12, 18, 0.55); padding: 20px;"
+              aria-hidden="true"
+            >
+              <div class="side-card" style="max-width: 460px; margin: 0 auto; max-height: calc(100vh - 40px); overflow: auto;">
+                <h3 style="margin-bottom: 6px;">اختيار الأجهزة (حتى 4)</h3>
+                <p class="history-info" style="margin-top: 0; margin-bottom: 10px;">يمكنك عرض بث مباشر متزامن لأربعة أجهزة كحد أقصى.</p>
+                <div id="multiViewDeviceOptions" style="display: grid; gap: 8px;"></div>
+                <div class="form-actions" style="margin-top: 10px; justify-content: flex-end;">
+                  <button id="multiViewContinueBtn" type="button">متابعة</button>
+                  <button id="multiViewCancelBtn" type="button" class="ghost-btn">إلغاء</button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="multiViewOverlay"
+              class="hidden"
+              style="position: fixed; inset: 0; z-index: 1000; background: #060910; padding: 14px;"
+              aria-hidden="true"
+            >
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; color: #f3f7ff;">
+                <strong>العرض المتعدد المباشر</strong>
+                <button id="multiViewCloseBtn" type="button" class="ghost-btn">إغلاق</button>
+              </div>
+              <div id="multiViewGrid" style="display: grid; height: calc(100vh - 76px); gap: 10px;"></div>
+            </div>
           </div>
 
           <div class="side-card history-display-tools-card">

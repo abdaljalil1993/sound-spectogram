@@ -81,6 +81,8 @@
   var LIVE_WINDOW_LABEL = "آخر 30 دقيقة";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
   var MAX_PACKETS_IN_MEMORY = 12000;
+  var multiViewOpen = false;
+  var multiViewPanels = {};
 
   var topNav = document.getElementById("topNav");
   var dashboardLayoutEl = document.getElementById("dashboardLayout");
@@ -95,6 +97,14 @@
   var toggleRightPanelBtn = document.getElementById("toggleRightPanelBtn");
 
   var deviceListEl = document.getElementById("deviceList");
+  var multiViewBtn = document.getElementById("multiViewBtn");
+  var multiViewPickerModal = document.getElementById("multiViewPickerModal");
+  var multiViewDeviceOptions = document.getElementById("multiViewDeviceOptions");
+  var multiViewContinueBtn = document.getElementById("multiViewContinueBtn");
+  var multiViewCancelBtn = document.getElementById("multiViewCancelBtn");
+  var multiViewOverlay = document.getElementById("multiViewOverlay");
+  var multiViewGrid = document.getElementById("multiViewGrid");
+  var multiViewCloseBtn = document.getElementById("multiViewCloseBtn");
   var selectedDeviceTitleEl = document.getElementById("selectedDeviceTitle");
   var historyInfoEl = document.getElementById("historyInfo");
   var historyTableBody = document.getElementById("historyTableBody");
@@ -180,6 +190,14 @@
     !rightPanelEl ||
     !toggleRightPanelBtn ||
     !deviceListEl ||
+    !multiViewBtn ||
+    !multiViewPickerModal ||
+    !multiViewDeviceOptions ||
+    !multiViewContinueBtn ||
+    !multiViewCancelBtn ||
+    !multiViewOverlay ||
+    !multiViewGrid ||
+    !multiViewCloseBtn ||
     !selectedDeviceTitleEl ||
     !historyInfoEl ||
     !historyTableBody ||
@@ -2017,7 +2035,7 @@
 
     var latestPacket;
     try {
-      latestPacket = await apiRequest("/api/devices/" + selectedDeviceId + "/history/latest");
+      latestPacket = await fetchLatestPacketForDevice(selectedDeviceId);
     } catch (error) {
       var message = error instanceof Error ? error.message : "فشل تحميل آخر باكت";
       if (message === "No packets found for this device") {
@@ -2032,8 +2050,6 @@
       return;
     }
 
-    decodePacketMatrix(latestPacket);
-    normalizePacketTiming(latestPacket);
     var latestStartMs = getPacketStartMs(latestPacket);
     var latestEndMs = getPacketEndMs(latestPacket);
     if (!Number.isFinite(latestStartMs)) {
@@ -2062,6 +2078,538 @@
     activeToIso = formatNaiveDateTimeMs(viewportToMs, true);
     scheduleRender({ skipTable: false });
     setGlobalMessage("تم التركيز على آخر باكت.", false);
+  }
+
+  // =========================
+  // Multi-View (up to 4 devices)
+  // =========================
+  function getDeviceById(deviceId) {
+    return devicesCache.find(function (device) {
+      return Number(device.id) === Number(deviceId);
+    });
+  }
+
+  function updateMultiViewPickerLimit() {
+    var checkboxes = multiViewDeviceOptions.querySelectorAll("input[type='checkbox']");
+    var checkedCount = 0;
+
+    checkboxes.forEach(function (checkbox) {
+      if (checkbox.checked) {
+        checkedCount += 1;
+      }
+    });
+
+    var lockFurtherSelection = checkedCount >= 4;
+    checkboxes.forEach(function (checkbox) {
+      checkbox.disabled = lockFurtherSelection && !checkbox.checked;
+    });
+  }
+
+  function getSelectedMultiViewDeviceIds() {
+    var selected = [];
+    var checkboxes = multiViewDeviceOptions.querySelectorAll("input[type='checkbox']");
+
+    checkboxes.forEach(function (checkbox) {
+      if (checkbox.checked) {
+        selected.push(Number(checkbox.value));
+      }
+    });
+
+    return selected.filter(function (value) {
+      return Number.isFinite(value) && value > 0;
+    });
+  }
+
+  function renderMultiViewPicker() {
+    multiViewDeviceOptions.innerHTML = "";
+
+    if (!Array.isArray(devicesCache) || devicesCache.length === 0) {
+      var empty = document.createElement("p");
+      empty.className = "history-info";
+      empty.textContent = "لا توجد أجهزة متاحة.";
+      empty.style.margin = "0";
+      multiViewDeviceOptions.appendChild(empty);
+      return;
+    }
+
+    devicesCache.forEach(function (device) {
+      var row = document.createElement("label");
+      row.style.display = "flex";
+      row.style.alignItems = "center";
+      row.style.gap = "8px";
+      row.style.padding = "8px 10px";
+      row.style.border = "1px solid #d8d8d0";
+      row.style.borderRadius = "8px";
+      row.style.background = "#fff";
+
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = String(device.id);
+      checkbox.addEventListener("change", updateMultiViewPickerLimit);
+
+      var text = document.createElement("span");
+      text.textContent = device.name;
+
+      row.appendChild(checkbox);
+      row.appendChild(text);
+      multiViewDeviceOptions.appendChild(row);
+    });
+
+    updateMultiViewPickerLimit();
+  }
+
+  function openMultiViewPicker() {
+    renderMultiViewPicker();
+    multiViewPickerModal.classList.remove("hidden");
+    multiViewPickerModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeMultiViewPicker() {
+    multiViewPickerModal.classList.add("hidden");
+    multiViewPickerModal.setAttribute("aria-hidden", "true");
+  }
+
+  function clearMultiViewPanels() {
+    multiViewPanels = {};
+    multiViewGrid.innerHTML = "";
+  }
+
+  function getPacketTimeRange(packet) {
+    var fromMs = getPacketStartMs(packet);
+    var toMs = getPacketEndMs(packet);
+    if (!Number.isFinite(fromMs)) {
+      fromMs = getPacketTimestampMs(packet);
+    }
+    if (!Number.isFinite(toMs)) {
+      toMs = fromMs;
+    }
+    if (!Number.isFinite(fromMs)) {
+      return null;
+    }
+
+    if (!Number.isFinite(toMs) || toMs <= fromMs) {
+      toMs = fromMs + 1000;
+    }
+
+    return {
+      fromMs: fromMs,
+      toMs: toMs
+    };
+  }
+
+  function resolvePacketFrequencyRange(device, packet, frequencyBins) {
+    if (Array.isArray(frequencyBins) && frequencyBins.length > 1) {
+      var minBin = Number(frequencyBins[0]);
+      var maxBin = Number(frequencyBins[frequencyBins.length - 1]);
+      if (Number.isFinite(minBin) && Number.isFinite(maxBin) && maxBin > minBin) {
+        return { min: minBin, max: maxBin };
+      }
+    }
+
+    var packetMin = Number(packet && (packet.minFrequency || packet.frequencyMin));
+    var packetMax = Number(packet && (packet.maxFrequency || packet.frequencyMax));
+    if (Number.isFinite(packetMin) && Number.isFinite(packetMax) && packetMax > packetMin) {
+      return { min: packetMin, max: packetMax };
+    }
+
+    var deviceMin = Number(device && device.minFrequency);
+    var deviceMax = Number(device && device.maxFrequency);
+    if (Number.isFinite(deviceMin) && Number.isFinite(deviceMax) && deviceMax > deviceMin) {
+      return { min: deviceMin, max: deviceMax };
+    }
+
+    return { min: 30, max: 8000 };
+  }
+
+  function normalizePanelViewport(panel) {
+    if (!panel) {
+      return null;
+    }
+
+    var fullFromMs = Number(panel.fullFromMs);
+    var fullToMs = Number(panel.fullToMs);
+    if (!Number.isFinite(fullFromMs) || !Number.isFinite(fullToMs) || fullToMs <= fullFromMs) {
+      return null;
+    }
+
+    var fullSpan = fullToMs - fullFromMs;
+    var minSpan = Math.max(250, Math.floor(fullSpan * 0.03));
+    var viewFromMs = Number(panel.viewFromMs);
+    var viewToMs = Number(panel.viewToMs);
+
+    if (!Number.isFinite(viewFromMs) || !Number.isFinite(viewToMs) || viewToMs <= viewFromMs) {
+      viewFromMs = fullFromMs;
+      viewToMs = fullToMs;
+    }
+
+    if (viewFromMs < fullFromMs) {
+      viewFromMs = fullFromMs;
+    }
+    if (viewToMs > fullToMs) {
+      viewToMs = fullToMs;
+    }
+
+    var viewSpan = viewToMs - viewFromMs;
+    if (viewSpan < minSpan) {
+      var center = (viewFromMs + viewToMs) / 2;
+      viewFromMs = center - minSpan / 2;
+      viewToMs = center + minSpan / 2;
+
+      if (viewFromMs < fullFromMs) {
+        viewFromMs = fullFromMs;
+        viewToMs = fullFromMs + minSpan;
+      }
+      if (viewToMs > fullToMs) {
+        viewToMs = fullToMs;
+        viewFromMs = fullToMs - minSpan;
+      }
+    }
+
+    panel.viewFromMs = viewFromMs;
+    panel.viewToMs = viewToMs;
+
+    return {
+      fromMs: viewFromMs,
+      toMs: viewToMs
+    };
+  }
+
+  function resetPanelViewport(panel) {
+    if (!panel) {
+      return;
+    }
+
+    panel.manualView = false;
+    panel.viewFromMs = panel.fullFromMs;
+    panel.viewToMs = panel.fullToMs;
+  }
+
+  function panOrZoomMultiViewPanel(deviceId, action) {
+    var panel = multiViewPanels[String(deviceId)];
+    if (!panel || !panel.lastPacket) {
+      return;
+    }
+
+    if (!Number.isFinite(panel.fullFromMs) || !Number.isFinite(panel.fullToMs) || panel.fullToMs <= panel.fullFromMs) {
+      return;
+    }
+
+    if (!panel.manualView) {
+      panel.viewFromMs = panel.fullFromMs;
+      panel.viewToMs = panel.fullToMs;
+    }
+
+    var viewport = normalizePanelViewport(panel);
+    if (!viewport) {
+      return;
+    }
+
+    var fullFromMs = panel.fullFromMs;
+    var fullToMs = panel.fullToMs;
+    var fullSpan = fullToMs - fullFromMs;
+    var span = viewport.toMs - viewport.fromMs;
+    var nextFrom = viewport.fromMs;
+    var nextTo = viewport.toMs;
+
+    if (action === "pan-left") {
+      var deltaLeft = span * 0.12;
+      nextFrom -= deltaLeft;
+      nextTo -= deltaLeft;
+    } else if (action === "pan-right") {
+      var deltaRight = span * 0.12;
+      nextFrom += deltaRight;
+      nextTo += deltaRight;
+    } else if (action === "zoom-in") {
+      var centerIn = (viewport.fromMs + viewport.toMs) / 2;
+      var targetSpanIn = Math.max(Math.max(250, fullSpan * 0.03), span * 0.82);
+      nextFrom = centerIn - targetSpanIn / 2;
+      nextTo = centerIn + targetSpanIn / 2;
+    } else if (action === "zoom-out") {
+      var centerOut = (viewport.fromMs + viewport.toMs) / 2;
+      var targetSpanOut = Math.min(fullSpan, span * 1.22);
+      nextFrom = centerOut - targetSpanOut / 2;
+      nextTo = centerOut + targetSpanOut / 2;
+    } else {
+      return;
+    }
+
+    if (nextFrom < fullFromMs) {
+      nextTo += fullFromMs - nextFrom;
+      nextFrom = fullFromMs;
+    }
+    if (nextTo > fullToMs) {
+      nextFrom -= nextTo - fullToMs;
+      nextTo = fullToMs;
+    }
+    if (nextFrom < fullFromMs) {
+      nextFrom = fullFromMs;
+    }
+    if (nextTo > fullToMs) {
+      nextTo = fullToMs;
+    }
+
+    panel.manualView = true;
+    panel.viewFromMs = nextFrom;
+    panel.viewToMs = nextTo;
+    normalizePanelViewport(panel);
+
+    renderMultiViewPacket(deviceId, panel.lastPacket, { preserveManualView: true, skipRemap: true });
+  }
+
+  function renderMultiViewPacket(deviceId, packet, options) {
+    if (!multiViewOpen) {
+      return;
+    }
+
+    var renderOptions = options || {};
+    var panel = multiViewPanels[String(deviceId)];
+    if (!panel || !packet || typeof packet !== "object") {
+      return;
+    }
+
+    decodePacketMatrix(packet);
+    normalizePacketTiming(packet);
+    var range = getPacketTimeRange(packet);
+    if (!range) {
+      return;
+    }
+
+    var previousFullFromMs = Number(panel.fullFromMs);
+    var previousFullToMs = Number(panel.fullToMs);
+    var hadPreviousFull =
+      Number.isFinite(previousFullFromMs) && Number.isFinite(previousFullToMs) && previousFullToMs > previousFullFromMs;
+
+    panel.fullFromMs = range.fromMs;
+    panel.fullToMs = range.toMs;
+
+    if (!panel.manualView) {
+      panel.viewFromMs = range.fromMs;
+      panel.viewToMs = range.toMs;
+    } else if (hadPreviousFull && !renderOptions.skipRemap) {
+      var prevSpan = previousFullToMs - previousFullFromMs;
+      var viewFromRatio = (Number(panel.viewFromMs) - previousFullFromMs) / prevSpan;
+      var viewToRatio = (Number(panel.viewToMs) - previousFullFromMs) / prevSpan;
+      if (!Number.isFinite(viewFromRatio)) {
+        viewFromRatio = 0;
+      }
+      if (!Number.isFinite(viewToRatio)) {
+        viewToRatio = 1;
+      }
+      viewFromRatio = Math.max(0, Math.min(1, viewFromRatio));
+      viewToRatio = Math.max(0, Math.min(1, viewToRatio));
+      if (viewToRatio <= viewFromRatio) {
+        viewFromRatio = 0;
+        viewToRatio = 1;
+      }
+
+      var newSpan = range.toMs - range.fromMs;
+      panel.viewFromMs = range.fromMs + newSpan * viewFromRatio;
+      panel.viewToMs = range.fromMs + newSpan * viewToRatio;
+    } else if (!hadPreviousFull) {
+      panel.viewFromMs = range.fromMs;
+      panel.viewToMs = range.toMs;
+    }
+
+    var viewport = normalizePanelViewport(panel);
+    if (!viewport) {
+      viewport = range;
+    }
+
+    var device = getDeviceById(deviceId);
+    var frequencyBins = getPacketFrequencyBins(packet);
+    var frequencyRange = resolvePacketFrequencyRange(device, packet, frequencyBins);
+
+    window.Spectrogram.renderSpectrogram({
+      canvas: panel.canvas,
+      legendCanvas: null,
+      blocks: [packet],
+      from: formatNaiveDateTimeMs(viewport.fromMs, true),
+      to: formatNaiveDateTimeMs(viewport.toMs, true),
+      fastMode: true,
+      assumeSorted: true,
+      intensityMode: activeIntensityMode,
+      dbMin: activeDbMin,
+      dbMax: activeDbMax,
+      percentileLow: activePercentileLow,
+      percentileHigh: activePercentileHigh,
+      compareView: activeCompareView,
+      noiseSuppressionEnabled: activeNoiseSuppressionEnabled,
+      noiseFloorPercentile: activeNoiseFloorPercentile,
+      noiseThreshold: activeNoiseThreshold,
+      isolatedPixelRemovalEnabled: activeIsolatedPixelRemovalEnabled,
+      minActiveNeighbors: activeMinActiveNeighbors,
+      neighborhoodSize: activeNeighborhoodSize,
+      bucketAggregation: activeBucketAggregation,
+      debugStatsEnabled: false,
+      intensityType: packet.intensityType,
+      displayGainDb: activeDisplayGainDb,
+      frequencyBins: frequencyBins,
+      minFrequency: frequencyRange.min,
+      maxFrequency: frequencyRange.max,
+      displayMinFrequency: null,
+      displayMaxFrequency: null
+    });
+
+    panel.lastPacket = packet;
+  }
+
+  async function fetchLatestPacketForDevice(deviceId) {
+    var latestPacket = await apiRequest("/api/devices/" + deviceId + "/history/latest");
+    if (!latestPacket || typeof latestPacket !== "object") {
+      return null;
+    }
+    decodePacketMatrix(latestPacket);
+    normalizePacketTiming(latestPacket);
+    return latestPacket;
+  }
+
+  async function seedMultiViewPanels(deviceIds) {
+    var tasks = deviceIds.map(async function (deviceId) {
+      try {
+        var latestPacket = await fetchLatestPacketForDevice(deviceId);
+        if (latestPacket) {
+          renderMultiViewPacket(deviceId, latestPacket);
+        }
+      } catch (_error) {
+        // Ignore devices that do not have packets yet.
+      }
+    });
+
+    await Promise.all(tasks);
+  }
+
+  function buildMultiViewPanel(device) {
+    var wrapper = document.createElement("div");
+    wrapper.style.border = "1px solid rgba(255,255,255,0.16)";
+    wrapper.style.borderRadius = "10px";
+    wrapper.style.background = "#0b101a";
+    wrapper.style.padding = "8px";
+    wrapper.style.minHeight = "0";
+    wrapper.style.display = "flex";
+    wrapper.style.flexDirection = "column";
+
+    var title = document.createElement("div");
+    title.textContent = device.name;
+    title.style.color = "#eaf1ff";
+    title.style.fontSize = "13px";
+    title.style.fontWeight = "700";
+    title.style.marginBottom = "6px";
+
+    var controls = document.createElement("div");
+    controls.style.display = "grid";
+    controls.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
+    controls.style.gap = "6px";
+    controls.style.marginBottom = "8px";
+
+    function makeControlButton(text, titleText, action) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = text;
+      btn.title = titleText;
+      btn.className = "ghost-btn";
+      btn.style.padding = "6px 0";
+      btn.style.minHeight = "30px";
+      btn.style.fontSize = "15px";
+      btn.addEventListener("click", function () {
+        panOrZoomMultiViewPanel(device.id, action);
+      });
+      return btn;
+    }
+
+    controls.appendChild(makeControlButton("←", "تحريك يسار", "pan-left"));
+    controls.appendChild(makeControlButton("→", "تحريك يمين", "pan-right"));
+    controls.appendChild(makeControlButton("-", "تصغير", "zoom-out"));
+    controls.appendChild(makeControlButton("+", "تكبير", "zoom-in"));
+
+    var canvasWrap = document.createElement("div");
+    canvasWrap.style.flex = "1 1 auto";
+    canvasWrap.style.minHeight = "0";
+
+    var canvasEl = document.createElement("canvas");
+    canvasEl.width = 960;
+    canvasEl.height = 420;
+    canvasEl.style.width = "100%";
+    canvasEl.style.height = "100%";
+    canvasEl.style.background = "#090b15";
+    canvasEl.style.borderRadius = "8px";
+    canvasEl.style.display = "block";
+
+    canvasWrap.appendChild(canvasEl);
+    wrapper.appendChild(title);
+    wrapper.appendChild(controls);
+    wrapper.appendChild(canvasWrap);
+
+    return {
+      wrapper: wrapper,
+      canvas: canvasEl,
+      title: title
+    };
+  }
+
+  async function openMultiViewOverlay(deviceIds) {
+    clearMultiViewPanels();
+
+    var selectedDevices = deviceIds
+      .map(getDeviceById)
+      .filter(function (device) {
+        return !!device;
+      })
+      .slice(0, 4);
+
+    if (!selectedDevices.length) {
+      setGlobalMessage("اختر جهازًا واحدًا على الأقل للعرض المتعدد", true);
+      return;
+    }
+
+    var columns = selectedDevices.length === 1 ? 1 : 2;
+    multiViewGrid.style.gridTemplateColumns = "repeat(" + columns + ", minmax(0, 1fr))";
+    multiViewGrid.style.gridAutoRows = "minmax(0, 1fr)";
+
+    selectedDevices.forEach(function (device) {
+      var panel = buildMultiViewPanel(device);
+      multiViewPanels[String(device.id)] = {
+        deviceId: device.id,
+        canvas: panel.canvas,
+        title: panel.title,
+        lastPacket: null,
+        fullFromMs: null,
+        fullToMs: null,
+        viewFromMs: null,
+        viewToMs: null,
+        manualView: false
+      };
+      multiViewGrid.appendChild(panel.wrapper);
+    });
+
+    multiViewOpen = true;
+    multiViewOverlay.classList.remove("hidden");
+    multiViewOverlay.setAttribute("aria-hidden", "false");
+
+    await seedMultiViewPanels(
+      selectedDevices.map(function (device) {
+        return Number(device.id);
+      })
+    );
+  }
+
+  function closeMultiViewOverlay() {
+    multiViewOpen = false;
+    multiViewOverlay.classList.add("hidden");
+    multiViewOverlay.setAttribute("aria-hidden", "true");
+    clearMultiViewPanels();
+  }
+
+  function handleMultiViewLivePayload(payload) {
+    if (!multiViewOpen || !payload) {
+      return;
+    }
+
+    var deviceId = Number(payload.deviceId);
+    if (!Number.isFinite(deviceId) || !multiViewPanels[String(deviceId)]) {
+      return;
+    }
+
+    renderMultiViewPacket(deviceId, payload);
   }
 
   async function selectDevice(device) {
@@ -2586,6 +3134,50 @@
       await loadLatestPacketOnly();
     } catch (error) {
       setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل آخر باكت", true);
+    }
+  });
+
+  multiViewBtn.addEventListener("click", function () {
+    openMultiViewPicker();
+  });
+
+  multiViewCancelBtn.addEventListener("click", function () {
+    closeMultiViewPicker();
+  });
+
+  multiViewContinueBtn.addEventListener("click", async function () {
+    var selectedIds = getSelectedMultiViewDeviceIds();
+    if (!selectedIds.length) {
+      setGlobalMessage("اختر جهازًا واحدًا على الأقل", true);
+      return;
+    }
+
+    closeMultiViewPicker();
+    await openMultiViewOverlay(selectedIds);
+  });
+
+  multiViewCloseBtn.addEventListener("click", function () {
+    closeMultiViewOverlay();
+  });
+
+  multiViewPickerModal.addEventListener("click", function (event) {
+    if (event.target === multiViewPickerModal) {
+      closeMultiViewPicker();
+    }
+  });
+
+  window.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    if (!multiViewOverlay.classList.contains("hidden")) {
+      closeMultiViewOverlay();
+      return;
+    }
+
+    if (!multiViewPickerModal.classList.contains("hidden")) {
+      closeMultiViewPicker();
     }
   });
 
@@ -3197,6 +3789,7 @@
     }, 15000);
 
     socket.on("device:data", function (payload) {
+      handleMultiViewLivePayload(payload);
       markLiveTrace("socket-received");
 
       if (!payloadMatchesSelectedDevice(payload)) {
