@@ -2357,195 +2357,190 @@
     return { min: 30, max: 8000 };
   }
 
-  function clampMultiViewTransform(panel) {
-    if (!panel || !panel.transform || !panel.canvasWrap) {
-      return;
+  function cloneMultiViewWindow(viewWindow) {
+    if (!viewWindow) {
+      return null;
     }
 
-    var transform = panel.transform;
-    if (!Number.isFinite(transform.scale) || transform.scale <= 1) {
-      transform.scale = 1;
-      transform.tx = 0;
-      transform.ty = 0;
-      return;
-    }
-
-    var wrapWidth = Math.max(1, panel.canvasWrap.clientWidth || 1);
-    var wrapHeight = Math.max(1, panel.canvasWrap.clientHeight || 1);
-    var minTx = wrapWidth - wrapWidth * transform.scale;
-    var minTy = wrapHeight - wrapHeight * transform.scale;
-
-    transform.tx = clamp(transform.tx, minTx, 0);
-    transform.ty = clamp(transform.ty, minTy, 0);
-  }
-
-  function applyMultiViewTransform(panel) {
-    if (!panel || !panel.transform || !panel.canvas) {
-      return;
-    }
-
-    clampMultiViewTransform(panel);
-
-    var transform = panel.transform;
-    panel.canvas.style.transformOrigin = "0 0";
-    panel.canvas.style.transform =
-      "translate(" + transform.tx + "px, " + transform.ty + "px) scale(" + transform.scale + ")";
-
-    if (!panel.canvasWrap) {
-      return;
-    }
-
-    if (transform.scale > 1) {
-      panel.canvasWrap.style.cursor = transform.dragging ? "grabbing" : "grab";
-    } else {
-      panel.canvasWrap.style.cursor = "default";
-    }
-  }
-
-  function resetMultiViewTransform(panel) {
-    if (!panel || !panel.transform) {
-      return;
-    }
-
-    panel.transform.scale = 1;
-    panel.transform.tx = 0;
-    panel.transform.ty = 0;
-    panel.transform.dragging = false;
-    panel.transform.dragStartX = 0;
-    panel.transform.dragStartY = 0;
-    panel.transform.startTx = 0;
-    panel.transform.startTy = 0;
-    applyMultiViewTransform(panel);
-  }
-
-  function attachMultiViewMouseInteractions(panel) {
-    if (!panel || !panel.canvasWrap || !panel.canvas || !panel.transform) {
-      return function () {};
-    }
-
-    var onWheel = function (event) {
-      event.preventDefault();
-
-      var delta = Number(event.deltaY);
-      var factor = delta < 0 ? 1.12 : 1 / 1.12;
-      var prevScale = panel.transform.scale;
-      var nextScale = clamp(prevScale * factor, 1, 6);
-      if (!Number.isFinite(nextScale) || Math.abs(nextScale - prevScale) < 1e-6) {
-        return;
-      }
-
-      var rect = panel.canvasWrap.getBoundingClientRect();
-      var cursorX = clamp(event.clientX - rect.left, 0, rect.width || 0);
-      var cursorY = clamp(event.clientY - rect.top, 0, rect.height || 0);
-
-      var sourceX = (cursorX - panel.transform.tx) / prevScale;
-      var sourceY = (cursorY - panel.transform.ty) / prevScale;
-
-      panel.transform.scale = nextScale;
-      panel.transform.tx = cursorX - sourceX * nextScale;
-      panel.transform.ty = cursorY - sourceY * nextScale;
-
-      applyMultiViewTransform(panel);
-    };
-
-    var onMouseDown = function (event) {
-      if (event.button !== 0) {
-        return;
-      }
-      if (panel.transform.scale <= 1) {
-        return;
-      }
-
-      panel.transform.dragging = true;
-      panel.transform.dragStartX = event.clientX;
-      panel.transform.dragStartY = event.clientY;
-      panel.transform.startTx = panel.transform.tx;
-      panel.transform.startTy = panel.transform.ty;
-      applyMultiViewTransform(panel);
-      event.preventDefault();
-    };
-
-    var onMouseMove = function (event) {
-      if (!panel.transform.dragging) {
-        return;
-      }
-
-      var dx = event.clientX - panel.transform.dragStartX;
-      var dy = event.clientY - panel.transform.dragStartY;
-      panel.transform.tx = panel.transform.startTx + dx;
-      panel.transform.ty = panel.transform.startTy + dy;
-      applyMultiViewTransform(panel);
-    };
-
-    var stopDragging = function () {
-      if (!panel.transform.dragging) {
-        return;
-      }
-      panel.transform.dragging = false;
-      applyMultiViewTransform(panel);
-    };
-
-    var onDoubleClick = function (event) {
-      event.preventDefault();
-      resetMultiViewTransform(panel);
-    };
-
-    var onResize = function () {
-      applyMultiViewTransform(panel);
-    };
-
-    panel.canvasWrap.addEventListener("wheel", onWheel, { passive: false });
-    panel.canvasWrap.addEventListener("mousedown", onMouseDown);
-    panel.canvasWrap.addEventListener("dblclick", onDoubleClick);
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", stopDragging);
-    window.addEventListener("blur", stopDragging);
-    window.addEventListener("resize", onResize);
-
-    applyMultiViewTransform(panel);
-
-    return function cleanup() {
-      panel.canvasWrap.removeEventListener("wheel", onWheel);
-      panel.canvasWrap.removeEventListener("mousedown", onMouseDown);
-      panel.canvasWrap.removeEventListener("dblclick", onDoubleClick);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", stopDragging);
-      window.removeEventListener("blur", stopDragging);
-      window.removeEventListener("resize", onResize);
+    return {
+      fromMs: Number(viewWindow.fromMs),
+      toMs: Number(viewWindow.toMs),
+      minFrequency: Number(viewWindow.minFrequency),
+      maxFrequency: Number(viewWindow.maxFrequency)
     };
   }
 
-  function renderMultiViewPacket(deviceId, packet, options) {
-    if (!multiViewOpen) {
+  function clampWindowSegment(startValue, endValue, fullStart, fullEnd, minSpan) {
+    var fullSpan = fullEnd - fullStart;
+    if (!Number.isFinite(fullSpan) || fullSpan <= 0) {
+      return { start: fullStart, end: fullEnd };
+    }
+
+    var nextMinSpan = Number.isFinite(minSpan) ? Math.max(1e-6, minSpan) : 1e-6;
+    nextMinSpan = Math.min(fullSpan, nextMinSpan);
+
+    var start = Number(startValue);
+    var end = Number(endValue);
+    var span = end - start;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(span) || span <= 0) {
+      start = fullStart;
+      end = fullEnd;
+      span = fullSpan;
+    }
+
+    span = clamp(span, nextMinSpan, fullSpan);
+
+    var center = (start + end) / 2;
+    if (!Number.isFinite(center)) {
+      center = fullStart + fullSpan / 2;
+    }
+
+    start = center - span / 2;
+    end = center + span / 2;
+
+    if (start < fullStart) {
+      end += fullStart - start;
+      start = fullStart;
+    }
+    if (end > fullEnd) {
+      start -= end - fullEnd;
+      end = fullEnd;
+    }
+    if (start < fullStart) {
+      start = fullStart;
+    }
+    if (end > fullEnd) {
+      end = fullEnd;
+    }
+
+    return {
+      start: start,
+      end: end
+    };
+  }
+
+  function normalizeMultiViewWindow(fullWindow, nextWindow) {
+    if (!fullWindow) {
+      return null;
+    }
+
+    var timeMinSpan = Math.max(250, (fullWindow.toMs - fullWindow.fromMs) * 0.03);
+    var freqMinSpan = Math.max(1, (fullWindow.maxFrequency - fullWindow.minFrequency) * 0.03);
+    var timeRange = clampWindowSegment(nextWindow && nextWindow.fromMs, nextWindow && nextWindow.toMs, fullWindow.fromMs, fullWindow.toMs, timeMinSpan);
+    var freqRange = clampWindowSegment(
+      nextWindow && nextWindow.minFrequency,
+      nextWindow && nextWindow.maxFrequency,
+      fullWindow.minFrequency,
+      fullWindow.maxFrequency,
+      freqMinSpan
+    );
+
+    return {
+      fromMs: timeRange.start,
+      toMs: timeRange.end,
+      minFrequency: freqRange.start,
+      maxFrequency: freqRange.end
+    };
+  }
+
+  function isMultiViewWindowFull(viewWindow, fullWindow) {
+    if (!viewWindow || !fullWindow) {
+      return true;
+    }
+
+    return (
+      Math.abs(viewWindow.fromMs - fullWindow.fromMs) < 1e-6 &&
+      Math.abs(viewWindow.toMs - fullWindow.toMs) < 1e-6 &&
+      Math.abs(viewWindow.minFrequency - fullWindow.minFrequency) < 1e-6 &&
+      Math.abs(viewWindow.maxFrequency - fullWindow.maxFrequency) < 1e-6
+    );
+  }
+
+  function remapMultiViewWindow(previousViewWindow, previousFullWindow, nextFullWindow) {
+    if (!previousViewWindow || !previousFullWindow || !nextFullWindow) {
+      return cloneMultiViewWindow(nextFullWindow);
+    }
+
+    var prevTimeSpan = previousFullWindow.toMs - previousFullWindow.fromMs;
+    var prevFreqSpan = previousFullWindow.maxFrequency - previousFullWindow.minFrequency;
+    if (!Number.isFinite(prevTimeSpan) || prevTimeSpan <= 0 || !Number.isFinite(prevFreqSpan) || prevFreqSpan <= 0) {
+      return cloneMultiViewWindow(nextFullWindow);
+    }
+
+    var timeFromRatio = (previousViewWindow.fromMs - previousFullWindow.fromMs) / prevTimeSpan;
+    var timeToRatio = (previousViewWindow.toMs - previousFullWindow.fromMs) / prevTimeSpan;
+    var freqMinRatio = (previousViewWindow.minFrequency - previousFullWindow.minFrequency) / prevFreqSpan;
+    var freqMaxRatio = (previousViewWindow.maxFrequency - previousFullWindow.minFrequency) / prevFreqSpan;
+
+    if (!Number.isFinite(timeFromRatio)) {
+      timeFromRatio = 0;
+    }
+    if (!Number.isFinite(timeToRatio)) {
+      timeToRatio = 1;
+    }
+    if (!Number.isFinite(freqMinRatio)) {
+      freqMinRatio = 0;
+    }
+    if (!Number.isFinite(freqMaxRatio)) {
+      freqMaxRatio = 1;
+    }
+
+    timeFromRatio = clamp(timeFromRatio, 0, 1);
+    timeToRatio = clamp(timeToRatio, 0, 1);
+    freqMinRatio = clamp(freqMinRatio, 0, 1);
+    freqMaxRatio = clamp(freqMaxRatio, 0, 1);
+
+    if (timeToRatio <= timeFromRatio) {
+      timeFromRatio = 0;
+      timeToRatio = 1;
+    }
+    if (freqMaxRatio <= freqMinRatio) {
+      freqMinRatio = 0;
+      freqMaxRatio = 1;
+    }
+
+    var nextTimeSpan = nextFullWindow.toMs - nextFullWindow.fromMs;
+    var nextFreqSpan = nextFullWindow.maxFrequency - nextFullWindow.minFrequency;
+
+    return {
+      fromMs: nextFullWindow.fromMs + nextTimeSpan * timeFromRatio,
+      toMs: nextFullWindow.fromMs + nextTimeSpan * timeToRatio,
+      minFrequency: nextFullWindow.minFrequency + nextFreqSpan * freqMinRatio,
+      maxFrequency: nextFullWindow.minFrequency + nextFreqSpan * freqMaxRatio
+    };
+  }
+
+  function updateMultiViewPanelCursor(panel) {
+    if (!panel || !panel.canvas) {
       return;
     }
 
-    var renderOptions = options || {};
-    var panel = multiViewPanels[String(deviceId)];
-    if (!panel || !packet || typeof packet !== "object") {
+    if (panel.dragState && panel.dragState.active) {
+      panel.canvas.style.cursor = "grabbing";
       return;
     }
 
-    decodePacketMatrix(packet);
-    normalizePacketTiming(packet);
-    var range = getPacketTimeRange(packet);
-    if (!range) {
+    panel.canvas.style.cursor = isMultiViewWindowFull(panel.viewWindow, panel.fullViewWindow) ? "crosshair" : "grab";
+  }
+
+  function renderMultiViewPanel(panel, packet) {
+    if (!panel || !packet || !panel.fullViewWindow) {
       return;
     }
 
-    panel.fullFromMs = range.fromMs;
-    panel.fullToMs = range.toMs;
+    panel.viewWindow = normalizeMultiViewWindow(panel.fullViewWindow, panel.viewWindow || panel.fullViewWindow);
 
-    var device = getDeviceById(deviceId);
     var frequencyBins = getPacketFrequencyBins(packet);
-    var frequencyRange = resolvePacketFrequencyRange(device, packet, frequencyBins);
+    var fullWindow = panel.fullViewWindow;
+    var viewWindow = panel.viewWindow;
+    var hasDisplayFrequencyRange = !isMultiViewWindowFull(viewWindow, fullWindow);
 
     window.Spectrogram.renderSpectrogram({
       canvas: panel.canvas,
       legendCanvas: null,
       blocks: [packet],
-      from: formatNaiveDateTimeMs(range.fromMs, true),
-      to: formatNaiveDateTimeMs(range.toMs, true),
+      from: formatNaiveDateTimeMs(viewWindow.fromMs, true),
+      to: formatNaiveDateTimeMs(viewWindow.toMs, true),
       fastMode: true,
       assumeSorted: true,
       intensityMode: activeIntensityMode,
@@ -2565,14 +2560,194 @@
       intensityType: packet.intensityType,
       displayGainDb: activeDisplayGainDb,
       frequencyBins: frequencyBins,
-      minFrequency: frequencyRange.min,
-      maxFrequency: frequencyRange.max,
-      displayMinFrequency: null,
-      displayMaxFrequency: null
+      minFrequency: fullWindow.minFrequency,
+      maxFrequency: fullWindow.maxFrequency,
+      displayMinFrequency: hasDisplayFrequencyRange ? viewWindow.minFrequency : null,
+      displayMaxFrequency: hasDisplayFrequencyRange ? viewWindow.maxFrequency : null
     });
 
-    applyMultiViewTransform(panel);
     panel.lastPacket = packet;
+    updateMultiViewPanelCursor(panel);
+  }
+
+  function rerenderMultiViewPanel(panel) {
+    if (!panel || !panel.lastPacket) {
+      return;
+    }
+
+    renderMultiViewPanel(panel, panel.lastPacket);
+  }
+
+  function resetMultiViewViewWindow(panel) {
+    if (!panel || !panel.fullViewWindow) {
+      return;
+    }
+
+    panel.viewWindow = cloneMultiViewWindow(panel.fullViewWindow);
+    rerenderMultiViewPanel(panel);
+  }
+
+  function attachMultiViewMouseInteractions(panel) {
+    if (!panel || !panel.canvas) {
+      return function () {};
+    }
+
+    var onWheel = function (event) {
+      if (!panel.lastPacket || !panel.fullViewWindow) {
+        return;
+      }
+
+      event.preventDefault();
+
+      var rect = panel.canvas.getBoundingClientRect();
+      var width = Math.max(1, rect.width || 1);
+      var height = Math.max(1, rect.height || 1);
+      var timeAnchorFraction = clamp((event.clientX - rect.left) / width, 0, 1);
+      var frequencyAnchorFraction = clamp(1 - (event.clientY - rect.top) / height, 0, 1);
+      var fullWindow = panel.fullViewWindow;
+      var currentWindow = normalizeMultiViewWindow(fullWindow, panel.viewWindow || fullWindow);
+      var factor = Number(event.deltaY) < 0 ? 0.88 : 1 / 0.88;
+      var currentTimeSpan = currentWindow.toMs - currentWindow.fromMs;
+      var currentFreqSpan = currentWindow.maxFrequency - currentWindow.minFrequency;
+      var nextTimeSpan = currentTimeSpan * factor;
+      var nextFreqSpan = currentFreqSpan * factor;
+      var anchorTimeMs = currentWindow.fromMs + currentTimeSpan * timeAnchorFraction;
+      var anchorFrequency = currentWindow.minFrequency + currentFreqSpan * frequencyAnchorFraction;
+
+      panel.viewWindow = normalizeMultiViewWindow(fullWindow, {
+        fromMs: anchorTimeMs - nextTimeSpan * timeAnchorFraction,
+        toMs: anchorTimeMs + nextTimeSpan * (1 - timeAnchorFraction),
+        minFrequency: anchorFrequency - nextFreqSpan * frequencyAnchorFraction,
+        maxFrequency: anchorFrequency + nextFreqSpan * (1 - frequencyAnchorFraction)
+      });
+
+      rerenderMultiViewPanel(panel);
+    };
+
+    var onMouseDown = function (event) {
+      if (event.button !== 0 || !panel.lastPacket || !panel.fullViewWindow) {
+        return;
+      }
+
+      panel.viewWindow = normalizeMultiViewWindow(panel.fullViewWindow, panel.viewWindow || panel.fullViewWindow);
+      if (isMultiViewWindowFull(panel.viewWindow, panel.fullViewWindow)) {
+        return;
+      }
+
+      panel.dragState.active = true;
+      panel.dragState.startX = event.clientX;
+      panel.dragState.startY = event.clientY;
+      panel.dragState.startWindow = cloneMultiViewWindow(panel.viewWindow);
+      updateMultiViewPanelCursor(panel);
+      event.preventDefault();
+    };
+
+    var onMouseMove = function (event) {
+      if (!panel.dragState.active || !panel.fullViewWindow || !panel.dragState.startWindow) {
+        return;
+      }
+
+      var rect = panel.canvas.getBoundingClientRect();
+      var width = Math.max(1, rect.width || 1);
+      var height = Math.max(1, rect.height || 1);
+      var dx = event.clientX - panel.dragState.startX;
+      var dy = event.clientY - panel.dragState.startY;
+      var startWindow = panel.dragState.startWindow;
+      var timeSpan = startWindow.toMs - startWindow.fromMs;
+      var freqSpan = startWindow.maxFrequency - startWindow.minFrequency;
+      var timeShift = (-dx / width) * timeSpan;
+      var frequencyShift = (dy / height) * freqSpan;
+
+      panel.viewWindow = normalizeMultiViewWindow(panel.fullViewWindow, {
+        fromMs: startWindow.fromMs + timeShift,
+        toMs: startWindow.toMs + timeShift,
+        minFrequency: startWindow.minFrequency + frequencyShift,
+        maxFrequency: startWindow.maxFrequency + frequencyShift
+      });
+
+      rerenderMultiViewPanel(panel);
+    };
+
+    var stopDragging = function () {
+      if (!panel.dragState.active) {
+        return;
+      }
+
+      panel.dragState.active = false;
+      panel.dragState.startWindow = null;
+      updateMultiViewPanelCursor(panel);
+    };
+
+    var onDoubleClick = function (event) {
+      if (!panel.fullViewWindow) {
+        return;
+      }
+
+      event.preventDefault();
+      resetMultiViewViewWindow(panel);
+    };
+
+    panel.canvas.addEventListener("wheel", onWheel, { passive: false });
+    panel.canvas.addEventListener("mousedown", onMouseDown);
+    panel.canvas.addEventListener("dblclick", onDoubleClick);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", stopDragging);
+    window.addEventListener("blur", stopDragging);
+
+    updateMultiViewPanelCursor(panel);
+
+    return function cleanup() {
+      panel.canvas.removeEventListener("wheel", onWheel);
+      panel.canvas.removeEventListener("mousedown", onMouseDown);
+      panel.canvas.removeEventListener("dblclick", onDoubleClick);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", stopDragging);
+      window.removeEventListener("blur", stopDragging);
+    };
+  }
+
+  function renderMultiViewPacket(deviceId, packet, options) {
+    if (!multiViewOpen) {
+      return;
+    }
+
+    var panel = multiViewPanels[String(deviceId)];
+    if (!panel || !packet || typeof packet !== "object") {
+      return;
+    }
+
+    decodePacketMatrix(packet);
+    normalizePacketTiming(packet);
+    var range = getPacketTimeRange(packet);
+    if (!range) {
+      return;
+    }
+
+    var device = getDeviceById(deviceId);
+    var frequencyBins = getPacketFrequencyBins(packet);
+    var frequencyRange = resolvePacketFrequencyRange(device, packet, frequencyBins);
+    var nextFullWindow = {
+      fromMs: range.fromMs,
+      toMs: range.toMs,
+      minFrequency: frequencyRange.min,
+      maxFrequency: frequencyRange.max
+    };
+    var previousFullWindow = cloneMultiViewWindow(panel.fullViewWindow);
+    var previousViewWindow = cloneMultiViewWindow(panel.viewWindow);
+
+    panel.fullViewWindow = nextFullWindow;
+    if (options && options.preserveViewWindow && previousViewWindow) {
+      panel.viewWindow = normalizeMultiViewWindow(nextFullWindow, previousViewWindow);
+    } else if (!previousFullWindow || !previousViewWindow || isMultiViewWindowFull(previousViewWindow, previousFullWindow)) {
+      panel.viewWindow = cloneMultiViewWindow(nextFullWindow);
+    } else {
+      panel.viewWindow = normalizeMultiViewWindow(
+        nextFullWindow,
+        remapMultiViewWindow(previousViewWindow, previousFullWindow, nextFullWindow)
+      );
+    }
+
+    renderMultiViewPanel(panel, packet);
   }
 
   async function fetchLatestPacketForDevice(deviceId) {
@@ -2683,17 +2858,13 @@
         canvasWrap: panel.canvasWrap,
         title: panel.title,
         lastPacket: null,
-        fullFromMs: null,
-        fullToMs: null,
-        transform: {
-          scale: 1,
-          tx: 0,
-          ty: 0,
-          dragging: false,
-          dragStartX: 0,
-          dragStartY: 0,
-          startTx: 0,
-          startTy: 0
+        fullViewWindow: null,
+        viewWindow: null,
+        dragState: {
+          active: false,
+          startX: 0,
+          startY: 0,
+          startWindow: null
         },
         cleanupInteractions: null
       };
