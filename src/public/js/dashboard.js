@@ -2523,12 +2523,37 @@
     panel.canvas.style.cursor = isMultiViewWindowFull(panel.viewWindow, panel.fullViewWindow) ? "crosshair" : "grab";
   }
 
+  function syncMultiViewCanvasResolution(panel) {
+    if (!panel || !panel.canvas) {
+      return false;
+    }
+
+    var rect = typeof panel.canvas.getBoundingClientRect === "function" ? panel.canvas.getBoundingClientRect() : null;
+    var cssWidth = Math.max(1, Math.floor((rect && rect.width) || panel.canvas.clientWidth || 0));
+    var cssHeight = Math.max(1, Math.floor((rect && rect.height) || panel.canvas.clientHeight || 0));
+    if (!cssWidth || !cssHeight) {
+      return false;
+    }
+
+    var dpr = window.devicePixelRatio || 1;
+    var nextWidth = Math.max(1, Math.floor(cssWidth * dpr));
+    var nextHeight = Math.max(1, Math.floor(cssHeight * dpr));
+    if (panel.canvas.width === nextWidth && panel.canvas.height === nextHeight) {
+      return false;
+    }
+
+    panel.canvas.width = nextWidth;
+    panel.canvas.height = nextHeight;
+    return true;
+  }
+
   function renderMultiViewPanel(panel, packet) {
     if (!panel || !packet || !panel.fullViewWindow) {
       return;
     }
 
     panel.viewWindow = normalizeMultiViewWindow(panel.fullViewWindow, panel.viewWindow || panel.fullViewWindow);
+    syncMultiViewCanvasResolution(panel);
 
     var frequencyBins = getPacketFrequencyBins(packet);
     var fullWindow = panel.fullViewWindow;
@@ -2591,6 +2616,17 @@
     if (!panel || !panel.canvas) {
       return function () {};
     }
+
+    var onResize = function () {
+      if (!panel.lastPacket) {
+        syncMultiViewCanvasResolution(panel);
+        return;
+      }
+
+      if (syncMultiViewCanvasResolution(panel)) {
+        rerenderMultiViewPanel(panel);
+      }
+    };
 
     var onWheel = function (event) {
       if (!panel.lastPacket || !panel.fullViewWindow) {
@@ -2693,6 +2729,7 @@
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", stopDragging);
     window.addEventListener("blur", stopDragging);
+    window.addEventListener("resize", onResize);
 
     updateMultiViewPanelCursor(panel);
 
@@ -2703,6 +2740,7 @@
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", stopDragging);
       window.removeEventListener("blur", stopDragging);
+      window.removeEventListener("resize", onResize);
     };
   }
 
@@ -2871,6 +2909,7 @@
       panelState.cleanupInteractions = attachMultiViewMouseInteractions(panelState);
       multiViewPanels[String(device.id)] = panelState;
       multiViewGrid.appendChild(panel.wrapper);
+      syncMultiViewCanvasResolution(panelState);
     });
 
     multiViewOpen = true;
