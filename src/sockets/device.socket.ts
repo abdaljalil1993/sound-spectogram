@@ -158,6 +158,28 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
     await handleIncomingDeviceData(io, data, ack);
 };
 
+    const handleDeviceStatus = (payload: unknown, ack?: (response: SocketAck) => void): void => {
+      console.log("🚨 devices_status event received");
+
+      if (typeof payload === "string") {
+        try {
+          const parsed = JSON.parse(payload);
+          console.log("Parsed devices_status payload:", parsed);
+          console.dir(parsed, { depth: null });
+        } catch (_error) {
+          console.log("Raw devices_status payload:", payload);
+        }
+      } else {
+        console.log("devices_status payload:", payload);
+        console.dir(payload, { depth: null });
+      }
+
+      if (typeof ack === "function") {
+        ack({ ok: true, message: "devices_status received", data: payload });
+      }
+    };
+
+    socket.on("devices_status", handleDeviceStatus);
     socket.on("send_data", handleSendData);
     socket.on("device:data", handleSendData);
   });
