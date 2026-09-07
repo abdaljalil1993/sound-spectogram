@@ -14,6 +14,7 @@
   var last24Btn = document.getElementById("statisticsLast24Btn");
   var messageEl = document.getElementById("statisticsMessage");
   var subtitleEl = document.getElementById("statisticsDeviceSubtitle");
+  var insightEl = document.getElementById("statisticsInsightLine");
   var lastUpdatedEl = document.getElementById("statisticsLastUpdated");
   var heroStripEl = document.getElementById("statisticsHeroStrip");
   var statusTextEl = document.getElementById("statisticsStatusText");
@@ -40,6 +41,7 @@
     !(last24Btn instanceof HTMLButtonElement) ||
     !messageEl ||
     !subtitleEl ||
+    !insightEl ||
     !lastUpdatedEl ||
     !heroStripEl ||
     !statusTextEl ||
@@ -67,6 +69,32 @@
   };
   var hasAutoLoaded = false;
   var hasAnimatedEntrance = false;
+  var doughnutCenterTextPlugin = {
+    id: "statisticsDoughnutCenterText",
+    afterDraw: function (chart, args, options) {
+      if (!options || !options.text) {
+        return;
+      }
+
+      var ctx = chart.ctx;
+      var meta = chart.getDatasetMeta(0);
+      var firstPoint = meta && meta.data && meta.data[0];
+      if (!ctx || !firstPoint) {
+        return;
+      }
+
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#1b1f24";
+      ctx.font = "700 24px Segoe UI";
+      ctx.fillText(String(options.text), firstPoint.x, firstPoint.y - 6);
+      ctx.fillStyle = "#5b626a";
+      ctx.font = "600 11px Segoe UI";
+      ctx.fillText(String(options.label || "الإجمالي"), firstPoint.x, firstPoint.y + 15);
+      ctx.restore();
+    }
+  };
   var statusOrder = [
     { key: "detected", label: "هدف مكتشف", color: "#d13438" },
     { key: "possible", label: "هدف محتمل", color: "#f59e0b" },
@@ -192,6 +220,70 @@
     return chartInstances[name];
   }
 
+  function buildChartOptions(overrides) {
+    var base = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 420,
+        easing: "easeOutCubic"
+      },
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            font: {
+              family: "Segoe UI"
+            },
+            color: "#1b1f24"
+          }
+        },
+        tooltip: {
+          backgroundColor: "#1b1f24",
+          titleColor: "#ffffff",
+          bodyColor: "#f4f4ef",
+          borderColor: "#d8d8d0",
+          borderWidth: 1,
+          padding: 10,
+          titleFont: {
+            family: "Segoe UI",
+            weight: "700"
+          },
+          bodyFont: {
+            family: "Segoe UI"
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: "#5b626a",
+            font: {
+              family: "Segoe UI"
+            }
+          },
+          grid: {
+            color: "rgba(216, 216, 208, 0.55)"
+          }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: "#5b626a",
+            font: {
+              family: "Segoe UI"
+            }
+          },
+          grid: {
+            color: "rgba(216, 216, 208, 0.55)"
+          }
+        }
+      }
+    };
+
+    return Object.assign(base, overrides || {});
+  }
+
   function buildTableHtml(headers, rows) {
     var thead = headers.map(function (header) {
       return "<th>" + header + "</th>";
@@ -214,6 +306,49 @@
       return "0";
     }
     return normalized.toLocaleString("en-US");
+  }
+
+  function easeOutCubic(progress) {
+    return 1 - Math.pow(1 - progress, 3);
+  }
+
+  function animateCountUp(element, targetValue, suffix, durationMs) {
+    if (!element) {
+      return;
+    }
+
+    var numericTarget = Number(targetValue);
+    if (!Number.isFinite(numericTarget)) {
+      element.textContent = String(targetValue) + (suffix || "");
+      return;
+    }
+
+    var startTime = null;
+    var decimals = Math.abs(numericTarget % 1) > 0.001 || suffix === "%" ? 1 : 0;
+    if (suffix === " د" && Math.abs(numericTarget % 1) > 0.001) {
+      decimals = 2;
+    }
+
+    function frame(timestamp) {
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+
+      var progress = Math.min(1, (timestamp - startTime) / durationMs);
+      var value = numericTarget * easeOutCubic(progress);
+      var rendered = decimals > 0 ? value.toFixed(decimals) : String(Math.round(value));
+      if (decimals > 0) {
+        rendered = rendered.replace(/\.0$/, "");
+        rendered = rendered.replace(/(\.\d*[1-9])0$/, "$1");
+      }
+
+      element.textContent = formatNumber(rendered) + (suffix || "");
+      if (progress < 1) {
+        window.requestAnimationFrame(frame);
+      }
+    }
+
+    window.requestAnimationFrame(frame);
   }
 
   function resolveDetectedCount(statusDistribution) {
@@ -249,6 +384,51 @@
     return toMs - lastMs <= onlineThresholdMs;
   }
 
+  function resolveDominantStatus(statusDistribution) {
+    var items = statusDistribution && Array.isArray(statusDistribution.items) ? statusDistribution.items : [];
+    var filtered = items.filter(function (item) {
+      return item && item.key !== "unknown";
+    });
+    if (!filtered.length) {
+      return null;
+    }
+
+    return filtered.reduce(function (best, current) {
+      if (!best) {
+        return current;
+      }
+      return Number(current.count) > Number(best.count) ? current : best;
+    }, null);
+  }
+
+  function renderInsightLine(report, isOnline) {
+    var selectedOption = deviceSelect.options[deviceSelect.selectedIndex];
+    var deviceName = selectedOption ? selectedOption.textContent : "الجهاز";
+    var dominant = resolveDominantStatus(report.statusDistribution);
+    var insightParts = [
+      "الجهاز " + String(deviceName || "-") + (isOnline ? " متصل حالياً." : " غير متصل حالياً.")
+    ];
+
+    if (dominant) {
+      var dominantCount = Number(dominant.count) || 0;
+      var confidenceText = Number.isFinite(Number(dominant.avgConfidence))
+        ? " بمتوسط ثقة " + Number(dominant.avgConfidence).toFixed(1).replace(/\.0$/, "") + "%"
+        : "";
+      insightParts.push("الحالة الأغلب خلال الفترة هي '" + dominant.label + "' (" + dominantCount + " حزمة)" + confidenceText + ".");
+    }
+
+    if ((Number(report.downtime && report.downtime.totalDowntimeMinutes) || 0) > 0) {
+      insightParts.push(
+        "سُجّل توقف إجمالي قدره " + Number(report.downtime.totalDowntimeMinutes).toFixed(2).replace(/\.00$/, "") +
+        " دقيقة عبر " + (report.downtime.periods ? report.downtime.periods.length : 0) + " فترات."
+      );
+    }
+
+    insightEl.innerHTML =
+      '<span class="statistics-insight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M8.5 14.5c-.92-.79-1.5-1.96-1.5-3.25a5 5 0 0 1 10 0c0 1.29-.58 2.46-1.5 3.25-.62.54-1 1.33-1 2.15V17h-5v-0.1c0-.82-.38-1.61-1-2.15Z"></path></svg></span>' +
+      '<span class="statistics-insight-text">' + insightParts.join(" ") + '</span>';
+  }
+
   function renderHeroStrip(report) {
     var packetsEl = document.getElementById("statisticsHeroPackets");
     var detectionRateEl = document.getElementById("statisticsHeroDetectionRate");
@@ -266,10 +446,15 @@
     var totalDowntimeMinutes = Number(report.downtime && report.downtime.totalDowntimeMinutes) || 0;
     var isOnline = resolveOnlineStatus(report);
 
-    packetsEl.textContent = formatNumber(receivedCount);
-    detectionRateEl.textContent = detectionRate.toFixed(1) + "%";
-    downtimeEl.textContent = totalDowntimeMinutes.toFixed(2).replace(/\.00$/, "") + " د";
+    animateCountUp(packetsEl, receivedCount, "", 700);
+    animateCountUp(detectionRateEl, detectionRate, "%", 760);
+    animateCountUp(downtimeEl, totalDowntimeMinutes, " د", 820);
+    deviceStatusEl.style.opacity = "0";
     deviceStatusEl.textContent = isOnline ? "متصل" : "غير متصل";
+    deviceStatusEl.style.transition = "opacity 220ms ease";
+    window.requestAnimationFrame(function () {
+      deviceStatusEl.style.opacity = "1";
+    });
 
     detectionRateEl.classList.toggle("statistics-hero-value--good", detectionRate >= 50);
     detectionRateEl.classList.toggle("statistics-hero-value--warn", detectionRate < 50);
@@ -279,6 +464,8 @@
     deviceStatusEl.classList.toggle("statistics-hero-value--warn", !isOnline);
     statusCardEl.classList.toggle("statistics-hero-card--online", isOnline);
     statusCardEl.classList.toggle("statistics-hero-card--offline", !isOnline);
+
+    return isOnline;
   }
 
   function renderDeviceSubtitle(report) {
@@ -317,6 +504,7 @@
 
     ensureChart("status", statusChartCanvas, {
       type: "doughnut",
+      plugins: [doughnutCenterTextPlugin],
       data: {
         labels: orderedItems.map(function (item) { return item.label; }),
         datasets: [{
@@ -326,11 +514,40 @@
           borderWidth: 2
         }]
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom" } }
-      }
+      options: buildChartOptions({
+        cutout: "62%",
+        scales: undefined,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              font: {
+                family: "Segoe UI"
+              },
+              color: "#1b1f24"
+            }
+          },
+          tooltip: {
+            backgroundColor: "#1b1f24",
+            titleColor: "#ffffff",
+            bodyColor: "#f4f4ef",
+            borderColor: "#d8d8d0",
+            borderWidth: 1,
+            padding: 10,
+            titleFont: {
+              family: "Segoe UI",
+              weight: "700"
+            },
+            bodyFont: {
+              family: "Segoe UI"
+            }
+          },
+          statisticsDoughnutCenterText: {
+            text: report.totalCount,
+            label: "الإجمالي"
+          }
+        }
+      })
     });
 
     renderTable(statusTextEl, ["الحالة", "العدد", "متوسط الثقة"], orderedItems.map(function (item) {
@@ -350,14 +567,26 @@
         datasets: [{
           label: "عدد الباكتات",
           data: [report.receivedCount, report.expectedCount, report.missingCount],
-          backgroundColor: ["#0f766e", "#2563eb", "#d13438"]
+          backgroundColor: ["#0f766e", "#2563eb", "#d13438"],
+          borderRadius: 6,
+          maxBarThickness: 44
         }]
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } }
-      }
+      options: buildChartOptions({
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#1b1f24",
+            titleColor: "#ffffff",
+            bodyColor: "#f4f4ef",
+            borderColor: "#d8d8d0",
+            borderWidth: 1,
+            padding: 10,
+            titleFont: { family: "Segoe UI", weight: "700" },
+            bodyFont: { family: "Segoe UI" }
+          }
+        }
+      })
     });
 
     packetsTextEl.innerHTML =
@@ -463,14 +692,12 @@
         datasets: [{
           label: "مرات الاكتشاف",
           data: report.items.map(function (item) { return item.count; }),
-          backgroundColor: "#d13438"
+          backgroundColor: "#d13438",
+          borderRadius: 6,
+          maxBarThickness: 24
         }]
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true } }
-      }
+      options: buildChartOptions()
     });
 
     var hoursRow = report.items.map(function (item) {
@@ -498,16 +725,12 @@
       data: {
         labels: items.map(function (item) { return item.deviceName; }),
         datasets: [
-          { label: "مكتشف", data: items.map(function (item) { return item.counts.detected; }), backgroundColor: "#d13438" },
-          { label: "محتمل", data: items.map(function (item) { return item.counts.possible; }), backgroundColor: "#f59e0b" },
-          { label: "لا يوجد هدف", data: items.map(function (item) { return item.counts.notDetected; }), backgroundColor: "#21a366" }
+          { label: "مكتشف", data: items.map(function (item) { return item.counts.detected; }), backgroundColor: "#d13438", borderRadius: 6, maxBarThickness: 22 },
+          { label: "محتمل", data: items.map(function (item) { return item.counts.possible; }), backgroundColor: "#f59e0b", borderRadius: 6, maxBarThickness: 22 },
+          { label: "لا يوجد هدف", data: items.map(function (item) { return item.counts.notDetected; }), backgroundColor: "#21a366", borderRadius: 6, maxBarThickness: 22 }
         ]
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true } }
-      }
+      options: buildChartOptions()
     });
 
     renderTable(comparisonTextEl, ["الجهاز", "مكتشف", "محتمل", "لا يوجد هدف", "غير محدد", "الإجمالي"], items.map(function (item) {
@@ -539,7 +762,7 @@
 
       var report = responses[0];
 
-      renderHeroStrip(report);
+      var isOnline = renderHeroStrip(report);
       renderStatusDistribution(report.statusDistribution);
       renderReceivedVsExpected(report.receivedVsExpected);
       renderDowntime(report.downtime);
@@ -547,6 +770,7 @@
       renderHourlyDistribution(report.hourlyDetectionDistribution);
       renderComparison(responses[1]);
       renderDeviceSubtitle(report);
+      renderInsightLine(report, isOnline);
       renderLastUpdatedNow();
       applyEntranceAnimationOnce();
       setMessage("تم تحميل الإحصائيات للنطاق المحدد.", false);
