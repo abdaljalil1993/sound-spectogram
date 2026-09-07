@@ -1603,7 +1603,8 @@ select:focus-visible {
 }
 
 .statistics-timeline-segment {
-  min-width: 3px;
+  min-width: 0;
+  flex: 0 1 auto;
   height: 60px;
 }
 

@@ -661,9 +661,9 @@
       var segmentEnd = new Date(item.endTime || item.timestamp).getTime();
       var visual = resolveStatusVisual(item.aiStatus);
       var duration = Math.max(1, segmentEnd - segmentStart);
-      var widthPercent = Math.max(0.6, (duration / totalSpan) * 100);
+      var widthPercent = (duration / totalSpan) * 100;
       var title = visual.label + ' | ' + formatLocalDateTime(item.startTime || item.timestamp) + ' -> ' + formatLocalDateTime(item.endTime || item.timestamp);
-      return '<div class="statistics-timeline-segment" title="' + title + '" style="width:' + widthPercent + '%; background:' + visual.color + ';"></div>';
+      return '<div class="statistics-timeline-segment" title="' + title + '" style="flex-basis:' + widthPercent + '%; background:' + visual.color + ';"></div>';
     }).join("");
 
     var legendHtml =
