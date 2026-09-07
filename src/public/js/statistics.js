@@ -13,6 +13,7 @@
   var toTimeInput = document.getElementById("statisticsToTime");
   var last24Btn = document.getElementById("statisticsLast24Btn");
   var messageEl = document.getElementById("statisticsMessage");
+  var heroStripEl = document.getElementById("statisticsHeroStrip");
   var statusTextEl = document.getElementById("statisticsStatusText");
   var packetsTextEl = document.getElementById("statisticsPacketsText");
   var downtimeSummaryEl = document.getElementById("statisticsDowntimeSummary");
@@ -36,6 +37,7 @@
     !(toTimeInput instanceof HTMLInputElement) ||
     !(last24Btn instanceof HTMLButtonElement) ||
     !messageEl ||
+    !heroStripEl ||
     !statusTextEl ||
     !packetsTextEl ||
     !downtimeSummaryEl ||
@@ -186,6 +188,79 @@
     container.innerHTML = buildTableHtml(headers, rows);
   }
 
+  function formatNumber(value) {
+    var normalized = Number(value);
+    if (!Number.isFinite(normalized)) {
+      return "0";
+    }
+    return normalized.toLocaleString("en-US");
+  }
+
+  function resolveDetectedCount(statusDistribution) {
+    if (!statusDistribution || !Array.isArray(statusDistribution.items)) {
+      return 0;
+    }
+    for (var index = 0; index < statusDistribution.items.length; index += 1) {
+      var item = statusDistribution.items[index];
+      if (item && item.key === "detected") {
+        return Number(item.count) || 0;
+      }
+    }
+    return 0;
+  }
+
+  function resolveOnlineStatus(report) {
+    var items = report && Array.isArray(report.timelineSummary) ? report.timelineSummary : [];
+    if (!items.length) {
+      return false;
+    }
+
+    var lastItem = items[items.length - 1] || {};
+    var lastTimestamp = lastItem.endTime || lastItem.timestamp;
+    var lastMs = new Date(lastTimestamp).getTime();
+    var toMs = new Date(report.to).getTime();
+    var packetIntervalMinutes = Number(report.packetIntervalMinutes) || 5;
+    var onlineThresholdMs = packetIntervalMinutes * 1.5 * 60000;
+
+    if (!Number.isFinite(lastMs) || !Number.isFinite(toMs)) {
+      return false;
+    }
+
+    return toMs - lastMs <= onlineThresholdMs;
+  }
+
+  function renderHeroStrip(report) {
+    var packetsEl = document.getElementById("statisticsHeroPackets");
+    var detectionRateEl = document.getElementById("statisticsHeroDetectionRate");
+    var downtimeEl = document.getElementById("statisticsHeroDowntime");
+    var deviceStatusEl = document.getElementById("statisticsHeroDeviceStatus");
+    var statusCardEl = document.getElementById("statisticsHeroStatusCard");
+    if (!packetsEl || !detectionRateEl || !downtimeEl || !deviceStatusEl || !statusCardEl) {
+      return;
+    }
+
+    var receivedCount = Number(report.receivedVsExpected && report.receivedVsExpected.receivedCount) || 0;
+    var totalCount = Number(report.statusDistribution && report.statusDistribution.totalCount) || 0;
+    var detectedCount = resolveDetectedCount(report.statusDistribution);
+    var detectionRate = totalCount > 0 ? (detectedCount / totalCount) * 100 : 0;
+    var totalDowntimeMinutes = Number(report.downtime && report.downtime.totalDowntimeMinutes) || 0;
+    var isOnline = resolveOnlineStatus(report);
+
+    packetsEl.textContent = formatNumber(receivedCount);
+    detectionRateEl.textContent = detectionRate.toFixed(1) + "%";
+    downtimeEl.textContent = totalDowntimeMinutes.toFixed(2).replace(/\.00$/, "") + " د";
+    deviceStatusEl.textContent = isOnline ? "متصل" : "غير متصل";
+
+    detectionRateEl.classList.toggle("statistics-hero-value--good", detectionRate >= 50);
+    detectionRateEl.classList.toggle("statistics-hero-value--warn", detectionRate < 50);
+    downtimeEl.classList.toggle("statistics-hero-value--warn", totalDowntimeMinutes > 0);
+    downtimeEl.classList.toggle("statistics-hero-value--good", totalDowntimeMinutes === 0);
+    deviceStatusEl.classList.toggle("statistics-hero-value--good", isOnline);
+    deviceStatusEl.classList.toggle("statistics-hero-value--warn", !isOnline);
+    statusCardEl.classList.toggle("statistics-hero-card--online", isOnline);
+    statusCardEl.classList.toggle("statistics-hero-card--offline", !isOnline);
+  }
+
   function renderStatusDistribution(report) {
     var itemsByKey = {};
     (report.items || []).forEach(function (item) {
@@ -225,6 +300,10 @@
   }
 
   function renderReceivedVsExpected(report) {
+    var missingClass = Number(report.missingCount) > 0
+      ? "statistics-kpi-value statistics-kpi-value--warning"
+      : "statistics-kpi-value statistics-kpi-value--ok";
+
     ensureChart("packets", packetsChartCanvas, {
       type: "bar",
       data: {
@@ -246,7 +325,7 @@
       '<div class="statistics-kpis">' +
       '<div class="statistics-kpi"><span class="statistics-kpi-label">المستلم</span><span class="statistics-kpi-value">' + report.receivedCount + '</span></div>' +
       '<div class="statistics-kpi"><span class="statistics-kpi-label">المتوقع</span><span class="statistics-kpi-value">' + report.expectedCount + '</span></div>' +
-      '<div class="statistics-kpi"><span class="statistics-kpi-label">المفقود</span><span class="statistics-kpi-value">' + report.missingCount + '</span></div>' +
+      '<div class="statistics-kpi"><span class="statistics-kpi-label">المفقود</span><span class="' + missingClass + '">' + report.missingCount + '</span></div>' +
       '</div>';
   }
 
@@ -261,7 +340,7 @@
       return (
         '<div class="statistics-downtime-item' + (isLongest ? ' statistics-downtime-item--longest' : '') + '">' +
         '<div class="statistics-downtime-headline">' +
-        '<span class="statistics-downtime-title">فترة #' + (index + 1) + (isLongest ? ' - الأطول' : '') + '</span>' +
+        '<span class="statistics-downtime-title-row"><span class="statistics-downtime-title">فترة #' + (index + 1) + '</span>' + (isLongest ? '<span class="statistics-downtime-badge">⚠ الأطول</span>' : '') + '</span>' +
         '<span class="statistics-downtime-range">من ' + formatLocalDateTime(period.startTime) + ' إلى ' + formatLocalDateTime(period.endTime) + '</span>' +
         '</div>' +
         '<div>المدة: ' + period.durationMinutes + ' دقيقة</div>' +
@@ -419,11 +498,14 @@
         bridge.apiRequest("/api/statistics/comparison?" + query)
       ]);
 
-      renderStatusDistribution(responses[0].statusDistribution);
-      renderReceivedVsExpected(responses[0].receivedVsExpected);
-      renderDowntime(responses[0].downtime);
-      renderTimeline(responses[0].timelineSummary);
-      renderHourlyDistribution(responses[0].hourlyDetectionDistribution);
+      var report = responses[0];
+
+      renderHeroStrip(report);
+      renderStatusDistribution(report.statusDistribution);
+      renderReceivedVsExpected(report.receivedVsExpected);
+      renderDowntime(report.downtime);
+      renderTimeline(report.timelineSummary);
+      renderHourlyDistribution(report.hourlyDetectionDistribution);
       renderComparison(responses[1]);
       setMessage("تم تحميل الإحصائيات للنطاق المحدد.", false);
     } catch (error) {

@@ -1114,6 +1114,86 @@ select:focus-visible {
   align-items: stretch;
 }
 
+.statistics-hero-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.statistics-hero-card {
+  border: 1px solid #dcdacd;
+  border-radius: 12px;
+  border-top: 3px solid var(--accent);
+  background: linear-gradient(180deg, #fffefb 0%, #f8f7f1 100%);
+  box-shadow: 0 1px 3px rgba(27, 31, 36, 0.06), 0 1px 2px rgba(27, 31, 36, 0.04);
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.statistics-hero-card--teal {
+  border-top-color: var(--accent);
+}
+
+.statistics-hero-card--green {
+  border-top-color: #21a366;
+}
+
+.statistics-hero-card--red {
+  border-top-color: #d13438;
+}
+
+.statistics-hero-card--status {
+  border-top-color: #f59e0b;
+}
+
+.statistics-hero-card--status.statistics-hero-card--online {
+  border-top-color: #21a366;
+}
+
+.statistics-hero-card--status.statistics-hero-card--offline {
+  border-top-color: #d13438;
+}
+
+.statistics-hero-head {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.statistics-hero-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--muted);
+}
+
+.statistics-hero-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.statistics-hero-value {
+  font-size: clamp(32px, 3vw, 38px);
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
+.statistics-hero-value--good {
+  color: #21a366;
+}
+
+.statistics-hero-value--warn {
+  color: #d13438;
+}
+
+.statistics-hero-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .statistics-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1125,6 +1205,13 @@ select:focus-visible {
   border-radius: 12px;
   background: #fff;
   padding: 14px;
+  box-shadow: 0 1px 3px rgba(27, 31, 36, 0.06), 0 1px 2px rgba(27, 31, 36, 0.04);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.statistics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(27, 31, 36, 0.08);
 }
 
 .statistics-card-wide {
@@ -1133,6 +1220,25 @@ select:focus-visible {
 
 .statistics-card h3 {
   margin: 0 0 10px;
+}
+
+.statistics-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statistics-section-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.statistics-section-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .statistics-card-body {
@@ -1152,7 +1258,7 @@ select:focus-visible {
   min-height: 220px;
   border: 1px solid #ebe7db;
   border-radius: 10px;
-  background: #fffdfa;
+  background: linear-gradient(180deg, #fcfcf8 0%, #f4f3eb 100%);
   padding: 10px;
 }
 
@@ -1195,9 +1301,17 @@ select:focus-visible {
 
 .statistics-kpi-value {
   display: block;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 26px;
+  font-weight: 800;
   color: var(--ink);
+}
+
+.statistics-kpi-value--warning {
+  color: #d13438;
+}
+
+.statistics-kpi-value--ok {
+  color: #21a366;
 }
 
 .statistics-kpis-inline-3 {
@@ -1232,7 +1346,8 @@ select:focus-visible {
 }
 
 .statistics-kpi-value-compact {
-  font-size: 17px;
+  font-size: 22px;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -1300,11 +1415,30 @@ select:focus-visible {
   white-space: nowrap;
 }
 
+.statistics-downtime-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .statistics-downtime-range {
   color: var(--muted);
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.statistics-downtime-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #d13438;
+  background: #fff1f1;
+  color: #d13438;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 7px;
 }
 
 #statisticsHourlyText {
@@ -1428,6 +1562,10 @@ select:focus-visible {
 @media (max-width: 1100px) {
   .statistics-range-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .statistics-hero-strip {
+    grid-template-columns: 1fr;
   }
 
   .statistics-actions {

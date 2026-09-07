@@ -133,9 +133,70 @@
               <p id="statisticsMessage" class="history-info">اختر جهازًا ونطاقًا زمنيًا ثم اضغط عرض.</p>
             </div>
 
+            <div id="statisticsHeroStrip" class="statistics-hero-strip" aria-live="polite">
+              <article class="statistics-hero-card statistics-hero-card--teal">
+                <div class="statistics-hero-head">
+                  <span class="statistics-hero-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                      <path d="M7 15V11"></path>
+                      <path d="M12 15V9"></path>
+                      <path d="M17 15v-3"></path>
+                    </svg>
+                  </span>
+                </div>
+                <div id="statisticsHeroPackets" class="statistics-hero-value">0</div>
+                <div class="statistics-hero-label">إجمالي الباكتات المستلمة</div>
+              </article>
+
+              <article class="statistics-hero-card statistics-hero-card--green">
+                <div class="statistics-hero-head">
+                  <span class="statistics-hero-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 19V5"></path>
+                      <path d="M10 19v-8"></path>
+                      <path d="M16 19v-5"></path>
+                      <path d="M22 19v-3"></path>
+                    </svg>
+                  </span>
+                </div>
+                <div id="statisticsHeroDetectionRate" class="statistics-hero-value">0%</div>
+                <div class="statistics-hero-label">نسبة الاكتشاف</div>
+              </article>
+
+              <article class="statistics-hero-card statistics-hero-card--red">
+                <div class="statistics-hero-head">
+                  <span class="statistics-hero-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="9"></circle>
+                      <path d="M12 7v6"></path>
+                      <path d="M12 16h.01"></path>
+                    </svg>
+                  </span>
+                </div>
+                <div id="statisticsHeroDowntime" class="statistics-hero-value">0 د</div>
+                <div class="statistics-hero-label">إجمالي التوقف</div>
+              </article>
+
+              <article class="statistics-hero-card statistics-hero-card--status" id="statisticsHeroStatusCard">
+                <div class="statistics-hero-head">
+                  <span class="statistics-hero-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="2"></circle>
+                      <path d="M4.93 4.93a10 10 0 0 1 14.14 0"></path>
+                      <path d="M8.46 8.46a5 5 0 0 1 7.08 0"></path>
+                      <path d="M2.1 2.1 21.9 21.9"></path>
+                    </svg>
+                  </span>
+                </div>
+                <div id="statisticsHeroDeviceStatus" class="statistics-hero-value">غير متصل</div>
+                <div class="statistics-hero-label">حالة الجهاز</div>
+              </article>
+            </div>
+
             <div class="statistics-grid">
               <section class="statistics-card">
-                <h3>توزيع الحالات</h3>
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 12 16.5 9"></path><path d="M12 3a9 9 0 0 1 9 9"></path></svg></span><span>توزيع الحالات</span></h3>
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsStatusChart" height="220"></canvas></div>
                   <div id="statisticsStatusText"></div>
@@ -143,7 +204,7 @@
               </section>
 
               <section class="statistics-card">
-                <h3>المرسَل مقابل المتوقع</h3>
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h18"></path><path d="M6 17V9"></path><path d="M12 17V6"></path><path d="M18 17v-4"></path></svg></span><span>المرسَل مقابل المتوقع</span></h3>
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsPacketsChart" height="220"></canvas></div>
                   <div id="statisticsPacketsText"></div>
@@ -151,7 +212,7 @@
               </section>
 
               <section class="statistics-card statistics-card-wide">
-                <h3>فترات التوقف</h3>
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5"></path><path d="M12 12h4"></path></svg></span><span>فترات التوقف</span></h3>
                 <div class="statistics-card-body statistics-card-body-stack">
                   <div id="statisticsDowntimeSummary"></div>
                   <div id="statisticsDowntimeList"></div>
@@ -159,7 +220,7 @@
               </section>
 
               <section class="statistics-card statistics-card-wide">
-                <h3>الخط الزمني للحالات</h3>
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg></span><span>الخط الزمني للحالات</span></h3>
                 <div class="statistics-card-body statistics-card-body-stack">
                   <div id="statisticsTimelineStrip" class="statistics-timeline-strip" aria-label="Timeline"></div>
                   <div id="statisticsTimelineText"></div>
@@ -167,7 +228,7 @@
               </section>
 
               <section class="statistics-card statistics-card-wide">
-                <h3>توزيع الاكتشاف حسب الساعة</h3>
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"></path><rect x="6" y="11" width="3" height="8" rx="1"></rect><rect x="11" y="8" width="3" height="11" rx="1"></rect><rect x="16" y="5" width="3" height="14" rx="1"></rect></svg></span><span>توزيع الاكتشاف حسب الساعة</span></h3>
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsHourlyChart" height="240"></canvas></div>
                   <div id="statisticsHourlyText"></div>
@@ -175,7 +236,7 @@
               </section>
 
               <section class="statistics-card statistics-card-wide">
-                <h3>مقارنة بين الأجهزة</h3>
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="8" height="14" rx="1"></rect><rect x="13" y="5" width="8" height="14" rx="1"></rect><path d="M7 9h0"></path><path d="M17 15h0"></path></svg></span><span>مقارنة بين الأجهزة</span></h3>
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsComparisonChart" height="260"></canvas></div>
                   <div id="statisticsComparisonText"></div>
