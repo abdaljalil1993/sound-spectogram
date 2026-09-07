@@ -402,4 +402,56 @@ export class HistoryService {
 
     return this.normalizeHistoryItemsRaw(items);
   }
+
+  async getHistorySummaryByDateRange(
+    deviceId: number,
+    from: string,
+    to: string,
+    user?: AuthorizedUser
+  ): Promise<Array<Pick<DeviceHistory, "id" | "timestamp" | "startTime" | "endTime" | "aiStatus" | "confidence">>> {
+    if (!isPositiveInteger(deviceId)) {
+      throw new HttpError(400, "device id must be a positive integer");
+    }
+
+    const normalizedFrom = normalizeNaiveDateTimeString(from);
+    const normalizedTo = normalizeNaiveDateTimeString(to);
+    if (!normalizedFrom || !normalizedTo) {
+      throw new HttpError(400, "from and to must be valid dates");
+    }
+
+    if (normalizedFrom > normalizedTo) {
+      throw new HttpError(400, "from must be before to");
+    }
+
+    await this.deviceService.requireDeviceAccess(user, deviceId);
+    await this.deviceService.verifyDeviceExists(deviceId);
+
+    const items = await this.historyRepo.find({
+      select: {
+        id: true,
+        timestamp: true,
+        startTime: true,
+        endTime: true,
+        aiStatus: true,
+        confidence: true
+      },
+      where: {
+        deviceId,
+        timestamp: Between(normalizedFrom, normalizedTo)
+      },
+      order: {
+        timestamp: "ASC",
+        id: "ASC"
+      }
+    });
+
+    return items.map((item) => ({
+      id: item.id,
+      timestamp: normalizeNaiveDateTimeString(item.timestamp) || String(item.timestamp),
+      startTime: normalizeNaiveDateTimeString(item.startTime || item.timestamp) || String(item.timestamp),
+      endTime: normalizeNaiveDateTimeString(item.endTime || item.timestamp) || String(item.timestamp),
+      aiStatus: item.aiStatus,
+      confidence: item.confidence
+    }));
+  }
 }

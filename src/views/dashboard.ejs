@@ -12,6 +12,7 @@
       <div class="topbar-actions">
         <nav class="top-nav" id="topNav">
           <button type="button" class="tab-btn active" data-tab="history">السجل</button>
+          <button type="button" class="tab-btn" data-tab="statistics">الإحصائيات</button>
           <button type="button" class="tab-btn" data-tab="users">المستخدمون</button>
           <button type="button" class="tab-btn" data-tab="devices">الأجهزة</button>
         </nav>
@@ -97,6 +98,89 @@
                 </thead>
                 <tbody id="historyTableBody"></tbody>
               </table>
+            </div>
+          </section>
+
+          <section id="statisticsPanel" class="tab-panel">
+            <h2>إحصائيات الأجهزة</h2>
+            <div class="statistics-controls-card">
+              <form id="statisticsRangeForm" class="statistics-range-form">
+                <label>
+                  الجهاز
+                  <select id="statisticsDeviceSelect" class="device-select-dropdown" aria-label="اختيار جهاز الإحصائيات"></select>
+                </label>
+                <label>
+                  من: اليوم
+                  <input id="statisticsFromDate" type="date" required />
+                </label>
+                <label>
+                  من: الوقت
+                  <input id="statisticsFromTime" type="time" step="60" required />
+                </label>
+                <label>
+                  إلى: اليوم
+                  <input id="statisticsToDate" type="date" required />
+                </label>
+                <label>
+                  إلى: الوقت
+                  <input id="statisticsToTime" type="time" step="60" required />
+                </label>
+                <div class="statistics-actions">
+                  <button id="statisticsLast24Btn" type="button" class="ghost-btn">آخر 24 ساعة</button>
+                  <button id="statisticsShowBtn" type="submit">عرض</button>
+                </div>
+              </form>
+              <p id="statisticsMessage" class="history-info">اختر جهازًا ونطاقًا زمنيًا ثم اضغط عرض.</p>
+            </div>
+
+            <div class="statistics-grid">
+              <section class="statistics-card">
+                <h3>توزيع الحالات</h3>
+                <div class="statistics-card-body">
+                  <div class="statistics-chart-wrap"><canvas id="statisticsStatusChart" height="220"></canvas></div>
+                  <div id="statisticsStatusText"></div>
+                </div>
+              </section>
+
+              <section class="statistics-card">
+                <h3>المرسَل مقابل المتوقع</h3>
+                <div class="statistics-card-body">
+                  <div class="statistics-chart-wrap"><canvas id="statisticsPacketsChart" height="220"></canvas></div>
+                  <div id="statisticsPacketsText"></div>
+                </div>
+              </section>
+
+              <section class="statistics-card statistics-card-wide">
+                <h3>فترات التوقف</h3>
+                <div class="statistics-card-body statistics-card-body-stack">
+                  <div id="statisticsDowntimeSummary"></div>
+                  <div id="statisticsDowntimeList"></div>
+                </div>
+              </section>
+
+              <section class="statistics-card statistics-card-wide">
+                <h3>الخط الزمني للحالات</h3>
+                <div class="statistics-card-body statistics-card-body-stack">
+                  <div id="statisticsTimelineStrip" class="statistics-timeline-strip" aria-label="Timeline"></div>
+                  <div id="statisticsTimelineText"></div>
+                </div>
+              </section>
+
+              <section class="statistics-card statistics-card-wide">
+                <h3>توزيع الاكتشاف حسب الساعة</h3>
+                <div class="statistics-card-body">
+                  <div class="statistics-chart-wrap"><canvas id="statisticsHourlyChart" height="240"></canvas></div>
+                  <div id="statisticsHourlyText"></div>
+                </div>
+              </section>
+
+              <section class="statistics-card statistics-card-wide">
+                <h3>مقارنة بين الأجهزة</h3>
+                <div class="statistics-card-body">
+                  <div class="statistics-chart-wrap"><canvas id="statisticsComparisonChart" height="260"></canvas></div>
+                  <div id="statisticsComparisonText"></div>
+                </div>
+              </section>
             </div>
           </section>
 
@@ -368,5 +452,7 @@
     <script src="/public/js/frequency-mapping.js"></script>
     <script src="/public/js/spectrogram.js"></script>
     <script src="/public/js/dashboard.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script src="/public/js/statistics.js"></script>
   </body>
 </html>

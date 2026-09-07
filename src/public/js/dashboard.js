@@ -92,6 +92,7 @@
   var dashboardLayoutEl = document.getElementById("dashboardLayout");
   var tabButtons = document.querySelectorAll(".tab-btn");
   var historyPanel = document.getElementById("historyPanel");
+  var statisticsPanel = document.getElementById("statisticsPanel");
   var usersPanel = document.getElementById("usersPanel");
   var devicesPanel = document.getElementById("devicesPanel");
   var globalMessageEl = document.getElementById("globalMessage");
@@ -429,6 +430,7 @@
     !topNav ||
     !dashboardLayoutEl ||
     !historyPanel ||
+    !statisticsPanel ||
     !usersPanel ||
     !devicesPanel ||
     !globalMessageEl ||
@@ -1314,9 +1316,18 @@
     });
 
     historyPanel.classList.toggle("active", tabName === "history");
+    statisticsPanel.classList.toggle("active", tabName === "statistics");
     usersPanel.classList.toggle("active", tabName === "users");
     devicesPanel.classList.toggle("active", tabName === "devices");
     setGlobalMessage("", false);
+  }
+
+  function emitDashboardBridgeEvent(name, detail) {
+    if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
   }
 
   topNav.addEventListener("click", function (event) {
@@ -3255,6 +3266,10 @@
         ? selectedDeviceMinFrequency + " Hz -> " + selectedDeviceMaxFrequency + " Hz"
         : "غير مضبوط");
     setActiveDevice(device.id);
+    emitDashboardBridgeEvent("dashboard:device-selected", {
+      deviceId: Number(device.id),
+      device: device
+    });
     await loadDeviceHistory(device.id, null, null, {
       liveWindowMs: DEFAULT_LIVE_WINDOW_MS,
       modeLabel: "latest30m"
@@ -3274,6 +3289,10 @@
   async function loadDevices() {
     devicesCache = await apiRequest("/api/devices");
     renderDeviceSidebar();
+    emitDashboardBridgeEvent("dashboard:devices-loaded", {
+      devices: devicesCache.slice(),
+      selectedDeviceId: selectedDeviceId
+    });
     if (isAdmin) {
       await loadDevicesWithStatus();
     }
@@ -4500,6 +4519,21 @@
     localStorage.removeItem("user");
     window.location.href = "/login";
   });
+
+  window.DashboardBridge = {
+    apiRequest: apiRequest,
+    getDevices: function () {
+      return devicesCache.slice();
+    },
+    getSelectedDeviceId: function () {
+      return selectedDeviceId;
+    },
+    getCurrentUser: function () {
+      return user;
+    },
+    activateTab: activateTab,
+    setGlobalMessage: setGlobalMessage
+  };
 
   activateTab("history");
   resetUserForm();
