@@ -13,6 +13,8 @@
   var toTimeInput = document.getElementById("statisticsToTime");
   var last24Btn = document.getElementById("statisticsLast24Btn");
   var messageEl = document.getElementById("statisticsMessage");
+  var subtitleEl = document.getElementById("statisticsDeviceSubtitle");
+  var lastUpdatedEl = document.getElementById("statisticsLastUpdated");
   var heroStripEl = document.getElementById("statisticsHeroStrip");
   var statusTextEl = document.getElementById("statisticsStatusText");
   var packetsTextEl = document.getElementById("statisticsPacketsText");
@@ -37,6 +39,8 @@
     !(toTimeInput instanceof HTMLInputElement) ||
     !(last24Btn instanceof HTMLButtonElement) ||
     !messageEl ||
+    !subtitleEl ||
+    !lastUpdatedEl ||
     !heroStripEl ||
     !statusTextEl ||
     !packetsTextEl ||
@@ -62,6 +66,7 @@
     comparison: null
   };
   var hasAutoLoaded = false;
+  var hasAnimatedEntrance = false;
   var statusOrder = [
     { key: "detected", label: "هدف مكتشف", color: "#d13438" },
     { key: "possible", label: "هدف محتمل", color: "#f59e0b" },
@@ -109,6 +114,21 @@
     }
 
     return formatDateOnly(date) + " " + formatTimeOnly(date);
+  }
+
+  function formatShortDateTime(value) {
+    var date = new Date(value);
+    if (!Number.isFinite(date.getTime())) {
+      return String(value || "-");
+    }
+
+    var day = String(date.getDate()).padStart(2, "0");
+    var month = String(date.getMonth() + 1).padStart(2, "0");
+    return day + "/" + month + " " + formatTimeOnly(date);
+  }
+
+  function formatClockNow() {
+    return formatTimeOnly(new Date());
   }
 
   function applyLast24HoursRange() {
@@ -261,6 +281,25 @@
     statusCardEl.classList.toggle("statistics-hero-card--offline", !isOnline);
   }
 
+  function renderDeviceSubtitle(report) {
+    var selectedOption = deviceSelect.options[deviceSelect.selectedIndex];
+    var deviceName = selectedOption ? selectedOption.textContent : "-";
+    subtitleEl.textContent = String(deviceName || "-") + " — " + formatShortDateTime(report.from) + " ← " + formatShortDateTime(report.to);
+  }
+
+  function renderLastUpdatedNow() {
+    lastUpdatedEl.textContent = "آخر تحديث: " + formatClockNow();
+  }
+
+  function applyEntranceAnimationOnce() {
+    if (hasAnimatedEntrance) {
+      return;
+    }
+
+    hasAnimatedEntrance = true;
+    statisticsPanel.classList.add("statistics-panel-animated");
+  }
+
   function renderStatusDistribution(report) {
     var itemsByKey = {};
     (report.items || []).forEach(function (item) {
@@ -340,7 +379,7 @@
       return (
         '<div class="statistics-downtime-item' + (isLongest ? ' statistics-downtime-item--longest' : '') + '">' +
         '<div class="statistics-downtime-headline">' +
-        '<span class="statistics-downtime-title-row"><span class="statistics-downtime-title">فترة #' + (index + 1) + '</span>' + (isLongest ? '<span class="statistics-downtime-badge">⚠ الأطول</span>' : '') + '</span>' +
+        '<span class="statistics-downtime-title-row"><span class="statistics-downtime-title">فترة #' + (index + 1) + '</span>' + (isLongest ? '<span class="statistics-badge statistics-badge--danger">الأطول</span>' : '') + '</span>' +
         '<span class="statistics-downtime-range">من ' + formatLocalDateTime(period.startTime) + ' إلى ' + formatLocalDateTime(period.endTime) + '</span>' +
         '</div>' +
         '<div>المدة: ' + period.durationMinutes + ' دقيقة</div>' +
@@ -507,6 +546,9 @@
       renderTimeline(report.timelineSummary);
       renderHourlyDistribution(report.hourlyDetectionDistribution);
       renderComparison(responses[1]);
+      renderDeviceSubtitle(report);
+      renderLastUpdatedNow();
+      applyEntranceAnimationOnce();
       setMessage("تم تحميل الإحصائيات للنطاق المحدد.", false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "فشل تحميل الإحصائيات", true);

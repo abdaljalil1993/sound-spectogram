@@ -103,6 +103,7 @@
 
           <section id="statisticsPanel" class="tab-panel">
             <h2>إحصائيات الأجهزة</h2>
+            <p id="statisticsDeviceSubtitle" class="statistics-device-subtitle">اختر جهازًا ونطاقًا زمنيًا لعرض التقرير.</p>
             <div class="statistics-controls-card">
               <form id="statisticsRangeForm" class="statistics-range-form">
                 <label>
@@ -131,7 +132,17 @@
                 </div>
               </form>
               <p id="statisticsMessage" class="history-info">اختر جهازًا ونطاقًا زمنيًا ثم اضغط عرض.</p>
+              <p id="statisticsLastUpdated" class="statistics-last-updated">آخر تحديث: --:--</p>
             </div>
+
+            <nav class="statistics-jump-nav" aria-label="التنقل داخل الإحصائيات">
+              <a href="#statisticsSectionStatus">توزيع الحالات</a>
+              <a href="#statisticsSectionPackets">المرسَل/المتوقع</a>
+              <a href="#statisticsSectionDowntime">التوقف</a>
+              <a href="#statisticsSectionTimeline">الخط الزمني</a>
+              <a href="#statisticsSectionHourly">الساعة</a>
+              <a href="#statisticsSectionComparison">المقارنة</a>
+            </nav>
 
             <div id="statisticsHeroStrip" class="statistics-hero-strip" aria-live="polite">
               <article class="statistics-hero-card statistics-hero-card--teal">
@@ -195,7 +206,7 @@
             </div>
 
             <div class="statistics-grid">
-              <section class="statistics-card">
+              <section id="statisticsSectionStatus" class="statistics-card">
                 <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 12 16.5 9"></path><path d="M12 3a9 9 0 0 1 9 9"></path></svg></span><span>توزيع الحالات</span></h3>
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsStatusChart" height="220"></canvas></div>
@@ -203,7 +214,7 @@
                 </div>
               </section>
 
-              <section class="statistics-card">
+              <section id="statisticsSectionPackets" class="statistics-card">
                 <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h18"></path><path d="M6 17V9"></path><path d="M12 17V6"></path><path d="M18 17v-4"></path></svg></span><span>المرسَل مقابل المتوقع</span></h3>
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsPacketsChart" height="220"></canvas></div>
@@ -211,7 +222,7 @@
                 </div>
               </section>
 
-              <section class="statistics-card statistics-card-wide">
+              <section id="statisticsSectionDowntime" class="statistics-card statistics-card-wide">
                 <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5"></path><path d="M12 12h4"></path></svg></span><span>فترات التوقف</span></h3>
                 <div class="statistics-card-body statistics-card-body-stack">
                   <div id="statisticsDowntimeSummary"></div>
@@ -219,7 +230,7 @@
                 </div>
               </section>
 
-              <section class="statistics-card statistics-card-wide">
+              <section id="statisticsSectionTimeline" class="statistics-card statistics-card-wide">
                 <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg></span><span>الخط الزمني للحالات</span></h3>
                 <div class="statistics-card-body statistics-card-body-stack">
                   <div id="statisticsTimelineStrip" class="statistics-timeline-strip" aria-label="Timeline"></div>
@@ -227,7 +238,7 @@
                 </div>
               </section>
 
-              <section class="statistics-card statistics-card-wide">
+              <section id="statisticsSectionHourly" class="statistics-card statistics-card-wide">
                 <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"></path><rect x="6" y="11" width="3" height="8" rx="1"></rect><rect x="11" y="8" width="3" height="11" rx="1"></rect><rect x="16" y="5" width="3" height="14" rx="1"></rect></svg></span><span>توزيع الاكتشاف حسب الساعة</span></h3>
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsHourlyChart" height="240"></canvas></div>
@@ -235,7 +246,7 @@
                 </div>
               </section>
 
-              <section class="statistics-card statistics-card-wide">
+              <section id="statisticsSectionComparison" class="statistics-card statistics-card-wide">
                 <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="8" height="14" rx="1"></rect><rect x="13" y="5" width="8" height="14" rx="1"></rect><path d="M7 9h0"></path><path d="M17 15h0"></path></svg></span><span>مقارنة بين الأجهزة</span></h3>
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsComparisonChart" height="260"></canvas></div>
