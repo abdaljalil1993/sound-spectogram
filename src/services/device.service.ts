@@ -77,22 +77,22 @@ export class DeviceService {
     }
 
     const deviceIds = devices.map((device) => device.id);
-    const latestRows = await this.historyRepo
-      .createQueryBuilder("dh")
-      .select("dh.deviceId", "deviceId")
-      .addSelect("dh.aiStatus", "aiStatus")
-      .addSelect("dh.confidence", "confidence")
-      .addSelect("dh.timestamp", "timestamp")
-      .where("dh.deviceId IN (:...deviceIds)", { deviceIds })
-      .andWhere(
-        "dh.id = (SELECT dh2.id FROM device_histories dh2 WHERE dh2.deviceId = dh.deviceId ORDER BY dh2.timestamp DESC, dh2.id DESC LIMIT 1)"
-      )
-      .getRawMany<{
-        deviceId: number;
-        aiStatus: number | null;
-        confidence: string | number | null;
-        timestamp: string | null;
-      }>();
+    const deviceIdPlaceholders = deviceIds.map(() => "?").join(", ");
+    const latestRows = await this.historyRepo.query(
+      `SELECT deviceId, aiStatus, confidence, timestamp FROM (
+         SELECT deviceId, aiStatus, confidence, timestamp,
+                ROW_NUMBER() OVER (PARTITION BY deviceId ORDER BY timestamp DESC, id DESC) AS rn
+         FROM device_histories
+         WHERE deviceId IN (${deviceIdPlaceholders})
+       ) ranked
+       WHERE rn = 1`,
+      deviceIds
+    ) as Array<{
+      deviceId: number;
+      aiStatus: number | null;
+      confidence: string | number | null;
+      timestamp: string | null;
+    }>;
 
     const latestByDeviceId = new Map<number, { aiStatus: number | null; confidence: number | null; timestamp: string | null }>();
     latestRows.forEach((row) => {
