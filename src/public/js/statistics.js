@@ -252,28 +252,35 @@
 
   function renderDowntime(report) {
     var longest = report.longestDowntimePeriod;
-    downtimeSummaryEl.innerHTML =
-      '<div class="statistics-kpis">' +
-      '<div class="statistics-kpi"><span class="statistics-kpi-label">عدد فترات التوقف</span><span class="statistics-kpi-value">' + report.periods.length + '</span></div>' +
-      '<div class="statistics-kpi"><span class="statistics-kpi-label">إجمالي التوقف</span><span class="statistics-kpi-value">' + report.totalDowntimeMinutes + ' د</span></div>' +
-      '<div class="statistics-kpi"><span class="statistics-kpi-label">أطول توقف</span><span class="statistics-kpi-value">' + (longest ? longest.durationMinutes + ' د' : '-') + '</span></div>' +
-      '</div>';
-
+    var listHtml = '';
     if (!report.periods.length) {
-      downtimeListEl.innerHTML = '<p class="history-info">لا توجد فجوات توقف تتجاوز عتبة ' + report.downtimeThresholdMinutes + ' دقيقة.</p>';
-      return;
-    }
-
-    downtimeListEl.innerHTML = '<div class="statistics-downtime-list">' + report.periods.map(function (period, index) {
+      listHtml = '<p class="history-info">لا توجد فجوات توقف تتجاوز عتبة ' + report.downtimeThresholdMinutes + ' دقيقة.</p>';
+    } else {
+      listHtml = '<div class="statistics-downtime-list">' + report.periods.map(function (period, index) {
       var isLongest = longest && period.startMs === longest.startMs && period.endMs === longest.endMs;
       return (
         '<div class="statistics-downtime-item' + (isLongest ? ' statistics-downtime-item--longest' : '') + '">' +
-        '<div class="statistics-downtime-title">فترة #' + (index + 1) + (isLongest ? ' - الأطول' : '') + '</div>' +
-        '<div>من ' + formatLocalDateTime(period.startTime) + ' إلى ' + formatLocalDateTime(period.endTime) + '</div>' +
+        '<div class="statistics-downtime-headline">' +
+        '<span class="statistics-downtime-title">فترة #' + (index + 1) + (isLongest ? ' - الأطول' : '') + '</span>' +
+        '<span class="statistics-downtime-range">من ' + formatLocalDateTime(period.startTime) + ' إلى ' + formatLocalDateTime(period.endTime) + '</span>' +
+        '</div>' +
         '<div>المدة: ' + period.durationMinutes + ' دقيقة</div>' +
         '</div>'
       );
-    }).join("") + '</div>';
+      }).join("") + '</div>';
+    }
+
+    downtimeSummaryEl.innerHTML =
+      '<div class="statistics-downtime-row">' +
+      '<div class="statistics-kpis statistics-kpis-inline-3 statistics-downtime-kpis">' +
+      '<div class="statistics-kpi statistics-kpi-compact"><span class="statistics-kpi-label">عدد فترات التوقف</span><span class="statistics-kpi-value statistics-kpi-value-compact">' + report.periods.length + '</span></div>' +
+      '<div class="statistics-kpi statistics-kpi-compact"><span class="statistics-kpi-label">إجمالي التوقف</span><span class="statistics-kpi-value statistics-kpi-value-compact">' + report.totalDowntimeMinutes + ' د</span></div>' +
+      '<div class="statistics-kpi statistics-kpi-compact"><span class="statistics-kpi-label">أطول توقف</span><span class="statistics-kpi-value statistics-kpi-value-compact">' + (longest ? longest.durationMinutes + ' د' : '-') + '</span></div>' +
+      '</div>' +
+      '<div class="statistics-downtime-scroll-panel">' + listHtml + '</div>' +
+      '</div>';
+
+    downtimeListEl.innerHTML = '';
   }
 
   function resolveStatusVisual(aiStatus) {
@@ -348,9 +355,22 @@
       }
     });
 
-    renderTable(hourlyTextEl, ["الساعة", "عدد الاكتشافات"], report.items.map(function (item) {
-      return [String(item.hourOfDay), String(item.count)];
-    }));
+    var hoursRow = report.items.map(function (item) {
+      return "<td>" + String(item.hourOfDay) + "</td>";
+    }).join("");
+    var countsRow = report.items.map(function (item) {
+      return "<td>" + String(item.count) + "</td>";
+    }).join("");
+
+    hourlyTextEl.innerHTML =
+      '<div class="statistics-hourly-table-wrap">' +
+      '<table class="statistics-summary-table statistics-hourly-compact-table">' +
+      '<tbody>' +
+      '<tr><th>الساعة</th>' + hoursRow + '</tr>' +
+      '<tr><th>عدد الاكتشافات</th>' + countsRow + '</tr>' +
+      '</tbody>' +
+      '</table>' +
+      '</div>';
   }
 
   function renderComparison(report) {
