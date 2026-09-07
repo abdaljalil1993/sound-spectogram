@@ -84,6 +84,7 @@
   var LIVE_WINDOW_LABEL = "آخر 30 دقيقة";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
   var MAX_PACKETS_IN_MEMORY = 12000;
+  var MULTI_VIEW_PANEL_BUFFER_SIZE = 5;
   var multiViewOpen = false;
   var multiViewPanels = {};
 
@@ -2420,6 +2421,12 @@
   function clearMultiViewPanels() {
     Object.keys(multiViewPanels).forEach(function (panelKey) {
       var panel = multiViewPanels[panelKey];
+      if (panel) {
+        panel.packetBuffer = [];
+        panel.lastPacket = null;
+        panel.fullViewWindow = null;
+        panel.viewWindow = null;
+      }
       if (panel && typeof panel.cleanupInteractions === "function") {
         panel.cleanupInteractions();
       }
@@ -2449,6 +2456,127 @@
     return {
       fromMs: fromMs,
       toMs: toMs
+    };
+  }
+
+  function getMultiViewPanelPacketKey(panel, packet) {
+    if (!packet) {
+      return "";
+    }
+
+    var deviceId = Number(packet.deviceId);
+    if (!Number.isFinite(deviceId) && panel) {
+      deviceId = Number(panel.deviceId);
+    }
+
+    var startMs = getPacketStartMs(packet);
+    var endMs = getPacketEndMs(packet);
+    var timeMs = getPacketTimestampMs(packet);
+    if (!Number.isFinite(startMs)) {
+      startMs = timeMs;
+    }
+    if (!Number.isFinite(endMs)) {
+      endMs = startMs;
+    }
+    if (!Number.isFinite(deviceId) || !Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+      return "";
+    }
+
+    return String(deviceId) + "|" + String(startMs) + "|" + String(endMs);
+  }
+
+  function insertPacketIntoMultiViewBuffer(panel, packet) {
+    if (!panel || !packet) {
+      return;
+    }
+
+    if (!Array.isArray(panel.packetBuffer)) {
+      panel.packetBuffer = [];
+    }
+
+    normalizePacketTiming(packet);
+    var packetTime = getPacketStartMs(packet);
+    if (!Number.isFinite(packetTime)) {
+      return;
+    }
+
+    var packetKey = getMultiViewPanelPacketKey(panel, packet);
+    if (packetKey) {
+      for (var i = 0; i < panel.packetBuffer.length; i += 1) {
+        if (getMultiViewPanelPacketKey(panel, panel.packetBuffer[i]) === packetKey) {
+          panel.packetBuffer[i] = packet;
+          return;
+        }
+      }
+    }
+
+    var low = 0;
+    var high = panel.packetBuffer.length;
+    while (low < high) {
+      var mid = Math.floor((low + high) / 2);
+      var midTime = getPacketStartMs(panel.packetBuffer[mid]);
+      if (!Number.isFinite(midTime) || packetTime < midTime) {
+        high = mid;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    panel.packetBuffer.splice(low, 0, packet);
+    while (panel.packetBuffer.length > MULTI_VIEW_PANEL_BUFFER_SIZE) {
+      panel.packetBuffer.splice(0, panel.packetBuffer.length - MULTI_VIEW_PANEL_BUFFER_SIZE);
+    }
+  }
+
+  function getMultiViewBufferedPackets(panel, packet) {
+    var previewPanel = {
+      deviceId: panel ? panel.deviceId : null,
+      packetBuffer: panel && Array.isArray(panel.packetBuffer) ? panel.packetBuffer.slice() : []
+    };
+    insertPacketIntoMultiViewBuffer(previewPanel, packet);
+    return previewPanel.packetBuffer;
+  }
+
+  function getMultiViewFullWindowFromPackets(device, packets) {
+    if (!Array.isArray(packets) || !packets.length) {
+      return null;
+    }
+
+    var fromMs = NaN;
+    var toMs = NaN;
+    var minFrequency = NaN;
+    var maxFrequency = NaN;
+
+    for (var i = 0; i < packets.length; i += 1) {
+      var packet = packets[i];
+      var range = getPacketTimeRange(packet);
+      if (range) {
+        if (!Number.isFinite(fromMs) || range.fromMs < fromMs) {
+          fromMs = range.fromMs;
+        }
+        if (!Number.isFinite(toMs) || range.toMs > toMs) {
+          toMs = range.toMs;
+        }
+      }
+
+      var frequencyRange = resolvePacketFrequencyRange(device, packet, getPacketFrequencyBins(packet));
+      if (!Number.isFinite(minFrequency) || frequencyRange.min < minFrequency) {
+        minFrequency = frequencyRange.min;
+      }
+      if (!Number.isFinite(maxFrequency) || frequencyRange.max > maxFrequency) {
+        maxFrequency = frequencyRange.max;
+      }
+    }
+
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs) {
+      return null;
+    }
+
+    return {
+      fromMs: fromMs,
+      toMs: toMs,
+      minFrequency: minFrequency,
+      maxFrequency: maxFrequency
     };
   }
 
@@ -2667,22 +2795,48 @@
   }
 
   function renderMultiViewPanel(panel, packet) {
-    if (!panel || !packet || !panel.fullViewWindow) {
+    if (!panel || !packet) {
       return;
     }
+
+    insertPacketIntoMultiViewBuffer(panel, packet);
+    if (!Array.isArray(panel.packetBuffer) || !panel.packetBuffer.length) {
+      return;
+    }
+
+    var fullWindow = getMultiViewFullWindowFromPackets(panel.device, panel.packetBuffer);
+    if (!fullWindow) {
+      return;
+    }
+
+    panel.fullViewWindow = fullWindow;
 
     panel.viewWindow = normalizeMultiViewWindow(panel.fullViewWindow, panel.viewWindow || panel.fullViewWindow);
     syncMultiViewCanvasResolution(panel);
 
-    var frequencyBins = getPacketFrequencyBins(packet);
-    var fullWindow = panel.fullViewWindow;
     var viewWindow = panel.viewWindow;
     var hasDisplayFrequencyRange = !isMultiViewWindowFull(viewWindow, fullWindow);
+    var latestPacket = panel.packetBuffer[panel.packetBuffer.length - 1] || packet;
+    var intensityType = null;
+    var frequencyBins = null;
+
+    for (var i = 0; i < panel.packetBuffer.length; i += 1) {
+      var bufferedPacket = panel.packetBuffer[i];
+      if (!intensityType && typeof bufferedPacket.intensityType === "string") {
+        intensityType = bufferedPacket.intensityType;
+      }
+
+      var packetBins = getPacketFrequencyBins(bufferedPacket);
+      if (packetBins && packetBins.length > 1) {
+        frequencyBins = packetBins;
+        break;
+      }
+    }
 
     window.Spectrogram.renderSpectrogram({
       canvas: panel.canvas,
       legendCanvas: null,
-      blocks: [packet],
+      blocks: panel.packetBuffer,
       from: formatNaiveDateTimeMs(viewWindow.fromMs, true),
       to: formatNaiveDateTimeMs(viewWindow.toMs, true),
       fastMode: true,
@@ -2701,7 +2855,7 @@
       neighborhoodSize: activeNeighborhoodSize,
       bucketAggregation: activeBucketAggregation,
       debugStatsEnabled: false,
-      intensityType: packet.intensityType,
+      intensityType: intensityType || latestPacket.intensityType,
       displayGainDb: activeDisplayGainDb,
       frequencyBins: frequencyBins,
       minFrequency: fullWindow.minFrequency,
@@ -2710,7 +2864,7 @@
       displayMaxFrequency: hasDisplayFrequencyRange ? viewWindow.maxFrequency : null
     });
 
-    panel.lastPacket = packet;
+    panel.lastPacket = latestPacket;
     updateMultiViewPanelCursor(panel);
   }
 
@@ -2723,11 +2877,17 @@
   }
 
   function resetMultiViewViewWindow(panel) {
-    if (!panel || !panel.fullViewWindow) {
+    if (!panel || !Array.isArray(panel.packetBuffer) || !panel.packetBuffer.length) {
       return;
     }
 
-    panel.viewWindow = cloneMultiViewWindow(panel.fullViewWindow);
+    var nextFullWindow = getMultiViewFullWindowFromPackets(panel.device, panel.packetBuffer);
+    if (!nextFullWindow) {
+      return;
+    }
+
+    panel.fullViewWindow = nextFullWindow;
+    panel.viewWindow = cloneMultiViewWindow(nextFullWindow);
     rerenderMultiViewPanel(panel);
   }
 
@@ -2880,15 +3040,12 @@
       return;
     }
 
-    var device = getDeviceById(deviceId);
-    var frequencyBins = getPacketFrequencyBins(packet);
-    var frequencyRange = resolvePacketFrequencyRange(device, packet, frequencyBins);
-    var nextFullWindow = {
-      fromMs: range.fromMs,
-      toMs: range.toMs,
-      minFrequency: frequencyRange.min,
-      maxFrequency: frequencyRange.max
-    };
+    var device = panel.device || getDeviceById(deviceId);
+    var nextBufferedPackets = getMultiViewBufferedPackets(panel, packet);
+    var nextFullWindow = getMultiViewFullWindowFromPackets(device, nextBufferedPackets);
+    if (!nextFullWindow) {
+      return;
+    }
     var previousFullWindow = cloneMultiViewWindow(panel.fullViewWindow);
     var previousViewWindow = cloneMultiViewWindow(panel.viewWindow);
 
@@ -3010,10 +3167,12 @@
     selectedDevices.forEach(function (device) {
       var panel = buildMultiViewPanel(device);
       var panelState = {
+        device: device,
         deviceId: device.id,
         canvas: panel.canvas,
         canvasWrap: panel.canvasWrap,
         title: panel.title,
+        packetBuffer: [],
         lastPacket: null,
         fullViewWindow: null,
         viewWindow: null,
