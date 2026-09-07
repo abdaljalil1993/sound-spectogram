@@ -1596,15 +1596,18 @@ select:focus-visible {
 .statistics-timeline-strip {
   display: flex;
   min-height: 60px;
+  width: 100%;
+  max-width: 100%;
   border: 1px solid #ddd8ca;
   border-radius: 999px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: #f6f3eb;
 }
 
 .statistics-timeline-segment {
-  min-width: 0;
-  flex: 0 1 auto;
+  min-width: 2px;
+  flex: 0 0 auto;
   height: 60px;
 }
 
