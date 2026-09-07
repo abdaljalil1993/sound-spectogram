@@ -2422,6 +2422,10 @@
     Object.keys(multiViewPanels).forEach(function (panelKey) {
       var panel = multiViewPanels[panelKey];
       if (panel) {
+        if (panel.wheelRenderTimer) {
+          clearTimeout(panel.wheelRenderTimer);
+          panel.wheelRenderTimer = null;
+        }
         panel.packetBuffer = [];
         panel.lastPacket = null;
         panel.fullViewWindow = null;
@@ -2794,10 +2798,27 @@
     return true;
   }
 
-  function renderMultiViewPanel(panel, packet) {
+  function scheduleMultiViewSettledRender(panel) {
+    if (!panel) {
+      return;
+    }
+
+    if (panel.wheelRenderTimer) {
+      clearTimeout(panel.wheelRenderTimer);
+    }
+
+    panel.wheelRenderTimer = setTimeout(function () {
+      panel.wheelRenderTimer = null;
+      rerenderMultiViewPanel(panel, { fastMode: false });
+    }, 130);
+  }
+
+  function renderMultiViewPanel(panel, packet, options) {
     if (!panel || !packet) {
       return;
     }
+
+    var renderOptions = options || {};
 
     insertPacketIntoMultiViewBuffer(panel, packet);
     if (!Array.isArray(panel.packetBuffer) || !panel.packetBuffer.length) {
@@ -2839,7 +2860,7 @@
       blocks: panel.packetBuffer,
       from: formatNaiveDateTimeMs(viewWindow.fromMs, true),
       to: formatNaiveDateTimeMs(viewWindow.toMs, true),
-      fastMode: true,
+      fastMode: !!renderOptions.fastMode,
       assumeSorted: true,
       intensityMode: activeIntensityMode,
       dbMin: activeDbMin,
@@ -2868,12 +2889,12 @@
     updateMultiViewPanelCursor(panel);
   }
 
-  function rerenderMultiViewPanel(panel) {
+  function rerenderMultiViewPanel(panel, options) {
     if (!panel || !panel.lastPacket) {
       return;
     }
 
-    renderMultiViewPanel(panel, panel.lastPacket);
+    renderMultiViewPanel(panel, panel.lastPacket, options);
   }
 
   function resetMultiViewViewWindow(panel) {
@@ -2903,7 +2924,7 @@
       }
 
       if (syncMultiViewCanvasResolution(panel)) {
-        rerenderMultiViewPanel(panel);
+        rerenderMultiViewPanel(panel, { fastMode: false });
       }
     };
 
@@ -2936,7 +2957,8 @@
         maxFrequency: anchorFrequency + nextFreqSpan * (1 - frequencyAnchorFraction)
       });
 
-      rerenderMultiViewPanel(panel);
+      rerenderMultiViewPanel(panel, { fastMode: true });
+      scheduleMultiViewSettledRender(panel);
     };
 
     var onMouseDown = function (event) {
@@ -2980,7 +3002,7 @@
         maxFrequency: startWindow.maxFrequency + frequencyShift
       });
 
-      rerenderMultiViewPanel(panel);
+      rerenderMultiViewPanel(panel, { fastMode: true });
     };
 
     var stopDragging = function () {
@@ -2991,6 +3013,7 @@
       panel.dragState.active = false;
       panel.dragState.startWindow = null;
       updateMultiViewPanelCursor(panel);
+      rerenderMultiViewPanel(panel, { fastMode: false });
     };
 
     var onDoubleClick = function (event) {
@@ -3182,6 +3205,7 @@
           startY: 0,
           startWindow: null
         },
+        wheelRenderTimer: null,
         cleanupInteractions: null
       };
       panelState.cleanupInteractions = attachMultiViewMouseInteractions(panelState);
