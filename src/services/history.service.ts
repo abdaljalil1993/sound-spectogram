@@ -367,13 +367,12 @@ export class HistoryService {
     await this.deviceService.requireDeviceAccess(user, deviceId);
     await this.deviceService.verifyDeviceExists(deviceId);
 
-    const overlapResults = await this.historyRepo
-      .createQueryBuilder("dh")
-      .from(DeviceHistory, "dh USE INDEX (IDX_293e6bb578aee8b397c0f03ac7)")
-      .where("dh.deviceId = :deviceId", { deviceId })
-      .andWhere("dh.startTime <= :normalizedTo", { normalizedTo })
-      .andWhere("dh.endTime >= :normalizedFrom", { normalizedFrom })
-      .getMany();
+    const rawOverlapRows = await this.historyRepo.query(
+      `SELECT * FROM device_histories FORCE INDEX (IDX_293e6bb578aee8b397c0f03ac7)
+       WHERE deviceId = ? AND startTime <= ? AND endTime >= ?`,
+      [deviceId, normalizedTo, normalizedFrom]
+    );
+    const overlapResults = rawOverlapRows as DeviceHistory[];
 
     const timestampResults = await this.historyRepo.find({
       where: {
