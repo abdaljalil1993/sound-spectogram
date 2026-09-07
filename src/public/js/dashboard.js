@@ -54,6 +54,8 @@
   var lastRenderMeta = null;
   var devicesCache = [];
   var devicesStatusCache = [];
+  var liveDeviceStatusMap = {};
+  var deviceStatusStorageKey = "device-live-status-cache";
   var editingUserId = null;
   var editingDeviceId = null;
   var lastPersistenceWarningAt = 0;
@@ -139,7 +141,125 @@
       setGlobalMessage(error instanceof Error ? error.message : "تعذر تحميل حالة الأجهزة", true);
     }
 
+    liveDeviceStatusMap = readStoredLiveDeviceStatus();
     renderDevicesCards(devicesStatusCache);
+  }
+
+  function normalizeDeviceStatusKey(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function readStoredLiveDeviceStatus() {
+    try {
+      var rawValue = localStorage.getItem(deviceStatusStorageKey);
+      if (!rawValue) {
+        return {};
+      }
+      var parsed = JSON.parse(rawValue);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (_error) {
+      return {};
+    }
+  }
+
+  function saveStoredLiveDeviceStatus(value) {
+    try {
+      localStorage.setItem(deviceStatusStorageKey, JSON.stringify(value));
+    } catch (_error) {
+      // ignore storage issues in private browsing or restricted contexts
+    }
+  }
+
+  function normalizeLiveDeviceStatusPayload(payload) {
+    var result = {};
+    if (!payload || typeof payload !== "object") {
+      return result;
+    }
+
+    if (Array.isArray(payload.devices)) {
+      payload.devices.forEach(function (item) {
+        if (!item || typeof item !== "object") {
+          return;
+        }
+        var key = normalizeDeviceStatusKey(item.id || item.deviceId || item.name || item.deviceName || item.key);
+        if (!key) {
+          return;
+        }
+        result[key] = item;
+      });
+      return result;
+    }
+
+    if (Array.isArray(payload)) {
+      payload.forEach(function (item) {
+        if (!item || typeof item !== "object") {
+          return;
+        }
+        var key = normalizeDeviceStatusKey(item.id || item.deviceId || item.name || item.deviceName || item.key);
+        if (!key) {
+          return;
+        }
+        result[key] = item;
+      });
+      return result;
+    }
+
+    Object.keys(payload).forEach(function (key) {
+      var item = payload[key];
+      if (!item || typeof item !== "object") {
+        return;
+      }
+      result[normalizeDeviceStatusKey(key)] = item;
+    });
+
+    return result;
+  }
+
+  function getLiveDeviceStatusForCard(device, deviceIndex, totalDevices) {
+    if (!device || !liveDeviceStatusMap || typeof liveDeviceStatusMap !== "object") {
+      return null;
+    }
+
+    var candidates = [];
+    if (device.name) {
+      candidates.push(device.name);
+    }
+    if (device.id) {
+      candidates.push(String(device.id));
+    }
+    if (device.key) {
+      candidates.push(device.key);
+    }
+    if (device.deviceKey) {
+      candidates.push(device.deviceKey);
+    }
+    if (device.identifier) {
+      candidates.push(device.identifier);
+    }
+    if (device.serial) {
+      candidates.push(device.serial);
+    }
+
+    for (var i = 0; i < candidates.length; i += 1) {
+      var candidate = normalizeDeviceStatusKey(candidates[i]);
+      if (candidate && liveDeviceStatusMap[candidate]) {
+        return liveDeviceStatusMap[candidate];
+      }
+    }
+
+    var keys = Object.keys(liveDeviceStatusMap);
+    for (var j = 0; j < keys.length; j += 1) {
+      var entryKey = normalizeDeviceStatusKey(keys[j]);
+      var matchFound = candidates.some(function (candidate) {
+        var normalizedCandidate = normalizeDeviceStatusKey(candidate);
+        return normalizedCandidate && (normalizedCandidate === entryKey || entryKey.indexOf(normalizedCandidate) !== -1 || normalizedCandidate.indexOf(entryKey) !== -1);
+      });
+      if (matchFound) {
+        return liveDeviceStatusMap[keys[j]];
+      }
+    }
+
+    return null;
   }
 
   function renderDevicesCards(devicesWithStatus) {
@@ -158,13 +278,21 @@
       return;
     }
 
-    list.forEach(function (item) {
+    list.forEach(function (item, index) {
       var device = devicesCache.find(function (cached) {
         return Number(cached.id) === Number(item.id);
       }) || item;
 
       var card = document.createElement("article");
       card.className = "device-card";
+
+      var liveStatus = getLiveDeviceStatusForCard(device, index, list.length);
+      card.classList.remove("device-card--online", "device-card--offline");
+      if (liveStatus && liveStatus.status) {
+        var liveStatusText = String(liveStatus.status).trim().toLowerCase();
+        card.classList.toggle("device-card--online", liveStatusText === "online");
+        card.classList.toggle("device-card--offline", liveStatusText === "offline");
+      }
 
       var title = document.createElement("h3");
       title.className = "device-card-title";
@@ -175,15 +303,6 @@
       description.className = "device-card-meta";
       description.textContent = device.description || "بدون وصف";
       card.appendChild(description);
-
-      var frequency = document.createElement("p");
-      frequency.className = "device-card-meta";
-      frequency.textContent =
-        "النطاق: " +
-        (Number.isFinite(device.minFrequency) ? device.minFrequency + " Hz" : "-") +
-        " / " +
-        (Number.isFinite(device.maxFrequency) ? device.maxFrequency + " Hz" : "-");
-      card.appendChild(frequency);
 
       var status = document.createElement("p");
       status.className = "device-card-status";
@@ -4111,6 +4230,19 @@
 
     socket.on("server:heartbeat", function () {
       markHeartbeat();
+    });
+
+    socket.on("devices_status", function (payload) {
+      var normalizedPayload = normalizeLiveDeviceStatusPayload(payload);
+      if (!Object.keys(normalizedPayload).length) {
+        return;
+      }
+
+      liveDeviceStatusMap = Object.assign({}, liveDeviceStatusMap, normalizedPayload);
+      saveStoredLiveDeviceStatus(liveDeviceStatusMap);
+      if (devicesCardsGrid) {
+        renderDevicesCards(devicesStatusCache);
+      }
     });
 
     var heartbeatTimer = setInterval(function () {

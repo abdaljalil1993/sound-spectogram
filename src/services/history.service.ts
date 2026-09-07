@@ -4,6 +4,7 @@ import { AppDataSource } from "../config/data-source";
 import { DeviceHistory } from "../entities/DeviceHistory";
 import { HttpError } from "../utils/http-error";
 import {
+  AiStatusRangeResultItem,
   CompressedDeviceMatrixPayload,
   DeviceDataBroadcastPayload,
   IncomingDeviceDataPayload,
@@ -248,6 +249,45 @@ export class HistoryService {
     };
   }
 
+  async getAiStatusByDateRange(from: string, to: string): Promise<AiStatusRangeResultItem[]> {
+    const normalizedFrom = normalizeNaiveDateTimeString(from);
+    const normalizedTo = normalizeNaiveDateTimeString(to);
+    if (!normalizedFrom || !normalizedTo) {
+      throw new HttpError(400, "startTime and endTime must be valid dates");
+    }
+
+    if (normalizedFrom > normalizedTo) {
+      throw new HttpError(400, "startTime must be before or equal to endTime");
+    }
+
+    const items = await this.historyRepo.find({
+      select: {
+        deviceId: true,
+        startTime: true,
+        endTime: true,
+        aiStatus: true,
+        confidence: true
+      },
+      where: {
+        startTime: LessThanOrEqual(normalizedTo),
+        endTime: MoreThanOrEqual(normalizedFrom)
+      },
+      order: {
+        deviceId: "ASC",
+        startTime: "ASC",
+        endTime: "ASC"
+      }
+    });
+
+    return items.map((item) => ({
+      deviceId: item.deviceId,
+      startTime: normalizeNaiveDateTimeString(item.startTime) || String(item.startTime || ""),
+      endTime: normalizeNaiveDateTimeString(item.endTime) || String(item.endTime || ""),
+      aiStatus: item.aiStatus as 0 | 1 | 2 | null,
+      confidence: item.confidence
+    }));
+  }
+
   async getLatest24Hours(deviceId: number, decodeData = false, user?: AuthorizedUser): Promise<DeviceHistory[]> {
     if (!isPositiveInteger(deviceId)) {
       throw new HttpError(400, "device id must be a positive integer");
@@ -327,21 +367,34 @@ export class HistoryService {
     await this.deviceService.requireDeviceAccess(user, deviceId);
     await this.deviceService.verifyDeviceExists(deviceId);
 
-    const items = await this.historyRepo.find({
-      where: [
-        {
-          deviceId,
-          startTime: LessThanOrEqual(normalizedTo),
-          endTime: MoreThanOrEqual(normalizedFrom)
-        },
-        {
-          deviceId,
-          timestamp: Between(normalizedFrom, normalizedTo)
-        }
-      ],
-      order: {
-        timestamp: "ASC"
+    const overlapResults = await this.historyRepo.find({
+      where: {
+        deviceId,
+        startTime: LessThanOrEqual(normalizedTo),
+        endTime: MoreThanOrEqual(normalizedFrom)
       }
+    });
+
+    const timestampResults = await this.historyRepo.find({
+      where: {
+        deviceId,
+        timestamp: Between(normalizedFrom, normalizedTo)
+      }
+    });
+
+    const merged = [...overlapResults, ...timestampResults];
+    const deduped = new Map<number, DeviceHistory>();
+
+    merged.forEach((item) => {
+      if (item && item.id !== undefined && item.id !== null) {
+        deduped.set(item.id, item);
+      }
+    });
+
+    const items = Array.from(deduped.values()).sort((a, b) => {
+      const aTime = normalizeNaiveDateTimeString(a.timestamp) || String(a.timestamp || "");
+      const bTime = normalizeNaiveDateTimeString(b.timestamp) || String(b.timestamp || "");
+      return aTime.localeCompare(bTime);
     });
 
     if (decodeData) {

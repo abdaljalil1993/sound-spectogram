@@ -846,9 +846,19 @@ select:focus-visible {
   margin-top: 8px;
 }
 
+#devicesPanel {
+  direction: rtl;
+  text-align: right;
+}
+
+#devicesPanel > h2 {
+  text-align: right;
+  width: 100%;
+}
+
 .device-admin-toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   margin-bottom: 8px;
 }
 
@@ -860,6 +870,8 @@ select:focus-visible {
 }
 
 .device-card {
+  direction: rtl;
+  text-align: right;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
@@ -871,9 +883,21 @@ select:focus-visible {
   cursor: pointer;
 }
 
+.device-card.device-card--online {
+  background: linear-gradient(180deg, #50c170 0%, #173b23 100%);
+  border-color: #5bce83;
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.10);
+}
+
+.device-card.device-card--offline {
+  background: linear-gradient(180deg, #c06565 0%, #5c1b1d 100%);
+  border-color: #580303;
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.10);
+}
+
 .device-card:hover {
   transform: translateY(-3px);
-  border-color: #c9d5e6;
+  border-color: #282a2c;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
 }
 
@@ -884,6 +908,7 @@ select:focus-visible {
   font-size: 17px;
   font-weight: 700;
   color: #162333;
+  text-align: right;
 }
 
 .device-card-meta {
@@ -891,6 +916,7 @@ select:focus-visible {
   font-size: 12px;
   line-height: 1.5;
   color: var(--muted);
+  text-align: right;
 }
 
 .device-card-status {
@@ -902,12 +928,61 @@ select:focus-visible {
   font-size: 12px;
   font-weight: 700;
   color: #2d3b4a;
+  text-align: right;
+}
+
+.device-card--online .device-card-title,
+.device-card--online .device-card-meta,
+.device-card--online .device-card-status,
+.device-card--online .device-card-live-state,
+.device-card--offline .device-card-title,
+.device-card--offline .device-card-meta,
+.device-card--offline .device-card-status,
+.device-card--offline .device-card-live-state {
+  color: #ffffff;
+  font-weight: 800;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+}
+
+.device-card--online .device-card-title,
+.device-card--online .device-card-status,
+.device-card--online .device-card-live-state {
+  border-color: rgba(255, 255, 255, 0.36);
+}
+
+.device-card--online .device-card-status {
+  background: #ffffff;
+  border-color: rgba(255, 255, 255, 0.7);
+  color: #0d5b32;
+}
+
+.device-card--offline .device-card-status {
+  background: #ffffff;
+  border-color: rgba(255, 255, 255, 0.7);
+  color: #6f1d1d;
+}
+
+.device-card--online .device-card-live-state {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.device-card--offline .device-card-live-state {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.device-card--online .device-card-title {
+  border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+.device-card--offline .device-card-title {
+  border-bottom-color: rgba(255, 255, 255, 0.3);
 }
 
 .device-card-actions {
   display: flex;
   gap: 8px;
   margin-top: 2px;
+  justify-content: flex-end;
 }
 
 .device-card-actions .ghost-btn,

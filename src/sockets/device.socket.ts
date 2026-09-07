@@ -2,7 +2,9 @@ import { Server, Socket } from "socket.io";
 import { AppDataSource } from "../config/data-source";
 import { User, UserRole } from "../entities/User";
 import { HistoryService } from "../services/history.service";
+import { HttpError } from "../utils/http-error";
 import { verifyJwt } from "../utils/jwt";
+import { CheckAiStatusRequestPayload } from "../utils/types";
 
 const historyService = new HistoryService();
 const userRepo = AppDataSource.getRepository(User);
@@ -11,6 +13,22 @@ interface SocketAck {
   ok: boolean;
   message?: string;
   data?: unknown;
+}
+
+function extractAiStatusRange(payload: unknown): { startTime: string; endTime: string } {
+  if (typeof payload !== "object" || payload === null) {
+    throw new HttpError(400, "payload must be an object");
+  }
+
+  const raw = payload as CheckAiStatusRequestPayload;
+  const startTime = String(raw.startTime ?? raw.start_time ?? raw.from ?? "").trim();
+  const endTime = String(raw.endTime ?? raw.end_time ?? raw.to ?? "").trim();
+
+  if (!startTime || !endTime) {
+    throw new HttpError(400, "payload must include startTime and endTime");
+  }
+
+  return { startTime, endTime };
 }
 
 async function handleIncomingDeviceData(
@@ -166,7 +184,7 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
         try {
           parsedPayload = JSON.parse(payload);
         } catch (_error) {
-          console.log("Raw devices_status payload:", payload);
+          console.log("error ..... Raw devices_status payload:", payload);
           if (typeof ack === "function") {
             ack({ ok: true, message: "devices_status received", data: payload });
           }
@@ -175,13 +193,53 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
       }
 
       console.dir(parsedPayload, { depth: null });
+      io.to("dashboards").emit("devices_status", parsedPayload);
+      socket.emit("devices_status", parsedPayload);
 
       if (typeof ack === "function") {
         ack({ ok: true, message: "devices_status received", data: parsedPayload });
       }
     };
 
+    const handleCheckAiStatus = async (payload: unknown, ack?: (response: SocketAck) => void): Promise<void> => {
+      console.log("check_ai_status event received");
+      console.dir(payload, { depth: null });
+
+      try {
+        const parsedPayload = typeof payload === "string" ? JSON.parse(payload) : payload;
+        const { startTime, endTime } = extractAiStatusRange(parsedPayload);
+        const items = await historyService.getAiStatusByDateRange(startTime, endTime);
+
+        const response = {
+          ok: true,
+          data: {
+            startTime,
+            endTime,
+            items
+          }
+        } satisfies SocketAck;
+
+        if (typeof ack === "function") {
+          ack(response);
+          return;
+        }
+
+        socket.emit("check_ai_status_result", response);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to check AI status";
+        const response = { ok: false, message } satisfies SocketAck;
+
+        if (typeof ack === "function") {
+          ack(response);
+          return;
+        }
+
+        socket.emit("check_ai_status_result", response);
+      }
+    };
+
     socket.on("devices_status", handleDeviceStatus);
+    socket.on("check_ai_status", handleCheckAiStatus);
     socket.on("send_data", handleSendData);
     socket.on("device:data", handleSendData);
   });
