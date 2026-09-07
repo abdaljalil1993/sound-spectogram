@@ -2937,24 +2937,19 @@
 
       var rect = panel.canvas.getBoundingClientRect();
       var width = Math.max(1, rect.width || 1);
-      var height = Math.max(1, rect.height || 1);
       var timeAnchorFraction = clamp((event.clientX - rect.left) / width, 0, 1);
-      var frequencyAnchorFraction = clamp(1 - (event.clientY - rect.top) / height, 0, 1);
       var fullWindow = panel.fullViewWindow;
       var currentWindow = normalizeMultiViewWindow(fullWindow, panel.viewWindow || fullWindow);
       var factor = Number(event.deltaY) < 0 ? 0.88 : 1 / 0.88;
       var currentTimeSpan = currentWindow.toMs - currentWindow.fromMs;
-      var currentFreqSpan = currentWindow.maxFrequency - currentWindow.minFrequency;
       var nextTimeSpan = currentTimeSpan * factor;
-      var nextFreqSpan = currentFreqSpan * factor;
       var anchorTimeMs = currentWindow.fromMs + currentTimeSpan * timeAnchorFraction;
-      var anchorFrequency = currentWindow.minFrequency + currentFreqSpan * frequencyAnchorFraction;
 
       panel.viewWindow = normalizeMultiViewWindow(fullWindow, {
         fromMs: anchorTimeMs - nextTimeSpan * timeAnchorFraction,
         toMs: anchorTimeMs + nextTimeSpan * (1 - timeAnchorFraction),
-        minFrequency: anchorFrequency - nextFreqSpan * frequencyAnchorFraction,
-        maxFrequency: anchorFrequency + nextFreqSpan * (1 - frequencyAnchorFraction)
+        minFrequency: fullWindow.minFrequency,
+        maxFrequency: fullWindow.maxFrequency
       });
 
       rerenderMultiViewPanel(panel, { fastMode: true });
@@ -2986,20 +2981,16 @@
 
       var rect = panel.canvas.getBoundingClientRect();
       var width = Math.max(1, rect.width || 1);
-      var height = Math.max(1, rect.height || 1);
       var dx = event.clientX - panel.dragState.startX;
-      var dy = event.clientY - panel.dragState.startY;
       var startWindow = panel.dragState.startWindow;
       var timeSpan = startWindow.toMs - startWindow.fromMs;
-      var freqSpan = startWindow.maxFrequency - startWindow.minFrequency;
       var timeShift = (-dx / width) * timeSpan;
-      var frequencyShift = (dy / height) * freqSpan;
 
       panel.viewWindow = normalizeMultiViewWindow(panel.fullViewWindow, {
         fromMs: startWindow.fromMs + timeShift,
         toMs: startWindow.toMs + timeShift,
-        minFrequency: startWindow.minFrequency + frequencyShift,
-        maxFrequency: startWindow.maxFrequency + frequencyShift
+        minFrequency: panel.fullViewWindow.minFrequency,
+        maxFrequency: panel.fullViewWindow.maxFrequency
       });
 
       rerenderMultiViewPanel(panel, { fastMode: true });
