@@ -1142,6 +1142,51 @@ select:focus-visible {
 
 .statistics-insight-text {
   flex: 1 1 auto;
+  display: grid;
+  gap: 8px;
+}
+
+.statistics-insight-main {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.statistics-insight-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.statistics-insight-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #cfe0dc;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #243038;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.statistics-insight-chip--status {
+  border-color: #efd1d3;
+  background: #fff4f5;
+  color: #8c2025;
+}
+
+.statistics-insight-chip--confidence {
+  border-color: #cde8df;
+  background: #eef9f4;
+  color: #115e59;
+}
+
+.statistics-insight-chip--downtime {
+  border-color: #f2dfbe;
+  background: #fff8ea;
+  color: #845b15;
 }
 
 .statistics-last-updated {

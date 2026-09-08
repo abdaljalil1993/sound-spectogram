@@ -308,6 +308,15 @@
     return normalized.toLocaleString("en-US");
   }
 
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function easeOutCubic(progress) {
     return 1 - Math.pow(1 - progress, 3);
   }
@@ -405,28 +414,44 @@
     var selectedOption = deviceSelect.options[deviceSelect.selectedIndex];
     var deviceName = selectedOption ? selectedOption.textContent : "الجهاز";
     var dominant = resolveDominantStatus(report.statusDistribution);
-    var insightParts = [
-      "الجهاز " + String(deviceName || "-") + (isOnline ? " متصل حالياً." : " غير متصل حالياً.")
-    ];
+    var mainText = "الجهاز " + String(deviceName || "-") + (isOnline ? " متصل حالياً" : " غير متصل حالياً");
+    var chips = [];
 
     if (dominant) {
       var dominantCount = Number(dominant.count) || 0;
-      var confidenceText = Number.isFinite(Number(dominant.avgConfidence))
-        ? " بمتوسط ثقة " + Number(dominant.avgConfidence).toFixed(1).replace(/\.0$/, "") + "%"
-        : "";
-      insightParts.push("الحالة الأغلب خلال الفترة هي '" + dominant.label + "' (" + dominantCount + " حزمة)" + confidenceText + ".");
+      chips.push('<span class="statistics-insight-chip statistics-insight-chip--status">الحالة الأغلب: ' + escapeHtml(dominant.label) + '</span>');
+      chips.push('<span class="statistics-insight-chip">' + formatNumber(dominantCount) + ' حزمة</span>');
+
+      if (Number.isFinite(Number(dominant.avgConfidence))) {
+        chips.push(
+          '<span class="statistics-insight-chip statistics-insight-chip--confidence">متوسط الثقة: ' +
+          Number(dominant.avgConfidence).toFixed(1).replace(/\.0$/, "") +
+          '%</span>'
+        );
+      }
     }
 
-    if ((Number(report.downtime && report.downtime.totalDowntimeMinutes) || 0) > 0) {
-      insightParts.push(
-        "سُجّل توقف إجمالي قدره " + Number(report.downtime.totalDowntimeMinutes).toFixed(2).replace(/\.00$/, "") +
-        " دقيقة عبر " + (report.downtime.periods ? report.downtime.periods.length : 0) + " فترات."
+    var downtimeMinutes = Number(report.downtime && report.downtime.totalDowntimeMinutes) || 0;
+    if (downtimeMinutes > 0) {
+      chips.push(
+        '<span class="statistics-insight-chip statistics-insight-chip--downtime">التوقف: ' +
+        downtimeMinutes.toFixed(2).replace(/\.00$/, "") +
+        ' د (' +
+        formatNumber(report.downtime && report.downtime.periods ? report.downtime.periods.length : 0) +
+        ' فترات)</span>'
       );
+    }
+
+    if (!chips.length) {
+      chips.push('<span class="statistics-insight-chip">لا توجد بيانات كافية لاستخراج ملخص تفصيلي</span>');
     }
 
     insightEl.innerHTML =
       '<span class="statistics-insight-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M8.5 14.5c-.92-.79-1.5-1.96-1.5-3.25a5 5 0 0 1 10 0c0 1.29-.58 2.46-1.5 3.25-.62.54-1 1.33-1 2.15V17h-5v-0.1c0-.82-.38-1.61-1-2.15Z"></path></svg></span>' +
-      '<span class="statistics-insight-text">' + insightParts.join(" ") + '</span>';
+      '<span class="statistics-insight-text">' +
+      '<span class="statistics-insight-main">' + escapeHtml(mainText) + '</span>' +
+      '<span class="statistics-insight-chips">' + chips.join("") + '</span>' +
+      '</span>';
   }
 
   function renderHeroStrip(report) {
