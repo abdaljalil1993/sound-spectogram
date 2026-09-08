@@ -1447,7 +1447,7 @@
         var emptyClientWidth = Math.floor((emptyRect && emptyRect.width) || canvas.clientWidth || 960);
         var emptyClientHeight = Math.floor((emptyRect && emptyRect.height) || canvas.clientHeight || 0);
         var cssWidth = Math.max(480, emptyClientWidth);
-        var cssHeight = Math.max(320, emptyClientHeight || Math.floor((canvas.clientWidth || 960) * 0.43));
+        var cssHeight = Math.max(420, emptyClientHeight || Math.floor((canvas.clientWidth || 960) * 0.62));
         canvas.width = Math.floor(cssWidth * dpr);
         canvas.height = Math.floor(cssHeight * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1473,7 +1473,7 @@
     var measuredCssWidth = Math.floor((canvasRect && canvasRect.width) || canvas.clientWidth || 960);
     var measuredCssHeight = Math.floor((canvasRect && canvasRect.height) || canvas.clientHeight || 0);
     var cssWidth = Math.max(480, measuredCssWidth);
-    var cssHeight = Math.max(320, measuredCssHeight || Math.floor((canvas.clientWidth || 960) * 0.43));
+    var cssHeight = Math.max(420, measuredCssHeight || Math.floor((canvas.clientWidth || 960) * 0.62));
     canvas.width = Math.floor(cssWidth * dpr);
     canvas.height = Math.floor(cssHeight * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

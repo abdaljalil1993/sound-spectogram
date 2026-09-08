@@ -448,7 +448,6 @@
     !multiViewGrid ||
     !selectedDeviceTitleEl ||
     !historyInfoEl ||
-    !historyTableBody ||
     !sideDeviceInfoEl ||
     !processingStatusEl ||
     !canvas ||
@@ -1354,7 +1353,9 @@
     probeTooltipEl.classList.add("hidden");
     if (!currentPackets.length) {
       historyInfoEl.textContent = "لا توجد بيانات للجهاز المحدد.";
-      historyTableBody.innerHTML = "";
+      if (historyTableBody) {
+        historyTableBody.innerHTML = "";
+      }
       lastRenderMeta = null;
       renderedTimeMarkerHits = [];
       gapTooltipEl.classList.add("hidden");
@@ -1574,31 +1575,33 @@
         "%";
     }
 
-    historyTableBody.innerHTML = "";
-    visiblePackets.forEach(function (packet) {
-      var startLocal = formatLocalDateTime(packet.startTime || packet.start_time || packet.timestamp);
-      var endLocal = formatLocalDateTime(packet.endTime || packet.end_time || packet.timestamp);
-      var durationMin = Math.max(
-        0,
-        Math.round(
-          (getPacketEndMs(packet) - getPacketStartMs(packet)) / 60000
-        )
-      );
+    if (historyTableBody) {
+      historyTableBody.innerHTML = "";
+      visiblePackets.forEach(function (packet) {
+        var startLocal = formatLocalDateTime(packet.startTime || packet.start_time || packet.timestamp);
+        var endLocal = formatLocalDateTime(packet.endTime || packet.end_time || packet.timestamp);
+        var durationMin = Math.max(
+          0,
+          Math.round(
+            (getPacketEndMs(packet) - getPacketStartMs(packet)) / 60000
+          )
+        );
 
-      var tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td>" +
-        (packet.id || "-") +
-        "</td><td>" +
-        startLocal +
-        "</td><td>" +
-        endLocal +
-        "</td><td>" +
-        durationMin +
-        " د" +
-        "</td>";
-      historyTableBody.appendChild(tr);
-    });
+        var tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" +
+          (packet.id || "-") +
+          "</td><td>" +
+          startLocal +
+          "</td><td>" +
+          endLocal +
+          "</td><td>" +
+          durationMin +
+          " د" +
+          "</td>";
+        historyTableBody.appendChild(tr);
+      });
+    }
   }
 
   function formatMarkerLabelTime(timeMs) {
@@ -1918,7 +1921,7 @@
 
     var dpr = window.devicePixelRatio || 1;
     var cssWidth = Math.max(480, Math.floor(canvas.clientWidth || 960));
-    var cssHeight = Math.max(320, Math.floor((canvas.clientWidth || 960) * 0.43));
+    var cssHeight = Math.max(420, Math.floor((canvas.clientWidth || 960) * 0.62));
     canvas.width = Math.floor(cssWidth * dpr);
     canvas.height = Math.floor(cssHeight * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2219,7 +2222,9 @@
     lastRenderMeta = null;
     gapTooltipEl.classList.add("hidden");
     historyInfoEl.textContent = "جاري تحميل بيانات الجهاز المحدد...";
-    historyTableBody.innerHTML = "";
+    if (historyTableBody) {
+      historyTableBody.innerHTML = "";
+    }
     setSpectrogramLoading(true);
 
     try {
@@ -3312,7 +3317,9 @@
     } else {
       selectedDeviceTitleEl.textContent = "لا توجد أجهزة";
       historyInfoEl.textContent = "قم بإنشاء أجهزة عبر الـAPI بصلاحية مدير.";
-      historyTableBody.innerHTML = "";
+      if (historyTableBody) {
+        historyTableBody.innerHTML = "";
+      }
       sideDeviceInfoEl.textContent = "لا يوجد جهاز محدد.";
     }
   }

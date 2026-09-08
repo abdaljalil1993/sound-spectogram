@@ -152,8 +152,11 @@ select:focus-visible {
 }
 
 .global-message {
-  min-height: 20px;
-  margin: 0 0 10px;
+  min-height: 14px;
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
   color: #8a1c18;
 }
 
@@ -181,19 +184,25 @@ select:focus-visible {
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .history-header-row h2 {
-  margin: 2px 0;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+  max-width: 64%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .history-top-controls {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -327,11 +336,21 @@ select:focus-visible {
 
 .gain-slider-top {
   margin-left: 0;
-  min-width: 300px;
-  padding: 8px 10px;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fafaf7;
+  white-space: nowrap;
+}
+
+.gain-slider-top .gain-slider-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .ai-status-legend {
@@ -422,6 +441,7 @@ select:focus-visible {
 .canvas-wrapper {
   position: relative;
   width: 100%;
+  min-height: clamp(560px, 72vh, 920px);
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -471,7 +491,7 @@ select:focus-visible {
 #spectrogramCanvas {
   display: block;
   width: 100%;
-  height: auto;
+  height: clamp(560px, 72vh, 920px);
   background: #090b15;
 }
 
@@ -712,13 +732,14 @@ select:focus-visible {
 
 .control-note {
   margin-top: 0;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-size: 12px;
+  line-height: 1.3;
   color: #375a4f;
   background: #eef7f3;
   border: 1px solid #cee8de;
   border-radius: 8px;
-  padding: 8px;
+  padding: 6px 8px;
 }
 
 .control-help-list {
@@ -1850,6 +1871,14 @@ select:focus-visible {
     width: 100%;
   }
 
+  .canvas-wrapper {
+    min-height: clamp(380px, 58vh, 620px);
+  }
+
+  #spectrogramCanvas {
+    height: clamp(380px, 58vh, 620px);
+  }
+
   .right-panel {
     flex: 1 1 auto;
     max-width: none;
@@ -1887,6 +1916,11 @@ select:focus-visible {
   .history-header-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .history-header-row h2 {
+    max-width: 100%;
+    white-space: normal;
   }
 
   .history-top-controls {
