@@ -429,12 +429,6 @@
           '%</span>'
         );
       }
-
-      chips.push(
-        '<span class="statistics-insight-chip statistics-insight-chip--note">' +
-        'المقصود بالحزمة هنا: قراءة واحدة مرسلة من الجهاز (طيف + وقت + حالة + ثقة).' +
-        '</span>'
-      );
     }
 
     var downtimeMinutes = Number(report.downtime && report.downtime.totalDowntimeMinutes) || 0;
