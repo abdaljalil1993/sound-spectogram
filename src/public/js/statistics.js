@@ -420,7 +420,7 @@
     if (dominant) {
       var dominantCount = Number(dominant.count) || 0;
       chips.push('<span class="statistics-insight-chip statistics-insight-chip--status">الحالة الأغلب: ' + escapeHtml(dominant.label) + '</span>');
-      chips.push('<span class="statistics-insight-chip">' + formatNumber(dominantCount) + ' حزمة</span>');
+      chips.push('<span class="statistics-insight-chip statistics-insight-chip--count">عدد حزم البيانات ضمن الفترة: ' + formatNumber(dominantCount) + ' حزمة</span>');
 
       if (Number.isFinite(Number(dominant.avgConfidence))) {
         chips.push(
@@ -429,6 +429,12 @@
           '%</span>'
         );
       }
+
+      chips.push(
+        '<span class="statistics-insight-chip statistics-insight-chip--note">' +
+        'المقصود بالحزمة هنا: قراءة واحدة مرسلة من الجهاز (طيف + وقت + حالة + ثقة).' +
+        '</span>'
+      );
     }
 
     var downtimeMinutes = Number(report.downtime && report.downtime.totalDowntimeMinutes) || 0;

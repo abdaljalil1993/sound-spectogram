@@ -1183,6 +1183,23 @@ select:focus-visible {
   color: #115e59;
 }
 
+.statistics-insight-chip--count {
+  border-color: #d8dcf2;
+  background: #f4f6ff;
+  color: #2b3a75;
+}
+
+.statistics-insight-chip--note {
+  width: 100%;
+  border-radius: 10px;
+  border-style: dashed;
+  background: #f9fafb;
+  color: #4a5560;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+}
+
 .statistics-insight-chip--downtime {
   border-color: #f2dfbe;
   background: #fff8ea;
