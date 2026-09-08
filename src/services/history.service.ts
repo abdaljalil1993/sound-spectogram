@@ -343,6 +343,33 @@ export class HistoryService {
     return this.normalizeHistoryItemsRaw([item])[0] || null;
   }
 
+  async getLatestPackets(
+    deviceId: number,
+    count: number,
+    decodeData = false,
+    user?: AuthorizedUser
+  ): Promise<DeviceHistory[]> {
+    if (!isPositiveInteger(deviceId)) {
+      throw new HttpError(400, "device id must be a positive integer");
+    }
+
+    await this.deviceService.requireDeviceAccess(user, deviceId);
+    await this.deviceService.verifyDeviceExists(deviceId);
+
+    const items = await this.historyRepo.find({
+      where: { deviceId },
+      order: { timestamp: "DESC" },
+      take: count
+    });
+
+    const ordered = items.reverse();
+    if (decodeData) {
+      return this.decodeHistoryItems(ordered);
+    }
+
+    return this.normalizeHistoryItemsRaw(ordered);
+  }
+
   async getHistoryByDateRange(
     deviceId: number,
     from: string,

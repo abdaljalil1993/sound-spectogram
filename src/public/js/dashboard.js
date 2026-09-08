@@ -3104,12 +3104,32 @@
     return latestPacket;
   }
 
+  async function fetchLatestPacketsForDevice(deviceId, count) {
+    var latestPackets = await apiRequest(
+      "/api/devices/" + deviceId + "/history/latest-batch?count=" + encodeURIComponent(String(count))
+    );
+    if (!Array.isArray(latestPackets)) {
+      return [];
+    }
+
+    return latestPackets
+      .filter(function (packet) {
+        return packet && typeof packet === "object";
+      })
+      .map(function (packet) {
+        decodePacketMatrix(packet);
+        normalizePacketTiming(packet);
+        return packet;
+      });
+  }
+
   async function seedMultiViewPanels(deviceIds) {
     var tasks = deviceIds.map(async function (deviceId) {
       try {
-        var latestPacket = await fetchLatestPacketForDevice(deviceId);
-        if (latestPacket) {
-          renderMultiViewPacket(deviceId, latestPacket);
+        var latestPackets = await fetchLatestPacketsForDevice(deviceId, MULTI_VIEW_PANEL_BUFFER_SIZE);
+        for (var i = 0; i < latestPackets.length; i += 1) {
+          // Intentionally render in order so existing window-fit logic expands to full seeded span.
+          await Promise.resolve(renderMultiViewPacket(deviceId, latestPackets[i]));
         }
       } catch (_error) {
         // Ignore devices that do not have packets yet.
