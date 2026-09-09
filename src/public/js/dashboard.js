@@ -3442,7 +3442,7 @@
     }
 
     var status = typeof userEntry.mobileDeviceStatus === "string" ? userEntry.mobileDeviceStatus.trim().toLowerCase() : "";
-    return status === "pending" || status === "approved";
+    return status === "approved";
   }
 
   async function loadPendingDeviceRequests() {
@@ -3499,7 +3499,26 @@
           }
         });
 
+        var rejectBtn = document.createElement("button");
+        rejectBtn.type = "button";
+        rejectBtn.className = "danger-btn";
+        rejectBtn.textContent = "رفض";
+        rejectBtn.addEventListener("click", async function () {
+          if (!window.confirm("هل تريد رفض طلب جهاز الموبايل للمستخدم " + entry.username + "؟")) {
+            return;
+          }
+
+          try {
+            await apiRequest("/api/users/" + entry.id + "/reset-device", { method: "POST" });
+            await loadUsers();
+            setGlobalMessage("تم رفض طلب جهاز الموبايل", false);
+          } catch (error) {
+            setGlobalMessage(error instanceof Error ? error.message : "فشل رفض الطلب", true);
+          }
+        });
+
         actionCell.appendChild(approveBtn);
+        actionCell.appendChild(rejectBtn);
         tr.appendChild(actionCell);
         pendingDevicesTableBody.appendChild(tr);
       });
