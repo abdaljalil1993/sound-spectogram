@@ -1470,6 +1470,18 @@ select:focus-visible {
   gap: 12px;
 }
 
+.statistics-telemetry-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.statistics-subsection-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .statistics-chart-wrap {
   min-height: 220px;
   border: 1px solid #ebe7db;
@@ -2042,6 +2054,10 @@ select:focus-visible {
   .side-controls-row,
   .side-spectro-toolbar,
   .side-frequency-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .statistics-telemetry-charts-row {
     grid-template-columns: 1fr;
   }
 

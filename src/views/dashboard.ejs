@@ -125,8 +125,7 @@
               <a href="#statisticsSectionStatus">توزيع الحالات</a>
               <a href="#statisticsSectionPackets">المرسَل/المتوقع</a>
               <a href="#statisticsSectionDowntime">التوقف</a>
-              <a href="#statisticsSectionTelemetryTrend">الحرارة والبطارية</a>
-              <a href="#statisticsSectionTelemetryDetails">التفاصيل</a>
+              <a href="#statisticsSectionTelemetryTrend">الحرارة والأداء</a>
               <a href="#statisticsSectionConnectivity">انقطاع الاتصال</a>
               <a href="#statisticsSectionTimeline">الخط الزمني</a>
               <a href="#statisticsSectionHourly">الساعة</a>
@@ -221,18 +220,22 @@
               </section>
 
               <section id="statisticsSectionTelemetryTrend" class="statistics-card statistics-card-wide">
-                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2 2 0 0 0-4 0v11.26a4 4 0 1 0 4 0Z"></path><path d="M12 9v8"></path></svg></span><span>درجة الحرارة والبطارية عبر الوقت</span></h3>
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2 2 0 0 0-4 0v11.26a4 4 0 1 0 4 0Z"></path><path d="M12 9v8"></path></svg></span><span>الحرارة، البطارية، والأداء</span></h3>
                 <div class="statistics-card-body statistics-card-body-stack">
-                  <div class="statistics-chart-wrap"><canvas id="statisticsTelemetryChart" height="260"></canvas></div>
-                  <div id="statisticsTelemetryText"></div>
-                </div>
-              </section>
-
-              <section id="statisticsSectionTelemetryDetails" class="statistics-card statistics-card-wide">
-                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16"></path><path d="M7 18V9"></path><path d="M12 18v-5"></path><path d="M17 18V6"></path><path d="M6 6h12"></path></svg></span><span>تفاصيل الاتصال والأداء</span></h3>
-                <div class="statistics-card-body statistics-card-body-stack">
-                  <div class="statistics-chart-wrap"><canvas id="statisticsTelemetryPingChart" height="240"></canvas></div>
-                  <div id="statisticsTelemetryDetailsText"></div>
+                  <div class="statistics-telemetry-charts-row">
+                    <div class="statistics-chart-wrap"><canvas id="statisticsTelemetryChart" height="260"></canvas></div>
+                    <div class="statistics-chart-wrap"><canvas id="statisticsTelemetryPingChart" height="240"></canvas></div>
+                  </div>
+                  <div class="statistics-telemetry-charts-row">
+                    <div>
+                      <h4 class="statistics-subsection-title">ملخص الحرارة والبطارية</h4>
+                      <div id="statisticsTelemetryText"></div>
+                    </div>
+                    <div>
+                      <h4 class="statistics-subsection-title">ملخص الاتصال والأداء</h4>
+                      <div id="statisticsTelemetryDetailsText"></div>
+                    </div>
+                  </div>
                 </div>
               </section>
 

@@ -1107,6 +1107,26 @@
     }));
   }
 
+  function autoLoadIfDevicesReady() {
+    var devices = bridge.getDevices();
+    if (!Array.isArray(devices) || !devices.length) {
+      return false;
+    }
+
+    syncDeviceOptions(devices, bridge.getSelectedDeviceId());
+    if (!deviceSelect.value && devices[0] && devices[0].id !== undefined && devices[0].id !== null) {
+      deviceSelect.value = String(devices[0].id);
+    }
+
+    if (!deviceSelect.value) {
+      return false;
+    }
+
+    hasAutoLoaded = true;
+    loadStatistics();
+    return true;
+  }
+
   async function loadStatistics() {
     var deviceId = Number(deviceSelect.value);
     if (!Number.isFinite(deviceId) || deviceId <= 0) {
@@ -1175,8 +1195,11 @@
 
   applyLast24HoursRange();
   syncDeviceOptions(bridge.getDevices(), bridge.getSelectedDeviceId());
-  if (bridge.getDevices().length) {
-    hasAutoLoaded = true;
-    loadStatistics();
+  if (!autoLoadIfDevicesReady()) {
+    window.setTimeout(function () {
+      if (!hasAutoLoaded) {
+        autoLoadIfDevicesReady();
+      }
+    }, 300);
   }
 })();
