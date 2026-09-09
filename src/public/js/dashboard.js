@@ -285,15 +285,28 @@
         return Number(cached.id) === Number(item.id);
       }) || item;
 
+      function appendMetaLine(parent, label, value) {
+        var line = document.createElement("p");
+        line.className = "device-card-meta";
+        line.textContent = label + value;
+        parent.appendChild(line);
+      }
+
       var card = document.createElement("article");
       card.className = "device-card";
 
       var liveStatus = getLiveDeviceStatusForCard(device, index, list.length);
       card.classList.remove("device-card--online", "device-card--offline");
-      if (liveStatus && liveStatus.status) {
-        var liveStatusText = String(liveStatus.status).trim().toLowerCase();
-        card.classList.toggle("device-card--online", liveStatusText === "online");
-        card.classList.toggle("device-card--offline", liveStatusText === "offline");
+      if (liveStatus) {
+        var internetValue = typeof liveStatus.internet === "string" ? liveStatus.internet.trim().toLowerCase() : "";
+        if (internetValue) {
+          card.classList.toggle("device-card--online", internetValue === "up");
+          card.classList.toggle("device-card--offline", internetValue === "down");
+        } else if (liveStatus.status) {
+          var liveStatusText = String(liveStatus.status).trim().toLowerCase();
+          card.classList.toggle("device-card--online", liveStatusText === "online");
+          card.classList.toggle("device-card--offline", liveStatusText === "offline");
+        }
       }
 
       var title = document.createElement("h3");
@@ -320,6 +333,51 @@
         timestamp.className = "device-card-meta";
         timestamp.textContent = "آخر تحديث: " + item.latestStatusTimestamp;
         card.appendChild(timestamp);
+      }
+
+      var hasLiveTelemetry = false;
+      var liveMeta = document.createElement("div");
+
+      if (liveStatus) {
+        if (typeof liveStatus.internet === "string" && liveStatus.internet.trim()) {
+          appendMetaLine(liveMeta, "الشبكة: ", liveStatus.internet.trim().toUpperCase());
+          hasLiveTelemetry = true;
+        }
+
+        if (Number.isFinite(Number(liveStatus.battery))) {
+          appendMetaLine(liveMeta, "البطارية: ", Number(liveStatus.battery).toFixed(1) + "%");
+          hasLiveTelemetry = true;
+        }
+
+        if (Number.isFinite(Number(liveStatus.temperature))) {
+          appendMetaLine(liveMeta, "درجة الحرارة: ", Number(liveStatus.temperature).toFixed(1) + "°");
+          hasLiveTelemetry = true;
+        }
+
+        if (typeof liveStatus.uptime === "string" && liveStatus.uptime.trim()) {
+          appendMetaLine(liveMeta, "مدة التشغيل: ", liveStatus.uptime.trim());
+          hasLiveTelemetry = true;
+        }
+
+        if (Number.isFinite(Number(liveStatus.ping))) {
+          appendMetaLine(liveMeta, "زمن الاستجابة: ", Number(liveStatus.ping).toFixed(1) + " ms");
+          hasLiveTelemetry = true;
+        }
+
+        if (typeof liveStatus.interface === "string" && liveStatus.interface.trim()) {
+          appendMetaLine(liveMeta, "الواجهة: ", liveStatus.interface.trim());
+          hasLiveTelemetry = true;
+        }
+
+        if (typeof liveStatus.date === "string" && liveStatus.date.trim() && typeof liveStatus.time === "string" && liveStatus.time.trim()) {
+          appendMetaLine(liveMeta, "آخر نبضة من الجهاز: ", liveStatus.date.trim() + " " + liveStatus.time.trim());
+          hasLiveTelemetry = true;
+        }
+      }
+
+      if (hasLiveTelemetry) {
+        liveMeta.className = "device-card-live-meta";
+        card.appendChild(liveMeta);
       }
 
       if (isAdmin) {

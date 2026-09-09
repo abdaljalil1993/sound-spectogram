@@ -944,6 +944,12 @@ select:focus-visible {
   text-align: right;
 }
 
+.device-card-live-meta {
+  display: grid;
+  gap: 4px;
+  padding-top: 2px;
+}
+
 .device-card-status {
   margin: 2px 0 0;
   padding: 8px 10px;
