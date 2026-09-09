@@ -467,8 +467,14 @@
   var userSaveBtn = document.getElementById("userSaveBtn");
   var userCancelBtn = document.getElementById("userCancelBtn");
   var userFormMessage = document.getElementById("userFormMessage");
+  var openUserModalBtn = document.getElementById("openUserModalBtn");
+  var refreshUsersPanelBtn = document.getElementById("refreshUsersPanelBtn");
+  var userModal = document.getElementById("userModal");
+  var userModalTitle = document.getElementById("userModalTitle");
   var pendingDevicesTableBody = document.getElementById("pendingDevicesTableBody");
   var pendingDevicesMessage = document.getElementById("pendingDevicesMessage");
+  var deviceChangeRequestsTableBody = document.getElementById("deviceChangeRequestsTableBody");
+  var deviceChangeRequestsMessage = document.getElementById("deviceChangeRequestsMessage");
 
   var devicesCardsGrid = document.getElementById("devicesCardsGrid");
   var openDeviceModalBtn = document.getElementById("openDeviceModalBtn");
@@ -563,6 +569,14 @@
     !userSaveBtn ||
     !userCancelBtn ||
     !userFormMessage ||
+    !openUserModalBtn ||
+    !refreshUsersPanelBtn ||
+    !userModal ||
+    !userModalTitle ||
+    !pendingDevicesTableBody ||
+    !pendingDevicesMessage ||
+    !deviceChangeRequestsTableBody ||
+    !deviceChangeRequestsMessage ||
     !devicesCardsGrid ||
     !openDeviceModalBtn ||
     !deviceModal ||
@@ -3432,7 +3446,18 @@
     updateUserDeviceAssignmentVisibility();
     clearUserDeviceSelections();
     userSaveBtn.textContent = "إضافة مستخدم";
+    userModalTitle.textContent = "إضافة مستخدم";
     userFormMessage.textContent = "";
+  }
+
+  function openUserModal() {
+    userModal.classList.remove("hidden");
+    userModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeUserModal() {
+    userModal.classList.add("hidden");
+    userModal.setAttribute("aria-hidden", "true");
   }
 
   function hasResettableMobileDeviceBinding(userEntry) {
@@ -3492,7 +3517,7 @@
         approveBtn.addEventListener("click", async function () {
           try {
             await apiRequest("/api/users/" + entry.id + "/approve-device", { method: "POST" });
-            await loadUsers();
+            await loadUsersPanelData();
             setGlobalMessage("تمت الموافقة على جهاز الموبايل", false);
           } catch (error) {
             setGlobalMessage(error instanceof Error ? error.message : "فشل اعتماد الجهاز", true);
@@ -3510,7 +3535,7 @@
 
           try {
             await apiRequest("/api/users/" + entry.id + "/reset-device", { method: "POST" });
-            await loadUsers();
+            await loadUsersPanelData();
             setGlobalMessage("تم رفض طلب جهاز الموبايل", false);
           } catch (error) {
             setGlobalMessage(error instanceof Error ? error.message : "فشل رفض الطلب", true);
@@ -3527,6 +3552,91 @@
       pendingDevicesMessage.textContent = "تعذر تحميل طلبات أجهزة الموبايل.";
       setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل طلبات الأجهزة", true);
     }
+  }
+
+  async function loadDeviceChangeRequests() {
+    if (!isAdmin || !deviceChangeRequestsTableBody || !deviceChangeRequestsMessage) {
+      return;
+    }
+
+    try {
+      var changeRequests = await apiRequest("/api/users/device-change-requests");
+      deviceChangeRequestsTableBody.innerHTML = "";
+
+      if (!Array.isArray(changeRequests) || changeRequests.length === 0) {
+        deviceChangeRequestsMessage.textContent = "لا توجد طلبات تغيير جهاز حالياً.";
+        return;
+      }
+
+      deviceChangeRequestsMessage.textContent = "";
+      changeRequests.forEach(function (entry) {
+        var tr = document.createElement("tr");
+
+        var userCell = document.createElement("td");
+        userCell.textContent = (entry.name || "-") + " (" + (entry.username || "-") + ")";
+        tr.appendChild(userCell);
+
+        var currentDeviceCell = document.createElement("td");
+        currentDeviceCell.textContent = entry.mobileDeviceId || "-";
+        tr.appendChild(currentDeviceCell);
+
+        var requestedDeviceCell = document.createElement("td");
+        requestedDeviceCell.textContent = entry.mobileDeviceChangeRequestId || "-";
+        tr.appendChild(requestedDeviceCell);
+
+        var requestedAtCell = document.createElement("td");
+        requestedAtCell.textContent = entry.mobileDeviceChangeRequestedAt ? formatLocalDateTime(entry.mobileDeviceChangeRequestedAt) : "-";
+        tr.appendChild(requestedAtCell);
+
+        var actionCell = document.createElement("td");
+        actionCell.className = "action-buttons";
+
+        var approveBtn = document.createElement("button");
+        approveBtn.type = "button";
+        approveBtn.className = "ghost-btn";
+        approveBtn.textContent = "اعتماد التغيير";
+        approveBtn.addEventListener("click", async function () {
+          try {
+            await apiRequest("/api/users/" + entry.id + "/approve-device-change", { method: "POST" });
+            await loadUsersPanelData();
+            setGlobalMessage("تم اعتماد تغيير الجهاز", false);
+          } catch (error) {
+            setGlobalMessage(error instanceof Error ? error.message : "فشل اعتماد تغيير الجهاز", true);
+          }
+        });
+
+        var rejectBtn = document.createElement("button");
+        rejectBtn.type = "button";
+        rejectBtn.className = "danger-btn";
+        rejectBtn.textContent = "رفض";
+        rejectBtn.addEventListener("click", async function () {
+          try {
+            await apiRequest("/api/users/" + entry.id + "/reject-device-change", { method: "POST" });
+            await loadUsersPanelData();
+            setGlobalMessage("تم رفض طلب تغيير الجهاز", false);
+          } catch (error) {
+            setGlobalMessage(error instanceof Error ? error.message : "فشل رفض طلب تغيير الجهاز", true);
+          }
+        });
+
+        actionCell.appendChild(approveBtn);
+        actionCell.appendChild(rejectBtn);
+        tr.appendChild(actionCell);
+        deviceChangeRequestsTableBody.appendChild(tr);
+      });
+    } catch (error) {
+      deviceChangeRequestsTableBody.innerHTML = "";
+      deviceChangeRequestsMessage.textContent = "تعذر تحميل طلبات تغيير الجهاز.";
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل طلبات تغيير الجهاز", true);
+    }
+  }
+
+  async function loadUsersPanelData() {
+    if (!isAdmin) {
+      return;
+    }
+
+    await Promise.all([loadUsers(), loadPendingDeviceRequests(), loadDeviceChangeRequests()]);
   }
 
   function clearUserDeviceSelections() {
@@ -3739,7 +3849,9 @@
               });
             }
             userSaveBtn.textContent = "تحديث مستخدم";
+            userModalTitle.textContent = "تعديل المستخدم";
             userFormMessage.textContent = "تعديل المستخدم رقم " + u.id;
+            openUserModal();
           });
 
           var deleteBtn = document.createElement("button");
@@ -3752,10 +3864,11 @@
             }
             try {
               await apiRequest("/api/users/" + u.id, { method: "DELETE" });
+              closeUserModal();
               if (Number(editingUserId) === Number(u.id)) {
                 resetUserForm();
               }
-              await loadUsers();
+              await loadUsersPanelData();
               setGlobalMessage("تم حذف المستخدم بنجاح", false);
             } catch (error) {
               setGlobalMessage(error instanceof Error ? error.message : "فشل الحذف", true);
@@ -3774,7 +3887,7 @@
 
               try {
                 await apiRequest("/api/users/" + u.id + "/reset-device", { method: "POST" });
-                await loadUsers();
+                await loadUsersPanelData();
                 setGlobalMessage("تم إلغاء ربط جهاز الموبايل", false);
               } catch (error) {
                 setGlobalMessage(error instanceof Error ? error.message : "فشل إلغاء الربط", true);
@@ -3790,16 +3903,8 @@
 
         usersTableBody.appendChild(tr);
       });
-
-      await loadPendingDeviceRequests();
     } catch (error) {
       usersTableBody.innerHTML = "";
-      if (pendingDevicesTableBody) {
-        pendingDevicesTableBody.innerHTML = "";
-      }
-      if (pendingDevicesMessage) {
-        pendingDevicesMessage.textContent = "تعذر تحميل طلبات أجهزة الموبايل.";
-      }
       setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل المستخدمين", true);
     }
   }
@@ -3846,15 +3951,36 @@
         setGlobalMessage("تم إنشاء المستخدم بنجاح", false);
       }
 
+      closeUserModal();
       resetUserForm();
-      await loadUsers();
+      await loadUsersPanelData();
     } catch (error) {
       setGlobalMessage(error instanceof Error ? error.message : "فشل حفظ المستخدم", true);
     }
   });
 
   userCancelBtn.addEventListener("click", function () {
+    closeUserModal();
     resetUserForm();
+  });
+
+  openUserModalBtn.addEventListener("click", function () {
+    resetUserForm();
+    userModalTitle.textContent = "إضافة مستخدم";
+    openUserModal();
+  });
+
+  refreshUsersPanelBtn.addEventListener("click", function () {
+    loadUsersPanelData().catch(function (error) {
+      setGlobalMessage(error instanceof Error ? error.message : "تعذر تحديث بيانات المستخدمين", true);
+    });
+  });
+
+  userModal.addEventListener("click", function (event) {
+    if (event.target === userModal) {
+      closeUserModal();
+      resetUserForm();
+    }
   });
 
   userRoleInput.addEventListener("change", function () {
@@ -4769,7 +4895,7 @@
   });
 
   if (isAdmin) {
-    loadUsers().catch(function (error) {
+    loadUsersPanelData().catch(function (error) {
       setGlobalMessage(error instanceof Error ? error.message : "Failed to load users", true);
     });
   }

@@ -282,30 +282,61 @@
 
           <section id="usersPanel" class="tab-panel">
             <h2>إدارة المستخدمين</h2>
-            <form id="userForm" class="crud-form admin-only">
-              <input type="hidden" id="userId" />
-              <label for="userName">الاسم</label>
-              <input id="userName" name="name" type="text" required />
-              <label for="userUsername">اسم المستخدم</label>
-              <input id="userUsername" name="username" type="text" required />
-              <label for="userPassword">كلمة المرور</label>
-              <input id="userPassword" name="password" type="password" placeholder="مطلوبة عند الإضافة واختيارية عند التعديل" />
-              <label for="userRole">الدور</label>
-              <select id="userRole" name="role" required>
-                <option value="admin">admin</option>
-                <option value="emp">emp</option>
-              </select>
-              <div id="userDeviceAssignmentGroup" class="user-device-assignment-group hidden">
-                <label for="userDeviceIds">الأجهزة المسموحة للموظف</label>
-                <select id="userDeviceIds" name="deviceIds" multiple size="6"></select>
-                <p class="form-hint">اختر جهازًا أو أكثر، وسيشاهد الموظف هذه الأجهزة فقط.</p>
-              </div>
-              <div class="form-actions">
-                <button type="submit" id="userSaveBtn">إضافة مستخدم</button>
-                <button type="button" id="userCancelBtn">إلغاء</button>
-              </div>
-            </form>
+            <div class="device-admin-toolbar admin-only">
+              <button type="button" id="openUserModalBtn">إضافة مستخدم</button>
+              <button type="button" id="refreshUsersPanelBtn" class="ghost-btn">تحديث</button>
+            </div>
             <p id="userFormMessage" class="history-info"></p>
+
+            <div
+              id="userModal"
+              class="hidden"
+              aria-hidden="true"
+              style="position: fixed; inset: 0; z-index: 1002; background: rgba(9, 12, 18, 0.55); padding: 20px;"
+            >
+              <div class="side-card" style="max-width: 560px; margin: 0 auto; max-height: calc(100vh - 40px); overflow: auto;">
+                <h3 id="userModalTitle" style="margin-bottom: 8px;">إضافة مستخدم</h3>
+                <form id="userForm" class="crud-form admin-only">
+                  <input type="hidden" id="userId" />
+                  <label for="userName">الاسم</label>
+                  <input id="userName" name="name" type="text" required />
+                  <label for="userUsername">اسم المستخدم</label>
+                  <input id="userUsername" name="username" type="text" required />
+                  <label for="userPassword">كلمة المرور</label>
+                  <input id="userPassword" name="password" type="password" placeholder="مطلوبة عند الإضافة واختيارية عند التعديل" />
+                  <label for="userRole">الدور</label>
+                  <select id="userRole" name="role" required>
+                    <option value="admin">admin</option>
+                    <option value="emp">emp</option>
+                  </select>
+                  <div id="userDeviceAssignmentGroup" class="user-device-assignment-group hidden">
+                    <label for="userDeviceIds">الأجهزة المسموحة للموظف</label>
+                    <select id="userDeviceIds" name="deviceIds" multiple size="6"></select>
+                    <p class="form-hint">اختر جهازًا أو أكثر، وسيشاهد الموظف هذه الأجهزة فقط.</p>
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" id="userSaveBtn">إضافة مستخدم</button>
+                    <button type="button" id="userCancelBtn" class="ghost-btn">إلغاء</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>الاسم</th>
+                    <th>اسم المستخدم</th>
+                    <th>الدور</th>
+                    <th>الأجهزة المسموحة</th>
+                    <th class="admin-only">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody"></tbody>
+              </table>
+            </div>
 
             <section class="admin-only" aria-label="طلبات أجهزة الموبايل">
               <h3>طلبات أجهزة الموبايل بانتظار الموافقة</h3>
@@ -327,21 +358,24 @@
               </div>
             </section>
 
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>الاسم</th>
-                    <th>اسم المستخدم</th>
-                    <th>الدور</th>
-                    <th>الأجهزة المسموحة</th>
-                    <th class="admin-only">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody id="usersTableBody"></tbody>
-              </table>
-            </div>
+            <section class="admin-only" aria-label="طلبات تغيير الجهاز">
+              <h3>طلبات تغيير الجهاز</h3>
+              <p id="deviceChangeRequestsMessage" class="history-info">جاري تحميل الطلبات...</p>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>المستخدم</th>
+                      <th>الجهاز الحالي</th>
+                      <th>الجهاز الجديد المطلوب</th>
+                      <th>تاريخ الطلب</th>
+                      <th>إجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deviceChangeRequestsTableBody"></tbody>
+                </table>
+              </div>
+            </section>
           </section>
 
           <section id="devicesPanel" class="tab-panel">

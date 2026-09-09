@@ -38,6 +38,12 @@ export class User {
   @Column({ type: "datetime", nullable: true })
   mobileDeviceApprovedAt!: string | null;
 
+  @Column({ type: "varchar", length: 255, nullable: true })
+  mobileDeviceChangeRequestId!: string | null;
+
+  @Column({ type: "datetime", nullable: true })
+  mobileDeviceChangeRequestedAt!: string | null;
+
   @ManyToMany(() => Device, (device) => device.users, { eager: false })
   @JoinTable({
     name: "user_devices",
