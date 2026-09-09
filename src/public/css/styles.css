@@ -1768,6 +1768,74 @@ select:focus-visible {
   width: 22%;
 }
 
+#statisticsTelemetryRawTable .statistics-summary-table {
+  display: block;
+  border: 1px solid #e6decb;
+  border-radius: 10px;
+  background: #fdfbf4;
+  padding: 4px;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table thead,
+#statisticsTelemetryRawTable .statistics-summary-table tbody {
+  display: block;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table tbody {
+  max-height: 158px;
+  overflow-y: auto;
+  background: #fffefb;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table thead {
+  position: sticky;
+  top: 0;
+  background: inherit;
+  z-index: 1;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table th:nth-child(1),
+#statisticsTelemetryRawTable .statistics-summary-table td:nth-child(1),
+#statisticsTelemetryRawTable .statistics-summary-table th:nth-child(6),
+#statisticsTelemetryRawTable .statistics-summary-table td:nth-child(6),
+#statisticsTelemetryRawTable .statistics-summary-table th:nth-child(7),
+#statisticsTelemetryRawTable .statistics-summary-table td:nth-child(7) {
+  width: 16%;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table th:nth-child(2),
+#statisticsTelemetryRawTable .statistics-summary-table td:nth-child(2),
+#statisticsTelemetryRawTable .statistics-summary-table th:nth-child(3),
+#statisticsTelemetryRawTable .statistics-summary-table td:nth-child(3),
+#statisticsTelemetryRawTable .statistics-summary-table th:nth-child(4),
+#statisticsTelemetryRawTable .statistics-summary-table td:nth-child(4),
+#statisticsTelemetryRawTable .statistics-summary-table th:nth-child(5),
+#statisticsTelemetryRawTable .statistics-summary-table td:nth-child(5),
+#statisticsTelemetryRawTable .statistics-summary-table th:nth-child(8),
+#statisticsTelemetryRawTable .statistics-summary-table td:nth-child(8) {
+  width: 10.4%;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table tbody::-webkit-scrollbar {
+  width: 8px;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table tbody::-webkit-scrollbar-thumb {
+  background: #cbbd9f;
+  border-radius: 999px;
+}
+
+#statisticsTelemetryRawTable .statistics-summary-table tbody::-webkit-scrollbar-track {
+  background: #efe8d8;
+  border-radius: 999px;
+}
+
 .statistics-hourly-table-wrap {
   border: 1px solid #e6e0d3;
   border-radius: 10px;

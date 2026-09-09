@@ -126,10 +126,12 @@
               <a href="#statisticsSectionPackets">المرسَل/المتوقع</a>
               <a href="#statisticsSectionDowntime">التوقف</a>
               <a href="#statisticsSectionTelemetryTrend">الحرارة والبطارية</a>
+              <a href="#statisticsSectionTelemetryDetails">التفاصيل</a>
               <a href="#statisticsSectionConnectivity">انقطاع الاتصال</a>
               <a href="#statisticsSectionTimeline">الخط الزمني</a>
               <a href="#statisticsSectionHourly">الساعة</a>
               <a href="#statisticsSectionComparison">المقارنة</a>
+              <a href="#statisticsSectionTelemetryRaw">السجل الكامل</a>
             </nav>
 
             <div id="statisticsHeroStrip" class="statistics-hero-strip" aria-live="polite">
@@ -226,6 +228,14 @@
                 </div>
               </section>
 
+              <section id="statisticsSectionTelemetryDetails" class="statistics-card statistics-card-wide">
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16"></path><path d="M7 18V9"></path><path d="M12 18v-5"></path><path d="M17 18V6"></path><path d="M6 6h12"></path></svg></span><span>تفاصيل الاتصال والأداء</span></h3>
+                <div class="statistics-card-body statistics-card-body-stack">
+                  <div class="statistics-chart-wrap"><canvas id="statisticsTelemetryPingChart" height="240"></canvas></div>
+                  <div id="statisticsTelemetryDetailsText"></div>
+                </div>
+              </section>
+
               <section id="statisticsSectionConnectivity" class="statistics-card statistics-card-wide">
                 <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13h3"></path><path d="M13 7h3"></path><path d="M14 19h2a2 2 0 0 0 2-2v-1"></path><path d="M10 5H8a2 2 0 0 0-2 2v1"></path><path d="m3 3 18 18"></path></svg></span><span>انقطاعات الاتصال</span></h3>
                 <div class="statistics-card-body statistics-card-body-stack">
@@ -255,6 +265,13 @@
                 <div class="statistics-card-body">
                   <div class="statistics-chart-wrap"><canvas id="statisticsComparisonChart" height="260"></canvas></div>
                   <div id="statisticsComparisonText"></div>
+                </div>
+              </section>
+
+              <section id="statisticsSectionTelemetryRaw" class="statistics-card statistics-card-wide">
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path><path d="M8 6v12"></path><path d="M16 6v12"></path></svg></span><span>سجل بيانات Telemetry الكامل</span></h3>
+                <div class="statistics-card-body statistics-card-body-stack">
+                  <div id="statisticsTelemetryRawTable"></div>
                 </div>
               </section>
             </div>

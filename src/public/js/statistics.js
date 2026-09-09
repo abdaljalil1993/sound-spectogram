@@ -22,6 +22,8 @@
   var downtimeSummaryEl = document.getElementById("statisticsDowntimeSummary");
   var downtimeListEl = document.getElementById("statisticsDowntimeList");
   var telemetryTextEl = document.getElementById("statisticsTelemetryText");
+  var telemetryDetailsTextEl = document.getElementById("statisticsTelemetryDetailsText");
+  var telemetryRawTableEl = document.getElementById("statisticsTelemetryRawTable");
   var connectivitySummaryEl = document.getElementById("statisticsConnectivitySummary");
   var connectivityListEl = document.getElementById("statisticsConnectivityList");
   var timelineStripEl = document.getElementById("statisticsTimelineStrip");
@@ -31,6 +33,7 @@
   var statusChartCanvas = document.getElementById("statisticsStatusChart");
   var packetsChartCanvas = document.getElementById("statisticsPacketsChart");
   var telemetryChartCanvas = document.getElementById("statisticsTelemetryChart");
+  var telemetryPingChartCanvas = document.getElementById("statisticsTelemetryPingChart");
   var hourlyChartCanvas = document.getElementById("statisticsHourlyChart");
   var comparisonChartCanvas = document.getElementById("statisticsComparisonChart");
 
@@ -53,6 +56,8 @@
     !downtimeSummaryEl ||
     !downtimeListEl ||
     !telemetryTextEl ||
+    !telemetryDetailsTextEl ||
+    !telemetryRawTableEl ||
     !connectivitySummaryEl ||
     !connectivityListEl ||
     !timelineStripEl ||
@@ -62,6 +67,7 @@
     !(statusChartCanvas instanceof HTMLCanvasElement) ||
     !(packetsChartCanvas instanceof HTMLCanvasElement) ||
     !(telemetryChartCanvas instanceof HTMLCanvasElement) ||
+    !(telemetryPingChartCanvas instanceof HTMLCanvasElement) ||
     !(hourlyChartCanvas instanceof HTMLCanvasElement) ||
     !(comparisonChartCanvas instanceof HTMLCanvasElement)
   ) {
@@ -73,6 +79,7 @@
     status: null,
     packets: null,
     telemetry: null,
+    telemetryPing: null,
     hourly: null,
     comparison: null
   };
@@ -341,6 +348,26 @@
       max: Math.max.apply(null, values),
       avg: sum / values.length
     };
+  }
+
+  function getSampleTelemetryItems(items) {
+    return (Array.isArray(items) ? items : []).filter(function (item) {
+      return item && String(item.eventType || "sample").toLowerCase() === "sample";
+    });
+  }
+
+  function getLatestTelemetryField(items, fieldName) {
+    for (var index = items.length - 1; index >= 0; index -= 1) {
+      var item = items[index];
+      if (!item) {
+        continue;
+      }
+      var value = item[fieldName];
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+    }
+    return null;
   }
 
   function escapeHtml(value) {
@@ -691,7 +718,7 @@
   }
 
   function renderTelemetrySeries(report) {
-    var items = Array.isArray(report) ? report : [];
+    var items = getSampleTelemetryItems(report);
     var temperatureValues = items.map(function (item) {
       return toFiniteOrNull(item.temperature);
     }).filter(function (item) {
@@ -856,6 +883,57 @@
     renderTable(telemetryTextEl, ["المقياس", "الأدنى", "الأعلى", "المتوسط"], rows);
   }
 
+  function renderTelemetryDetails(report) {
+    var items = Array.isArray(report) ? report : [];
+    var pingItems = items.filter(function (item) {
+      return toFiniteOrNull(item && item.ping) !== null;
+    });
+    var pingValues = pingItems.map(function (item) {
+      return Number(item.ping);
+    });
+
+    ensureChart("telemetryPing", telemetryPingChartCanvas, {
+      type: "line",
+      data: {
+        labels: pingItems.map(function (item) { return formatShortDateTime(item.recordedAt); }),
+        datasets: [{
+          label: "Ping (ms)",
+          data: pingValues,
+          borderColor: "#0f766e",
+          backgroundColor: "rgba(15, 118, 110, 0.12)",
+          borderWidth: 3,
+          tension: 0.28,
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          spanGaps: true,
+          fill: false
+        }]
+      },
+      options: buildChartOptions({
+        interaction: {
+          mode: "index",
+          intersect: false
+        }
+      })
+    });
+
+    var pingSummary = buildMetricSummary(pingValues);
+    var latestUptime = getLatestTelemetryField(items, "uptime");
+    var latestInterface = getLatestTelemetryField(items, "interfaceName");
+    var rows = [
+      ["آخر مدة تشغيل", latestUptime || "-"],
+      ["آخر واجهة معروفة", latestInterface || "-"]
+    ];
+
+    if (pingSummary) {
+      rows.push(["أدنى Ping", formatMetricNumber(pingSummary.min) + " ms"]);
+      rows.push(["أعلى Ping", formatMetricNumber(pingSummary.max) + " ms"]);
+      rows.push(["متوسط Ping", formatMetricNumber(pingSummary.avg) + " ms"]);
+    }
+
+    renderTable(telemetryDetailsTextEl, ["المعلومة", "القيمة"], rows);
+  }
+
   function renderConnectivityOutages(report) {
     var periods = report && Array.isArray(report.periods) ? report.periods : [];
     var longest = report ? report.longestDowntimePeriod : null;
@@ -891,6 +969,27 @@
       '</div>';
 
     connectivityListEl.innerHTML = '';
+  }
+
+  function renderTelemetryRawTable(report) {
+    var items = Array.isArray(report) ? report : [];
+    if (!items.length) {
+      telemetryRawTableEl.innerHTML = '<p class="history-info">لا توجد بيانات Telemetry ضمن النطاق المحدد.</p>';
+      return;
+    }
+
+    renderTable(telemetryRawTableEl, ["الوقت", "الحرارة", "البطارية", "البنغ", "حالة الشبكة", "الواجهة", "مدة التشغيل", "نوع السجل"], items.map(function (item) {
+      return [
+        formatLocalDateTime(item.recordedAt),
+        toFiniteOrNull(item.temperature) === null ? "-" : formatMetricNumber(item.temperature) + "°",
+        toFiniteOrNull(item.battery) === null ? "-" : formatMetricNumber(item.battery) + "%",
+        toFiniteOrNull(item.ping) === null ? "-" : formatMetricNumber(item.ping) + " ms",
+        item.internet || "-",
+        item.interfaceName || "-",
+        item.uptime || "-",
+        item.eventType || "sample"
+      ];
+    }));
   }
 
   function resolveStatusVisual(aiStatus) {
@@ -1032,6 +1131,8 @@
       renderReceivedVsExpected(report.receivedVsExpected);
       renderDowntime(report.downtime);
       renderTelemetrySeries(responses[2]);
+      renderTelemetryDetails(responses[2]);
+      renderTelemetryRawTable(responses[2]);
       renderConnectivityOutages(responses[3]);
       renderTimeline(report.timelineSummary);
       renderHourlyDistribution(report.hourlyDetectionDistribution);

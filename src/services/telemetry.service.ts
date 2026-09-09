@@ -25,6 +25,10 @@ export interface TelemetrySeriesPoint {
   battery: number | null;
   temperature: number | null;
   ping: number | null;
+  uptime: string | null;
+  internet: string | null;
+  interfaceName: string | null;
+  eventType: string;
 }
 
 export interface ConnectivityOutagePeriod {
@@ -185,17 +189,30 @@ export class TelemetryService {
   async getTelemetrySeries(deviceId: number, from: string, to: string, user?: AuthorizedUser): Promise<TelemetrySeriesPoint[]> {
     const range = await this.resolveValidatedRangeForDevice(deviceId, from, to, user);
     const rows = await this.telemetryRepo.query(
-      `SELECT recordedAt, battery, temperature, ping FROM device_telemetry
-       WHERE deviceId = ? AND recordedAt BETWEEN ? AND ? AND eventType = 'sample'
+      `SELECT recordedAt, battery, temperature, ping, uptime, internet, interfaceName, eventType FROM device_telemetry
+       WHERE deviceId = ? AND recordedAt BETWEEN ? AND ?
        ORDER BY recordedAt ASC`,
       [deviceId, range.normalizedFrom, range.normalizedTo]
-    ) as Array<{ recordedAt: string; battery: string | number | null; temperature: string | number | null; ping: string | number | null }>;
+    ) as Array<{
+      recordedAt: string;
+      battery: string | number | null;
+      temperature: string | number | null;
+      ping: string | number | null;
+      uptime: string | null;
+      internet: string | null;
+      interfaceName: string | null;
+      eventType: string | null;
+    }>;
 
     return rows.map((row) => ({
       recordedAt: normalizeNaiveDateTimeString(row.recordedAt) || String(row.recordedAt),
       battery: this.toNullableNumber(row.battery),
       temperature: this.toNullableNumber(row.temperature),
-      ping: this.toNullableNumber(row.ping)
+      ping: this.toNullableNumber(row.ping),
+      uptime: this.toNullableString(row.uptime),
+      internet: this.normalizeInternet(row.internet),
+      interfaceName: this.toNullableString(row.interfaceName),
+      eventType: this.toNullableString(row.eventType) || "sample"
     }));
   }
 

@@ -188,11 +188,13 @@ async function handleIncomingDeviceData(
 export function registerDeviceSocket(io: Server): void {
   io.on("connection", (socket: Socket) => {
     console.log(`Socket connected: ${socket.id}`);
+    let isAuthenticatedSocket = false;
 
     const token = String(socket.handshake.auth?.token || "").trim();
     if (token) {
       try {
         const payload = verifyJwt(token);
+        isAuthenticatedSocket = true;
         void userRepo
           .findOne({ where: { id: payload.userId, username: payload.username, role: payload.role }, relations: { devices: true } })
           .then((user) => {
@@ -234,6 +236,14 @@ export function registerDeviceSocket(io: Server): void {
       if (typeof ack === "function") {
         ack(response);
       }
+    });
+
+    socket.on("mobile:subscribe", () => {
+      if (!isAuthenticatedSocket) {
+        return;
+      }
+
+      socket.join("mobile-clients");
     });
 
     // const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => void): Promise<void> => {
@@ -312,6 +322,7 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
       }
 
       io.to("dashboards").emit("devices_status", parsedPayload);
+  io.to("mobile-clients").emit("device_telemetry_update", parsedPayload);
       socket.emit("devices_status", parsedPayload);
 
       if (typeof ack === "function") {
