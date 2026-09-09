@@ -1363,6 +1363,15 @@
     });
   }
 
+  function resizeAllStatisticsCharts() {
+    Object.keys(chartInstances).forEach(function (key) {
+      var chart = chartInstances[key];
+      if (chart && typeof chart.resize === "function") {
+        chart.resize();
+      }
+    });
+  }
+
   function autoLoadIfDevicesReady() {
     var devices = bridge.getDevices();
     if (!Array.isArray(devices) || !devices.length) {
@@ -1449,7 +1458,21 @@
     }
   });
 
+  var statisticsPanelObserver = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      if (mutation.type === "attributes" && mutation.attributeName === "class" && statisticsPanel.classList.contains("active")) {
+        resizeAllStatisticsCharts();
+      }
+    });
+  });
+
+  statisticsPanelObserver.observe(statisticsPanel, {
+    attributes: true,
+    attributeFilter: ["class"]
+  });
+
   renderEmptyChartShells();
+  resizeAllStatisticsCharts();
   applyLast24HoursRange();
   syncDeviceOptions(bridge.getDevices(), bridge.getSelectedDeviceId());
   if (!autoLoadIfDevicesReady()) {
