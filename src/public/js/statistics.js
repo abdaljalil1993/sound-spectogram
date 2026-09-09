@@ -1107,6 +1107,262 @@
     }));
   }
 
+  function renderEmptyChartShells() {
+    ensureChart("status", statusChartCanvas, {
+      type: "doughnut",
+      plugins: [doughnutCenterTextPlugin],
+      data: {
+        labels: statusOrder.map(function (item) { return item.label; }),
+        datasets: [{
+          data: statusOrder.map(function () { return 0; }),
+          backgroundColor: statusOrder.map(function (item) { return item.color; }),
+          borderColor: "#ffffff",
+          borderWidth: 2
+        }]
+      },
+      options: buildChartOptions({
+        cutout: "62%",
+        scales: undefined,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              font: {
+                family: "Segoe UI"
+              },
+              color: "#1b1f24"
+            }
+          },
+          tooltip: {
+            backgroundColor: "#1b1f24",
+            titleColor: "#ffffff",
+            bodyColor: "#f4f4ef",
+            borderColor: "#d8d8d0",
+            borderWidth: 1,
+            padding: 10,
+            titleFont: {
+              family: "Segoe UI",
+              weight: "700"
+            },
+            bodyFont: {
+              family: "Segoe UI"
+            }
+          },
+          statisticsDoughnutCenterText: {
+            text: 0,
+            label: "الإجمالي"
+          }
+        }
+      })
+    });
+
+    ensureChart("packets", packetsChartCanvas, {
+      type: "bar",
+      data: {
+        labels: ["المستلم", "المتوقع", "المفقود"],
+        datasets: [{
+          label: "عدد الباكتات",
+          data: [0, 0, 0],
+          backgroundColor: ["#0f766e", "#2563eb", "#d13438"],
+          borderRadius: 6,
+          maxBarThickness: 44
+        }]
+      },
+      options: buildChartOptions({
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#1b1f24",
+            titleColor: "#ffffff",
+            bodyColor: "#f4f4ef",
+            borderColor: "#d8d8d0",
+            borderWidth: 1,
+            padding: 10,
+            titleFont: { family: "Segoe UI", weight: "700" },
+            bodyFont: { family: "Segoe UI" }
+          }
+        }
+      })
+    });
+
+    ensureChart("telemetry", telemetryChartCanvas, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "درجة الحرارة",
+            data: [],
+            borderColor: "#ea7a1f",
+            backgroundColor: "rgba(234, 122, 31, 0.16)",
+            borderWidth: 3,
+            tension: 0.32,
+            pointRadius: 2,
+            pointHoverRadius: 4,
+            spanGaps: true,
+            yAxisID: "yTemperature"
+          },
+          {
+            label: "البطارية",
+            data: [],
+            borderColor: "#2563eb",
+            backgroundColor: "rgba(37, 99, 235, 0.14)",
+            borderWidth: 3,
+            tension: 0.28,
+            pointRadius: 2,
+            pointHoverRadius: 4,
+            spanGaps: true,
+            yAxisID: "yBattery"
+          }
+        ]
+      },
+      options: buildChartOptions({
+        interaction: {
+          mode: "index",
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              font: {
+                family: "Segoe UI"
+              },
+              color: "#1b1f24"
+            }
+          },
+          tooltip: {
+            backgroundColor: "#1b1f24",
+            titleColor: "#ffffff",
+            bodyColor: "#f4f4ef",
+            borderColor: "#d8d8d0",
+            borderWidth: 1,
+            padding: 10,
+            titleFont: {
+              family: "Segoe UI",
+              weight: "700"
+            },
+            bodyFont: {
+              family: "Segoe UI"
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI"
+              }
+            },
+            grid: {
+              color: "rgba(216, 216, 208, 0.55)"
+            }
+          },
+          yTemperature: {
+            type: "linear",
+            position: "left",
+            ticks: {
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI"
+              }
+            },
+            title: {
+              display: true,
+              text: "الحرارة °",
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI",
+                weight: "700"
+              }
+            },
+            grid: {
+              color: "rgba(216, 216, 208, 0.55)"
+            }
+          },
+          yBattery: {
+            type: "linear",
+            position: "right",
+            min: 0,
+            max: 100,
+            ticks: {
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI"
+              }
+            },
+            title: {
+              display: true,
+              text: "البطارية %",
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI",
+                weight: "700"
+              }
+            },
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      })
+    });
+
+    ensureChart("telemetryPing", telemetryPingChartCanvas, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Ping (ms)",
+          data: [],
+          borderColor: "#0f766e",
+          backgroundColor: "rgba(15, 118, 110, 0.12)",
+          borderWidth: 3,
+          tension: 0.28,
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          spanGaps: true,
+          fill: false
+        }]
+      },
+      options: buildChartOptions({
+        interaction: {
+          mode: "index",
+          intersect: false
+        }
+      })
+    });
+
+    ensureChart("hourly", hourlyChartCanvas, {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "مرات الاكتشاف",
+          data: [],
+          backgroundColor: "#d13438",
+          borderRadius: 6,
+          maxBarThickness: 24
+        }]
+      },
+      options: buildChartOptions()
+    });
+
+    ensureChart("comparison", comparisonChartCanvas, {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [
+          { label: "مكتشف", data: [], backgroundColor: "#d13438", borderRadius: 6, maxBarThickness: 22 },
+          { label: "محتمل", data: [], backgroundColor: "#f59e0b", borderRadius: 6, maxBarThickness: 22 },
+          { label: "لا يوجد هدف", data: [], backgroundColor: "#21a366", borderRadius: 6, maxBarThickness: 22 }
+        ]
+      },
+      options: buildChartOptions()
+    });
+  }
+
   function autoLoadIfDevicesReady() {
     var devices = bridge.getDevices();
     if (!Array.isArray(devices) || !devices.length) {
@@ -1193,6 +1449,7 @@
     }
   });
 
+  renderEmptyChartShells();
   applyLast24HoursRange();
   syncDeviceOptions(bridge.getDevices(), bridge.getSelectedDeviceId());
   if (!autoLoadIfDevicesReady()) {

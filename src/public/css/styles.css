@@ -1473,7 +1473,7 @@ select:focus-visible {
 .statistics-telemetry-charts-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 24px;
 }
 
 .statistics-subsection-title {
