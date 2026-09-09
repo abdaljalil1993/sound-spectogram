@@ -6,6 +6,7 @@ import helmet from "helmet";
 import deviceRoutes from "./routes/device.routes";
 import historyRoutes from "./routes/history.routes";
 import statisticsRoutes from "./routes/statistics.routes";
+import telemetryRoutes from "./routes/telemetry.routes";
 import userRoutes from "./routes/user.routes";
 import { errorHandler, notFoundMiddleware } from "./utils/error.middleware";
 
@@ -47,6 +48,7 @@ export function createApp() {
   app.use("/api", deviceRoutes);
   app.use("/api", historyRoutes);
   app.use("/api", statisticsRoutes);
+  app.use("/api", telemetryRoutes);
 
   app.use(notFoundMiddleware);
   app.use(errorHandler);

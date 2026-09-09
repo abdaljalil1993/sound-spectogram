@@ -1,5 +1,6 @@
 import { Column, Entity, ManyToMany, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { DeviceHistory } from "./DeviceHistory";
+import { DeviceTelemetry } from "./DeviceTelemetry";
 import { User } from "./User";
 
 @Entity({ name: "devices" })
@@ -21,6 +22,9 @@ export class Device {
 
   @OneToMany(() => DeviceHistory, (history) => history.device)
   histories!: DeviceHistory[];
+
+  @OneToMany(() => DeviceTelemetry, (telemetry) => telemetry.device)
+  telemetries!: DeviceTelemetry[];
 
   @ManyToMany(() => User, (user) => user.devices)
   users!: User[];

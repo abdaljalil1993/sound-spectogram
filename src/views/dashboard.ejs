@@ -125,6 +125,8 @@
               <a href="#statisticsSectionStatus">توزيع الحالات</a>
               <a href="#statisticsSectionPackets">المرسَل/المتوقع</a>
               <a href="#statisticsSectionDowntime">التوقف</a>
+              <a href="#statisticsSectionTelemetryTrend">الحرارة والبطارية</a>
+              <a href="#statisticsSectionConnectivity">انقطاع الاتصال</a>
               <a href="#statisticsSectionTimeline">الخط الزمني</a>
               <a href="#statisticsSectionHourly">الساعة</a>
               <a href="#statisticsSectionComparison">المقارنة</a>
@@ -213,6 +215,22 @@
                 <div class="statistics-card-body statistics-card-body-stack">
                   <div id="statisticsDowntimeSummary"></div>
                   <div id="statisticsDowntimeList"></div>
+                </div>
+              </section>
+
+              <section id="statisticsSectionTelemetryTrend" class="statistics-card statistics-card-wide">
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2 2 0 0 0-4 0v11.26a4 4 0 1 0 4 0Z"></path><path d="M12 9v8"></path></svg></span><span>درجة الحرارة والبطارية عبر الوقت</span></h3>
+                <div class="statistics-card-body statistics-card-body-stack">
+                  <div class="statistics-chart-wrap"><canvas id="statisticsTelemetryChart" height="260"></canvas></div>
+                  <div id="statisticsTelemetryText"></div>
+                </div>
+              </section>
+
+              <section id="statisticsSectionConnectivity" class="statistics-card statistics-card-wide">
+                <h3 class="statistics-section-title"><span class="statistics-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13h3"></path><path d="M13 7h3"></path><path d="M14 19h2a2 2 0 0 0 2-2v-1"></path><path d="M10 5H8a2 2 0 0 0-2 2v1"></path><path d="m3 3 18 18"></path></svg></span><span>انقطاعات الاتصال</span></h3>
+                <div class="statistics-card-body statistics-card-body-stack">
+                  <div id="statisticsConnectivitySummary"></div>
+                  <div id="statisticsConnectivityList"></div>
                 </div>
               </section>
 

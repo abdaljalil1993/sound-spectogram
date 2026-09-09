@@ -21,12 +21,16 @@
   var packetsTextEl = document.getElementById("statisticsPacketsText");
   var downtimeSummaryEl = document.getElementById("statisticsDowntimeSummary");
   var downtimeListEl = document.getElementById("statisticsDowntimeList");
+  var telemetryTextEl = document.getElementById("statisticsTelemetryText");
+  var connectivitySummaryEl = document.getElementById("statisticsConnectivitySummary");
+  var connectivityListEl = document.getElementById("statisticsConnectivityList");
   var timelineStripEl = document.getElementById("statisticsTimelineStrip");
   var timelineTextEl = document.getElementById("statisticsTimelineText");
   var hourlyTextEl = document.getElementById("statisticsHourlyText");
   var comparisonTextEl = document.getElementById("statisticsComparisonText");
   var statusChartCanvas = document.getElementById("statisticsStatusChart");
   var packetsChartCanvas = document.getElementById("statisticsPacketsChart");
+  var telemetryChartCanvas = document.getElementById("statisticsTelemetryChart");
   var hourlyChartCanvas = document.getElementById("statisticsHourlyChart");
   var comparisonChartCanvas = document.getElementById("statisticsComparisonChart");
 
@@ -48,12 +52,16 @@
     !packetsTextEl ||
     !downtimeSummaryEl ||
     !downtimeListEl ||
+    !telemetryTextEl ||
+    !connectivitySummaryEl ||
+    !connectivityListEl ||
     !timelineStripEl ||
     !timelineTextEl ||
     !hourlyTextEl ||
     !comparisonTextEl ||
     !(statusChartCanvas instanceof HTMLCanvasElement) ||
     !(packetsChartCanvas instanceof HTMLCanvasElement) ||
+    !(telemetryChartCanvas instanceof HTMLCanvasElement) ||
     !(hourlyChartCanvas instanceof HTMLCanvasElement) ||
     !(comparisonChartCanvas instanceof HTMLCanvasElement)
   ) {
@@ -64,6 +72,7 @@
   var chartInstances = {
     status: null,
     packets: null,
+    telemetry: null,
     hourly: null,
     comparison: null
   };
@@ -306,6 +315,32 @@
       return "0";
     }
     return normalized.toLocaleString("en-US");
+  }
+
+  function toFiniteOrNull(value) {
+    var parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function formatMetricNumber(value) {
+    var parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return "-";
+    }
+    return parsed.toFixed(1).replace(/\.0$/, "");
+  }
+
+  function buildMetricSummary(values) {
+    if (!values.length) {
+      return null;
+    }
+
+    var sum = values.reduce(function (acc, item) { return acc + item; }, 0);
+    return {
+      min: Math.min.apply(null, values),
+      max: Math.max.apply(null, values),
+      avg: sum / values.length
+    };
   }
 
   function escapeHtml(value) {
@@ -655,6 +690,209 @@
     downtimeListEl.innerHTML = '';
   }
 
+  function renderTelemetrySeries(report) {
+    var items = Array.isArray(report) ? report : [];
+    var temperatureValues = items.map(function (item) {
+      return toFiniteOrNull(item.temperature);
+    }).filter(function (item) {
+      return item !== null;
+    });
+    var batteryValues = items.map(function (item) {
+      return toFiniteOrNull(item.battery);
+    }).filter(function (item) {
+      return item !== null;
+    });
+
+    ensureChart("telemetry", telemetryChartCanvas, {
+      type: "line",
+      data: {
+        labels: items.map(function (item) { return formatShortDateTime(item.recordedAt); }),
+        datasets: [
+          {
+            label: "درجة الحرارة",
+            data: items.map(function (item) { return toFiniteOrNull(item.temperature); }),
+            borderColor: "#ea7a1f",
+            backgroundColor: "rgba(234, 122, 31, 0.16)",
+            borderWidth: 3,
+            tension: 0.32,
+            pointRadius: 2,
+            pointHoverRadius: 4,
+            spanGaps: true,
+            yAxisID: "yTemperature"
+          },
+          {
+            label: "البطارية",
+            data: items.map(function (item) { return toFiniteOrNull(item.battery); }),
+            borderColor: "#2563eb",
+            backgroundColor: "rgba(37, 99, 235, 0.14)",
+            borderWidth: 3,
+            tension: 0.28,
+            pointRadius: 2,
+            pointHoverRadius: 4,
+            spanGaps: true,
+            yAxisID: "yBattery"
+          }
+        ]
+      },
+      options: buildChartOptions({
+        interaction: {
+          mode: "index",
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              font: {
+                family: "Segoe UI"
+              },
+              color: "#1b1f24"
+            }
+          },
+          tooltip: {
+            backgroundColor: "#1b1f24",
+            titleColor: "#ffffff",
+            bodyColor: "#f4f4ef",
+            borderColor: "#d8d8d0",
+            borderWidth: 1,
+            padding: 10,
+            titleFont: {
+              family: "Segoe UI",
+              weight: "700"
+            },
+            bodyFont: {
+              family: "Segoe UI"
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI"
+              }
+            },
+            grid: {
+              color: "rgba(216, 216, 208, 0.55)"
+            }
+          },
+          yTemperature: {
+            type: "linear",
+            position: "left",
+            ticks: {
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI"
+              }
+            },
+            title: {
+              display: true,
+              text: "الحرارة °",
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI",
+                weight: "700"
+              }
+            },
+            grid: {
+              color: "rgba(216, 216, 208, 0.55)"
+            }
+          },
+          yBattery: {
+            type: "linear",
+            position: "right",
+            min: 0,
+            max: 100,
+            ticks: {
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI"
+              }
+            },
+            title: {
+              display: true,
+              text: "البطارية %",
+              color: "#5b626a",
+              font: {
+                family: "Segoe UI",
+                weight: "700"
+              }
+            },
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      })
+    });
+
+    var rows = [];
+    var temperatureSummary = buildMetricSummary(temperatureValues);
+    if (temperatureSummary) {
+      rows.push([
+        "درجة الحرارة",
+        formatMetricNumber(temperatureSummary.min) + "°",
+        formatMetricNumber(temperatureSummary.max) + "°",
+        formatMetricNumber(temperatureSummary.avg) + "°"
+      ]);
+    }
+
+    var batterySummary = buildMetricSummary(batteryValues);
+    if (batterySummary) {
+      rows.push([
+        "البطارية",
+        formatMetricNumber(batterySummary.min) + "%",
+        formatMetricNumber(batterySummary.max) + "%",
+        formatMetricNumber(batterySummary.avg) + "%"
+      ]);
+    }
+
+    if (!rows.length) {
+      telemetryTextEl.innerHTML = '<p class="history-info">لا توجد عينات Telemetry ضمن النطاق المحدد.</p>';
+      return;
+    }
+
+    renderTable(telemetryTextEl, ["المقياس", "الأدنى", "الأعلى", "المتوسط"], rows);
+  }
+
+  function renderConnectivityOutages(report) {
+    var periods = report && Array.isArray(report.periods) ? report.periods : [];
+    var longest = report ? report.longestDowntimePeriod : null;
+    var listHtml = '';
+    if (!periods.length) {
+      listHtml = '<p class="history-info">لم يتم تسجيل انقطاعات اتصال ضمن النطاق المحدد.</p>';
+    } else {
+      listHtml = '<div class="statistics-downtime-list">' + periods.map(function (period, index) {
+        var isLongest = longest && period.startMs === longest.startMs && period.endMs === longest.endMs;
+        var rangeText = period.endTime
+          ? 'من ' + formatLocalDateTime(period.startTime) + ' إلى ' + formatLocalDateTime(period.endTime)
+          : 'من ' + formatLocalDateTime(period.startTime) + ' وما تزال مستمرة حتى نهاية النطاق';
+        return (
+          '<div class="statistics-downtime-item' + (isLongest ? ' statistics-downtime-item--longest' : '') + '">' +
+          '<div class="statistics-downtime-headline">' +
+          '<span class="statistics-downtime-title-row"><span class="statistics-downtime-title">انقطاع #' + (index + 1) + '</span>' + (isLongest ? '<span class="statistics-badge statistics-badge--danger">الأطول</span>' : '') + '</span>' +
+          '<span class="statistics-downtime-range">' + rangeText + '</span>' +
+          '</div>' +
+          '<div>المدة: ' + period.durationMinutes + ' دقيقة' + (period.endTime ? '' : ' (مفتوح)') + '</div>' +
+          '</div>'
+        );
+      }).join("") + '</div>';
+    }
+
+    connectivitySummaryEl.innerHTML =
+      '<div class="statistics-downtime-row">' +
+      '<div class="statistics-kpis statistics-kpis-inline-3 statistics-downtime-kpis">' +
+      '<div class="statistics-kpi statistics-kpi-compact"><span class="statistics-kpi-label">عدد الانقطاعات</span><span class="statistics-kpi-value statistics-kpi-value-compact">' + periods.length + '</span></div>' +
+      '<div class="statistics-kpi statistics-kpi-compact"><span class="statistics-kpi-label">إجمالي الانقطاع</span><span class="statistics-kpi-value statistics-kpi-value-compact">' + (report && report.totalDowntimeMinutes ? report.totalDowntimeMinutes : 0) + ' د</span></div>' +
+      '<div class="statistics-kpi statistics-kpi-compact"><span class="statistics-kpi-label">أطول انقطاع</span><span class="statistics-kpi-value statistics-kpi-value-compact">' + (longest ? longest.durationMinutes + ' د' : '-') + '</span></div>' +
+      '</div>' +
+      '<div class="statistics-downtime-scroll-panel">' + listHtml + '</div>' +
+      '</div>';
+
+    connectivityListEl.innerHTML = '';
+  }
+
   function resolveStatusVisual(aiStatus) {
     var normalized = aiStatus === null || aiStatus === undefined ? null : Number(aiStatus);
     if (normalized === 1) {
@@ -782,7 +1020,9 @@
       var query = buildRangeQuery();
       var responses = await Promise.all([
         bridge.apiRequest("/api/devices/" + deviceId + "/statistics?" + query),
-        bridge.apiRequest("/api/statistics/comparison?" + query)
+        bridge.apiRequest("/api/statistics/comparison?" + query),
+        bridge.apiRequest("/api/devices/" + deviceId + "/telemetry/series?" + query),
+        bridge.apiRequest("/api/devices/" + deviceId + "/telemetry/connectivity?" + query)
       ]);
 
       var report = responses[0];
@@ -791,6 +1031,8 @@
       renderStatusDistribution(report.statusDistribution);
       renderReceivedVsExpected(report.receivedVsExpected);
       renderDowntime(report.downtime);
+      renderTelemetrySeries(responses[2]);
+      renderConnectivityOutages(responses[3]);
       renderTimeline(report.timelineSummary);
       renderHourlyDistribution(report.hourlyDetectionDistribution);
       renderComparison(responses[1]);
