@@ -9,8 +9,11 @@ router.post("/auth/login", userController.login);
 
 router.get("/users", authMiddleware, requireRole(UserRole.ADMIN), userController.getUsers);
 router.post("/users", authMiddleware, requireRole(UserRole.ADMIN), userController.createUser);
+router.get("/users/pending-devices", authMiddleware, requireRole(UserRole.ADMIN), userController.getPendingDevices);
 router.get("/users/:id", authMiddleware, requireRole(UserRole.ADMIN), userController.getUserById);
 router.put("/users/:id", authMiddleware, requireRole(UserRole.ADMIN), userController.updateUser);
 router.delete("/users/:id", authMiddleware, requireRole(UserRole.ADMIN), userController.deleteUser);
+router.post("/users/:id/approve-device", authMiddleware, requireRole(UserRole.ADMIN), userController.approveDevice);
+router.post("/users/:id/reset-device", authMiddleware, requireRole(UserRole.ADMIN), userController.resetDevice);
 
 export default router;

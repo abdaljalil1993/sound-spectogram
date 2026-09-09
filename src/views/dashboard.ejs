@@ -307,6 +307,26 @@
             </form>
             <p id="userFormMessage" class="history-info"></p>
 
+            <section class="admin-only" aria-label="طلبات أجهزة الموبايل">
+              <h3>طلبات أجهزة الموبايل بانتظار الموافقة</h3>
+              <p id="pendingDevicesMessage" class="history-info">جاري تحميل الطلبات...</p>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>الاسم</th>
+                      <th>اسم المستخدم</th>
+                      <th>معرّف الجهاز</th>
+                      <th>أول ظهور</th>
+                      <th>إجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pendingDevicesTableBody"></tbody>
+                </table>
+              </div>
+            </section>
+
             <div class="table-wrap">
               <table class="data-table">
                 <thead>

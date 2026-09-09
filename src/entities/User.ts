@@ -26,6 +26,18 @@ export class User {
   @Column({ type: "varchar", length: 500, nullable: true })
   token!: string | null;
 
+  @Column({ type: "varchar", length: 255, nullable: true })
+  mobileDeviceId!: string | null;
+
+  @Column({ type: "varchar", length: 20, nullable: true })
+  mobileDeviceStatus!: string | null;
+
+  @Column({ type: "datetime", nullable: true })
+  mobileDeviceFirstSeenAt!: string | null;
+
+  @Column({ type: "datetime", nullable: true })
+  mobileDeviceApprovedAt!: string | null;
+
   @ManyToMany(() => Device, (device) => device.users, { eager: false })
   @JoinTable({
     name: "user_devices",

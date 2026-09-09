@@ -467,6 +467,8 @@
   var userSaveBtn = document.getElementById("userSaveBtn");
   var userCancelBtn = document.getElementById("userCancelBtn");
   var userFormMessage = document.getElementById("userFormMessage");
+  var pendingDevicesTableBody = document.getElementById("pendingDevicesTableBody");
+  var pendingDevicesMessage = document.getElementById("pendingDevicesMessage");
 
   var devicesCardsGrid = document.getElementById("devicesCardsGrid");
   var openDeviceModalBtn = document.getElementById("openDeviceModalBtn");
@@ -3433,6 +3435,81 @@
     userFormMessage.textContent = "";
   }
 
+  function hasResettableMobileDeviceBinding(userEntry) {
+    var mobileDeviceId = typeof userEntry.mobileDeviceId === "string" ? userEntry.mobileDeviceId.trim() : "";
+    if (!mobileDeviceId) {
+      return false;
+    }
+
+    var status = typeof userEntry.mobileDeviceStatus === "string" ? userEntry.mobileDeviceStatus.trim().toLowerCase() : "";
+    return status === "pending" || status === "approved";
+  }
+
+  async function loadPendingDeviceRequests() {
+    if (!isAdmin || !pendingDevicesTableBody || !pendingDevicesMessage) {
+      return;
+    }
+
+    try {
+      var pendingUsers = await apiRequest("/api/users/pending-devices");
+      pendingDevicesTableBody.innerHTML = "";
+
+      if (!Array.isArray(pendingUsers) || pendingUsers.length === 0) {
+        pendingDevicesMessage.textContent = "لا توجد طلبات أجهزة بانتظار الموافقة.";
+        return;
+      }
+
+      pendingDevicesMessage.textContent = "";
+      pendingUsers.forEach(function (entry) {
+        var tr = document.createElement("tr");
+
+        var idCell = document.createElement("td");
+        idCell.textContent = String(entry.id || "-");
+        tr.appendChild(idCell);
+
+        var nameCell = document.createElement("td");
+        nameCell.textContent = entry.name || "-";
+        tr.appendChild(nameCell);
+
+        var usernameCell = document.createElement("td");
+        usernameCell.textContent = entry.username || "-";
+        tr.appendChild(usernameCell);
+
+        var deviceIdCell = document.createElement("td");
+        deviceIdCell.textContent = entry.mobileDeviceId || "-";
+        tr.appendChild(deviceIdCell);
+
+        var firstSeenCell = document.createElement("td");
+        firstSeenCell.textContent = entry.mobileDeviceFirstSeenAt ? formatLocalDateTime(entry.mobileDeviceFirstSeenAt) : "-";
+        tr.appendChild(firstSeenCell);
+
+        var actionCell = document.createElement("td");
+        actionCell.className = "action-buttons";
+        var approveBtn = document.createElement("button");
+        approveBtn.type = "button";
+        approveBtn.className = "ghost-btn";
+        approveBtn.textContent = "موافقة";
+        approveBtn.addEventListener("click", async function () {
+          try {
+            await apiRequest("/api/users/" + entry.id + "/approve-device", { method: "POST" });
+            await loadUsers();
+            setGlobalMessage("تمت الموافقة على جهاز الموبايل", false);
+          } catch (error) {
+            setGlobalMessage(error instanceof Error ? error.message : "فشل اعتماد الجهاز", true);
+          }
+        });
+
+        actionCell.appendChild(approveBtn);
+        tr.appendChild(actionCell);
+        pendingDevicesTableBody.appendChild(tr);
+      });
+    } catch (error) {
+      pendingDevicesTableBody.innerHTML = "";
+      pendingDevicesMessage.textContent = "تعذر تحميل طلبات أجهزة الموبايل.";
+      setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل طلبات الأجهزة", true);
+    }
+  }
+
   function clearUserDeviceSelections() {
     if (!(userDeviceIdsInput instanceof HTMLSelectElement)) {
       return;
@@ -3666,6 +3743,27 @@
             }
           });
 
+          if (hasResettableMobileDeviceBinding(u)) {
+            var resetDeviceBtn = document.createElement("button");
+            resetDeviceBtn.type = "button";
+            resetDeviceBtn.className = "ghost-btn";
+            resetDeviceBtn.textContent = "إلغاء ربط الجهاز";
+            resetDeviceBtn.addEventListener("click", async function () {
+              if (!window.confirm("هل تريد إلغاء ربط جهاز الموبايل للمستخدم " + u.username + "؟")) {
+                return;
+              }
+
+              try {
+                await apiRequest("/api/users/" + u.id + "/reset-device", { method: "POST" });
+                await loadUsers();
+                setGlobalMessage("تم إلغاء ربط جهاز الموبايل", false);
+              } catch (error) {
+                setGlobalMessage(error instanceof Error ? error.message : "فشل إلغاء الربط", true);
+              }
+            });
+            actionTd.appendChild(resetDeviceBtn);
+          }
+
           actionTd.appendChild(editBtn);
           actionTd.appendChild(deleteBtn);
           tr.appendChild(actionTd);
@@ -3673,8 +3771,16 @@
 
         usersTableBody.appendChild(tr);
       });
+
+      await loadPendingDeviceRequests();
     } catch (error) {
       usersTableBody.innerHTML = "";
+      if (pendingDevicesTableBody) {
+        pendingDevicesTableBody.innerHTML = "";
+      }
+      if (pendingDevicesMessage) {
+        pendingDevicesMessage.textContent = "تعذر تحميل طلبات أجهزة الموبايل.";
+      }
       setGlobalMessage(error instanceof Error ? error.message : "فشل تحميل المستخدمين", true);
     }
   }
