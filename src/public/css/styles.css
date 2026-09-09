@@ -1467,6 +1467,7 @@ select:focus-visible {
 .statistics-card-body-stack {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 12px;
 }
 
