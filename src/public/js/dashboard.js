@@ -192,6 +192,20 @@
       return result;
     }
 
+    if (Array.isArray(payload.entries)) {
+      payload.entries.forEach(function (item) {
+        if (!item || typeof item !== "object") {
+          return;
+        }
+        var key = normalizeDeviceStatusKey(item.id || item.deviceId || item.name || item.deviceName || item.key);
+        if (!key) {
+          return;
+        }
+        result[key] = item;
+      });
+      return result;
+    }
+
     if (Array.isArray(payload)) {
       payload.forEach(function (item) {
         if (!item || typeof item !== "object") {

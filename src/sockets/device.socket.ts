@@ -96,6 +96,12 @@ function extractTelemetryStatusEntries(payload: unknown): TelemetryStatusEntry[]
       .filter((item): item is TelemetryStatusEntry => !!item);
   }
 
+  if (isRecord(payload) && Array.isArray(payload.entries)) {
+    return payload.entries
+      .map((item) => (isRecord(item) ? buildTelemetryStatusEntry(item) : null))
+      .filter((item): item is TelemetryStatusEntry => !!item);
+  }
+
   if (Array.isArray(payload)) {
     return payload
       .map((item) => (isRecord(item) ? buildTelemetryStatusEntry(item) : null))
