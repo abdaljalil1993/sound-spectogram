@@ -183,7 +183,7 @@
         if (!item || typeof item !== "object") {
           return;
         }
-        var key = normalizeDeviceStatusKey(item.id || item.deviceId || item.name || item.deviceName || item.key);
+        var key = normalizeDeviceStatusKey(item.device_id || item.id || item.deviceId || item.name || item.deviceName || item.key);
         if (!key) {
           return;
         }
@@ -197,7 +197,7 @@
         if (!item || typeof item !== "object") {
           return;
         }
-        var key = normalizeDeviceStatusKey(item.id || item.deviceId || item.name || item.deviceName || item.key);
+        var key = normalizeDeviceStatusKey(item.device_id || item.id || item.deviceId || item.name || item.deviceName || item.key);
         if (!key) {
           return;
         }
@@ -211,7 +211,7 @@
         if (!item || typeof item !== "object") {
           return;
         }
-        var key = normalizeDeviceStatusKey(item.id || item.deviceId || item.name || item.deviceName || item.key);
+        var key = normalizeDeviceStatusKey(item.device_id || item.id || item.deviceId || item.name || item.deviceName || item.key);
         if (!key) {
           return;
         }
