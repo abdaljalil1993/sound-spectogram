@@ -22,15 +22,34 @@ function parseOptionalFrequency(value: unknown, fieldName: string): number | nul
   return parsed;
 }
 
+function parseOptionalString(value: unknown): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new HttpError(400, "externalDeviceId must be a string when provided");
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
 export const deviceController = {
   createDevice: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { name, description } = req.body as {
         name?: string;
+        externalDeviceId?: unknown;
         description?: string;
         minFrequency?: unknown;
         maxFrequency?: unknown;
       };
+      const externalDeviceId = parseOptionalString((req.body as { externalDeviceId?: unknown }).externalDeviceId);
       const minFrequency = parseOptionalFrequency((req.body as { minFrequency?: unknown }).minFrequency, "minFrequency");
       const maxFrequency = parseOptionalFrequency((req.body as { maxFrequency?: unknown }).maxFrequency, "maxFrequency");
 
@@ -48,7 +67,7 @@ export const deviceController = {
         throw new HttpError(400, "maxFrequency must be greater than minFrequency");
       }
 
-      const device = await deviceService.createDevice({ name, description, minFrequency, maxFrequency });
+      const device = await deviceService.createDevice({ name, externalDeviceId, description, minFrequency, maxFrequency });
       res.status(201).json(device);
     } catch (error) {
       next(error);
@@ -96,10 +115,12 @@ export const deviceController = {
 
       const { name, description } = req.body as {
         name?: string;
+        externalDeviceId?: unknown;
         description?: string | null;
         minFrequency?: unknown;
         maxFrequency?: unknown;
       };
+      const externalDeviceId = parseOptionalString((req.body as { externalDeviceId?: unknown }).externalDeviceId);
       const minFrequency = parseOptionalFrequency((req.body as { minFrequency?: unknown }).minFrequency, "minFrequency");
       const maxFrequency = parseOptionalFrequency((req.body as { maxFrequency?: unknown }).maxFrequency, "maxFrequency");
 
@@ -113,7 +134,7 @@ export const deviceController = {
         throw new HttpError(400, "maxFrequency must be greater than minFrequency");
       }
 
-      const updated = await deviceService.updateDevice(id, { name, description, minFrequency, maxFrequency });
+      const updated = await deviceService.updateDevice(id, { name, externalDeviceId, description, minFrequency, maxFrequency });
       res.json(updated);
     } catch (error) {
       next(error);

@@ -9,6 +9,7 @@ import { DeviceIdentifier } from "../utils/types";
 
 interface CreateDeviceInput {
   name: string;
+  externalDeviceId?: string | null;
   description?: string;
   minFrequency?: number | null;
   maxFrequency?: number | null;
@@ -16,6 +17,7 @@ interface CreateDeviceInput {
 
 interface UpdateDeviceInput {
   name?: string;
+  externalDeviceId?: string | null;
   description?: string | null;
   minFrequency?: number | null;
   maxFrequency?: number | null;
@@ -39,6 +41,7 @@ export class DeviceService {
   async createDevice(input: CreateDeviceInput): Promise<Device> {
     const device = this.deviceRepo.create({
       name: input.name,
+      externalDeviceId: input.externalDeviceId ?? null,
       description: input.description ?? null,
       minFrequency: input.minFrequency ?? null,
       maxFrequency: input.maxFrequency ?? null
@@ -145,6 +148,10 @@ export class DeviceService {
       device.name = input.name;
     }
 
+    if (input.externalDeviceId !== undefined) {
+      device.externalDeviceId = input.externalDeviceId;
+    }
+
     if (input.description !== undefined) {
       device.description = input.description;
     }
@@ -177,6 +184,11 @@ export class DeviceService {
     const normalizedName = deviceIdentifier.trim();
     if (!normalizedName) {
       throw new HttpError(400, "deviceId string cannot be empty");
+    }
+
+    const externalMatch = await this.deviceRepo.findOne({ where: { externalDeviceId: normalizedName } });
+    if (externalMatch) {
+      return externalMatch;
     }
 
     const device = await this.deviceRepo.findOne({ where: { name: normalizedName } });

@@ -12,6 +12,9 @@ export class Device {
   name!: string;
 
   @Column({ type: "varchar", length: 255, nullable: true })
+  externalDeviceId!: string | null;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
   description!: string | null;
 
   @Column({ type: "double", nullable: true })

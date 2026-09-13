@@ -237,6 +237,9 @@
     }
 
     var candidates = [];
+    if (device.externalDeviceId) {
+      candidates.push(device.externalDeviceId);
+    }
     if (device.name) {
       candidates.push(device.name);
     }
@@ -497,6 +500,7 @@
   var deviceForm = document.getElementById("deviceForm");
   var deviceIdInput = document.getElementById("deviceId");
   var deviceNameInput = document.getElementById("deviceName");
+  var deviceExternalDeviceIdInput = document.getElementById("deviceExternalDeviceId");
   var deviceDescriptionInput = document.getElementById("deviceDescription");
   var deviceMinFrequencyInput = document.getElementById("deviceMinFrequency");
   var deviceMaxFrequencyInput = document.getElementById("deviceMaxFrequency");
@@ -598,6 +602,7 @@
     !deviceForm ||
     !deviceIdInput ||
     !deviceNameInput ||
+    !deviceExternalDeviceIdInput ||
     !deviceDescriptionInput ||
     !deviceMinFrequencyInput ||
     !deviceMaxFrequencyInput ||
@@ -3731,6 +3736,7 @@
     editingDeviceId = null;
     deviceIdInput.value = "";
     deviceNameInput.value = "";
+    deviceExternalDeviceIdInput.value = "";
     deviceDescriptionInput.value = "";
     deviceMinFrequencyInput.value = "";
     deviceMaxFrequencyInput.value = "";
@@ -3796,6 +3802,7 @@
     editingDeviceId = device.id;
     deviceIdInput.value = String(device.id);
     deviceNameInput.value = device.name;
+    deviceExternalDeviceIdInput.value = device.externalDeviceId || "";
     deviceDescriptionInput.value = device.description || "";
     deviceMinFrequencyInput.value = Number.isFinite(device.minFrequency) ? String(device.minFrequency) : "";
     deviceMaxFrequencyInput.value = Number.isFinite(device.maxFrequency) ? String(device.maxFrequency) : "";
@@ -4025,6 +4032,7 @@
 
     var payload = {
       name: deviceNameInput.value.trim(),
+      externalDeviceId: deviceExternalDeviceIdInput.value.trim() || null,
       description: deviceDescriptionInput.value.trim(),
       minFrequency: parseOptionalNumberInput(deviceMinFrequencyInput.value),
       maxFrequency: parseOptionalNumberInput(deviceMaxFrequencyInput.value)
