@@ -319,7 +319,52 @@ export function registerDeviceSocket(io: Server): void {
           ? requestedDeviceIds.filter((deviceId) => allowedDeviceIdSet.has(deviceId))
           : allowedDeviceIds;
 
-        const snapshot = await telemetryService.getLatestSamplePerDevice(deviceIds, authorizedUser);
+        const latestByDeviceId = await telemetryService.getLatestSamplePerDevice(deviceIds, authorizedUser);
+        const deviceById = new Map<number, { name: string; externalDeviceId: string | null }>();
+        allowedDevices.forEach((device) => {
+          const id = Number(device.id);
+          if (Number.isInteger(id) && id > 0) {
+            deviceById.set(id, {
+              name: device.name,
+              externalDeviceId: device.externalDeviceId ?? null
+            });
+          }
+        });
+
+        const snapshot: Record<number, {
+          deviceId: number;
+          name: string;
+          externalDeviceId: string | null;
+          battery: number | null;
+          temperature: number | null;
+          uptime: string | null;
+          internet: string | null;
+          ping: number | null;
+          interfaceName: string | null;
+          recordedAt: string | null;
+        }> = {};
+
+        deviceIds.forEach((deviceId) => {
+          const deviceMeta = deviceById.get(deviceId);
+          if (!deviceMeta) {
+            return;
+          }
+
+          const latest = latestByDeviceId[deviceId];
+          snapshot[deviceId] = {
+            deviceId,
+            name: deviceMeta.name,
+            externalDeviceId: deviceMeta.externalDeviceId,
+            battery: latest ? latest.battery : null,
+            temperature: latest ? latest.temperature : null,
+            uptime: latest ? latest.uptime : null,
+            internet: latest ? latest.internet : null,
+            ping: latest ? latest.ping : null,
+            interfaceName: latest ? latest.interfaceName : null,
+            recordedAt: latest ? latest.recordedAt : null
+          };
+        });
+
         if (typeof ack === "function") {
           ack({ ok: true, snapshot });
         }
