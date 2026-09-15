@@ -6,7 +6,7 @@ import { HistoryService } from "../services/history.service";
 import { TelemetryRecordInput, TelemetryService } from "../services/telemetry.service";
 import { HttpError } from "../utils/http-error";
 import { verifyJwt } from "../utils/jwt";
-import { AuthorizedUser, CheckAiStatusRequestPayload } from "../utils/types";
+import { AuthorizedUser, CheckAiStatusRequestPayload, DeviceDataBroadcastPayload } from "../utils/types";
 
 const historyService = new HistoryService();
 const deviceService = new DeviceService();
@@ -17,6 +17,7 @@ interface SocketAck {
   ok: boolean;
   message?: string;
   data?: unknown;
+  failedCount?: number;
 }
 
 interface TelemetryStatusEntry {
@@ -178,6 +179,21 @@ async function handleIncomingDeviceData(
   payload: unknown,
   ack?: (response: SocketAck) => void
 ): Promise<void> {
+  const result = await processSingleDevicePacket(io, payload);
+
+  if (typeof ack === "function") {
+    if (result.ok) {
+      ack({ ok: true, data: result.data });
+    } else {
+      ack({ ok: false, message: result.message });
+    }
+  }
+}
+
+async function processSingleDevicePacket(
+  io: Server,
+  payload: unknown
+): Promise<{ ok: true; data: DeviceDataBroadcastPayload } | { ok: false; message: string }> {
   try {
     const savedPayload = await historyService.saveIncomingDeviceData(payload);
     io.to("all-devices").emit("device:data", savedPayload);
@@ -185,9 +201,7 @@ async function handleIncomingDeviceData(
       io.to(`device:${savedPayload.deviceId}`).emit("device:data", savedPayload);
     }
 
-    if (typeof ack === "function") {
-      ack({ ok: true, data: savedPayload });
-    }
+    return { ok: true, data: savedPayload };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to process socket payload";
     const errorObject = error as {
@@ -227,9 +241,7 @@ async function handleIncomingDeviceData(
 
     io.to("dashboards").emit("device:error", { message });
 
-    if (typeof ack === "function") {
-      ack({ ok: false, message });
-    }
+    return { ok: false, message };
   }
 }
 
@@ -426,6 +438,34 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
       intensityType: raw.intensityType,
       confidence: raw.confidence
     });
+
+    if (Array.isArray(raw.entries)) {
+      let succeededCount = 0;
+      let failedCount = 0;
+
+      for (const entry of raw.entries) {
+        const result = await processSingleDevicePacket(io, entry);
+        if (result.ok) {
+          succeededCount += 1;
+        } else {
+          failedCount += 1;
+        }
+      }
+
+      if (typeof ack === "function") {
+        ack({
+          ok: failedCount === 0,
+          message: `processed ${succeededCount}/${raw.entries.length} entries`,
+          failedCount,
+          data: {
+            totalCount: raw.entries.length,
+            succeededCount,
+            failedCount
+          }
+        });
+      }
+      return;
+    }
 
     await handleIncomingDeviceData(io, data, ack);
 };
