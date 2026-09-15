@@ -216,6 +216,61 @@ export class TelemetryService {
     }));
   }
 
+  async getLatestSamplePerDevice(deviceIds: number[], user?: AuthorizedUser): Promise<Record<number, TelemetrySeriesPoint>> {
+    const normalizedDeviceIds = Array.from(
+      new Set(
+        (Array.isArray(deviceIds) ? deviceIds : [])
+          .map((deviceId) => Number(deviceId))
+          .filter((deviceId) => isPositiveInteger(deviceId))
+      )
+    );
+
+    if (!normalizedDeviceIds.length) {
+      return {};
+    }
+
+    const samplesByDeviceId: Record<number, TelemetrySeriesPoint> = {};
+    for (const deviceId of normalizedDeviceIds) {
+      await this.deviceService.requireDeviceAccess(user, deviceId);
+
+      const rows = await this.telemetryRepo.query(
+        `SELECT recordedAt, battery, temperature, ping, uptime, internet, interfaceName, eventType
+         FROM device_telemetry
+         WHERE deviceId = ?
+         ORDER BY recordedAt DESC
+         LIMIT 1`,
+        [deviceId]
+      ) as Array<{
+        recordedAt: string;
+        battery: string | number | null;
+        temperature: string | number | null;
+        ping: string | number | null;
+        uptime: string | null;
+        internet: string | null;
+        interfaceName: string | null;
+        eventType: string | null;
+      }>;
+
+      const latest = rows[0];
+      if (!latest) {
+        continue;
+      }
+
+      samplesByDeviceId[deviceId] = {
+        recordedAt: normalizeNaiveDateTimeString(latest.recordedAt) || String(latest.recordedAt),
+        battery: this.toNullableNumber(latest.battery),
+        temperature: this.toNullableNumber(latest.temperature),
+        ping: this.toNullableNumber(latest.ping),
+        uptime: this.toNullableString(latest.uptime),
+        internet: this.normalizeInternet(latest.internet),
+        interfaceName: this.toNullableString(latest.interfaceName),
+        eventType: this.toNullableString(latest.eventType) || "sample"
+      };
+    }
+
+    return samplesByDeviceId;
+  }
+
   async getConnectivityEvents(deviceId: number, from: string, to: string, user?: AuthorizedUser): Promise<ConnectivityOutageReport> {
     const range = await this.resolveValidatedRangeForDevice(deviceId, from, to, user);
     const rows = await this.telemetryRepo.query(

@@ -144,11 +144,219 @@
     }
 
     liveDeviceStatusMap = readStoredLiveDeviceStatus();
+    var seededFromSnapshot = seedLiveDeviceStatusFromSnapshot(devicesStatusCache);
+    if (seededFromSnapshot) {
+      saveStoredLiveDeviceStatus(liveDeviceStatusMap);
+    }
     renderDevicesCards(devicesStatusCache);
   }
 
   function normalizeDeviceStatusKey(value) {
     return String(value || "").trim().toLowerCase();
+  }
+
+  function getDeviceStatusCandidates(device) {
+    if (!device || typeof device !== "object") {
+      return [];
+    }
+
+    var candidates = [];
+    if (device.device_id) {
+      candidates.push(device.device_id);
+    }
+    if (device.externalDeviceId) {
+      candidates.push(device.externalDeviceId);
+    }
+    if (device.name) {
+      candidates.push(device.name);
+    }
+    if (device.id) {
+      candidates.push(String(device.id));
+    }
+    if (device.key) {
+      candidates.push(device.key);
+    }
+    if (device.deviceKey) {
+      candidates.push(device.deviceKey);
+    }
+    if (device.identifier) {
+      candidates.push(device.identifier);
+    }
+    if (device.serial) {
+      candidates.push(device.serial);
+    }
+
+    return candidates;
+  }
+
+  function findLiveStatusInMapByCandidates(statusMap, candidates) {
+    if (!statusMap || typeof statusMap !== "object") {
+      return null;
+    }
+
+    var safeCandidates = Array.isArray(candidates) ? candidates : [];
+    for (var i = 0; i < safeCandidates.length; i += 1) {
+      var candidateKey = normalizeDeviceStatusKey(safeCandidates[i]);
+      if (candidateKey && statusMap[candidateKey]) {
+        return {
+          key: candidateKey,
+          value: statusMap[candidateKey]
+        };
+      }
+    }
+
+    var mapKeys = Object.keys(statusMap);
+    for (var j = 0; j < mapKeys.length; j += 1) {
+      var normalizedMapKey = normalizeDeviceStatusKey(mapKeys[j]);
+      var matched = safeCandidates.some(function (candidate) {
+        var normalizedCandidate = normalizeDeviceStatusKey(candidate);
+        return (
+          normalizedCandidate &&
+          (normalizedCandidate === normalizedMapKey ||
+            normalizedMapKey.indexOf(normalizedCandidate) !== -1 ||
+            normalizedCandidate.indexOf(normalizedMapKey) !== -1)
+        );
+      });
+
+      if (matched) {
+        return {
+          key: mapKeys[j],
+          value: statusMap[mapKeys[j]]
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function getLiveStatusTimestampMs(entry) {
+    if (!entry || typeof entry !== "object") {
+      return NaN;
+    }
+
+    var recordedAt = normalizeAnyDateTimeString(entry.recordedAt || entry.timestamp || "");
+    if (recordedAt) {
+      var recordedAtMs = parseFlexibleTimeMs(recordedAt);
+      if (Number.isFinite(recordedAtMs)) {
+        return recordedAtMs;
+      }
+    }
+
+    var date = typeof entry.date === "string" ? entry.date.trim() : "";
+    var time = typeof entry.time === "string" ? entry.time.trim() : "";
+    if (date && time) {
+      return parseFlexibleTimeMs(date + "T" + time);
+    }
+
+    return NaN;
+  }
+
+  function buildLiveStatusFromDeviceSnapshot(item) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+
+    var deviceKey = item.device_id || item.externalDeviceId || item.name || item.id;
+    if (!deviceKey) {
+      return null;
+    }
+
+    var hasTelemetryFields =
+      item.recordedAt ||
+      item.date ||
+      item.time ||
+      item.battery !== undefined ||
+      item.temperature !== undefined ||
+      item.uptime !== undefined ||
+      item.internet !== undefined ||
+      item.ping !== undefined ||
+      item.interface !== undefined;
+
+    if (!hasTelemetryFields) {
+      return null;
+    }
+
+    var normalizedRecordedAt = normalizeAnyDateTimeString(item.recordedAt || "");
+    if (!normalizedRecordedAt) {
+      var date = typeof item.date === "string" ? item.date.trim() : "";
+      var time = typeof item.time === "string" ? item.time.trim() : "";
+      if (date && time) {
+        normalizedRecordedAt = normalizeAnyDateTimeString(date + "T" + time);
+      }
+    }
+
+    var datePart = null;
+    var timePart = null;
+    if (normalizedRecordedAt) {
+      var matched = normalizedRecordedAt.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})$/);
+      if (matched) {
+        datePart = matched[1];
+        timePart = matched[2];
+      }
+    }
+
+    return {
+      device_id: String(deviceKey),
+      battery: item.battery,
+      temperature: item.temperature,
+      uptime: item.uptime,
+      internet: item.internet,
+      ping: item.ping,
+      interface: item.interface,
+      recordedAt: normalizedRecordedAt || null,
+      date: datePart || (typeof item.date === "string" && item.date.trim() ? item.date.trim() : null),
+      time: timePart || (typeof item.time === "string" && item.time.trim() ? item.time.trim() : null)
+    };
+  }
+
+  function seedLiveDeviceStatusFromSnapshot(devicesWithStatus) {
+    if (!Array.isArray(devicesWithStatus) || devicesWithStatus.length === 0) {
+      return false;
+    }
+
+    var mapUpdated = false;
+    var nextMap = Object.assign({}, liveDeviceStatusMap || {});
+
+    devicesWithStatus.forEach(function (item) {
+      var snapshotStatus = buildLiveStatusFromDeviceSnapshot(item);
+      if (!snapshotStatus) {
+        return;
+      }
+
+      var candidates = getDeviceStatusCandidates(item);
+      candidates.unshift(snapshotStatus.device_id);
+
+      var matchedEntry = findLiveStatusInMapByCandidates(nextMap, candidates);
+      if (!matchedEntry) {
+        var snapshotKey = normalizeDeviceStatusKey(snapshotStatus.device_id);
+        if (snapshotKey) {
+          nextMap[snapshotKey] = snapshotStatus;
+          mapUpdated = true;
+        }
+        return;
+      }
+
+      var existingTimeMs = getLiveStatusTimestampMs(matchedEntry.value);
+      var snapshotTimeMs = getLiveStatusTimestampMs(snapshotStatus);
+      var shouldReplace = false;
+
+      if (!Number.isFinite(existingTimeMs)) {
+        shouldReplace = Number.isFinite(snapshotTimeMs);
+      } else if (Number.isFinite(snapshotTimeMs) && snapshotTimeMs > existingTimeMs) {
+        shouldReplace = true;
+      }
+
+      if (shouldReplace) {
+        nextMap[matchedEntry.key] = snapshotStatus;
+        mapUpdated = true;
+      }
+    });
+
+    if (mapUpdated) {
+      liveDeviceStatusMap = nextMap;
+    }
+
+    return mapUpdated;
   }
 
   function readStoredLiveDeviceStatus() {
@@ -236,49 +444,8 @@
       return null;
     }
 
-    var candidates = [];
-    if (device.externalDeviceId) {
-      candidates.push(device.externalDeviceId);
-    }
-    if (device.name) {
-      candidates.push(device.name);
-    }
-    if (device.id) {
-      candidates.push(String(device.id));
-    }
-    if (device.key) {
-      candidates.push(device.key);
-    }
-    if (device.deviceKey) {
-      candidates.push(device.deviceKey);
-    }
-    if (device.identifier) {
-      candidates.push(device.identifier);
-    }
-    if (device.serial) {
-      candidates.push(device.serial);
-    }
-
-    for (var i = 0; i < candidates.length; i += 1) {
-      var candidate = normalizeDeviceStatusKey(candidates[i]);
-      if (candidate && liveDeviceStatusMap[candidate]) {
-        return liveDeviceStatusMap[candidate];
-      }
-    }
-
-    var keys = Object.keys(liveDeviceStatusMap);
-    for (var j = 0; j < keys.length; j += 1) {
-      var entryKey = normalizeDeviceStatusKey(keys[j]);
-      var matchFound = candidates.some(function (candidate) {
-        var normalizedCandidate = normalizeDeviceStatusKey(candidate);
-        return normalizedCandidate && (normalizedCandidate === entryKey || entryKey.indexOf(normalizedCandidate) !== -1 || normalizedCandidate.indexOf(entryKey) !== -1);
-      });
-      if (matchFound) {
-        return liveDeviceStatusMap[keys[j]];
-      }
-    }
-
-    return null;
+    var matchedEntry = findLiveStatusInMapByCandidates(liveDeviceStatusMap, getDeviceStatusCandidates(device));
+    return matchedEntry ? matchedEntry.value : null;
   }
 
   function renderDevicesCards(devicesWithStatus) {
