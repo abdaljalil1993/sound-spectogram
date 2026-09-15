@@ -219,6 +219,10 @@ select:focus-visible {
   transition: flex-basis 0.22s ease, padding 0.22s ease;
 }
 
+.right-panel--hidden {
+  display: none;
+}
+
 .right-panel-toggle {
   width: 100%;
   min-height: 38px;

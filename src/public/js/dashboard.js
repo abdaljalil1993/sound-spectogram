@@ -98,7 +98,7 @@
   var globalMessageEl = document.getElementById("globalMessage");
   var userBadgeEl = document.getElementById("userBadge");
   var socketStatusBadgeEl = document.getElementById("socketStatusBadge");
-  var rightPanelEl = document.getElementById("rightPanel");
+  var rightPanel = document.getElementById("rightPanel");
   var toggleRightPanelBtn = document.getElementById("toggleRightPanelBtn");
 
   var deviceListEl = document.getElementById("deviceList");
@@ -687,7 +687,7 @@
     !globalMessageEl ||
     !userBadgeEl ||
     !socketStatusBadgeEl ||
-    !rightPanelEl ||
+    !rightPanel ||
     !toggleRightPanelBtn ||
     !deviceListEl ||
     !multiViewBtn ||
@@ -806,7 +806,7 @@
   }
 
   function setRightPanelCollapsed(collapsed) {
-    rightPanelEl.classList.toggle("collapsed", !!collapsed);
+    rightPanel.classList.toggle("collapsed", !!collapsed);
     toggleRightPanelBtn.textContent = collapsed ? "فتح القائمة" : "إغلاق القائمة";
     toggleRightPanelBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
   }
@@ -1578,6 +1578,7 @@
     statisticsPanel.classList.toggle("active", tabName === "statistics");
     usersPanel.classList.toggle("active", tabName === "users");
     devicesPanel.classList.toggle("active", tabName === "devices");
+    rightPanel.classList.toggle("right-panel--hidden", tabName !== "history");
     setGlobalMessage("", false);
   }
 
@@ -5104,7 +5105,7 @@
   }
 
   toggleRightPanelBtn.addEventListener("click", function () {
-    var willCollapse = !rightPanelEl.classList.contains("collapsed");
+    var willCollapse = !rightPanel.classList.contains("collapsed");
     setRightPanelCollapsed(willCollapse);
     scheduleRender({ skipTable: false });
     window.setTimeout(function () {
