@@ -205,6 +205,16 @@ async function handleIncomingDeviceData(
       sqlMessage: errorObject?.sqlMessage
     });
 
+    console.error("Raw payload that failed deviceId validation", {
+      topLevelKeys: payload && typeof payload === "object" ? Object.keys(payload as object) : typeof payload,
+      deviceId: (payload as any)?.deviceId,
+      device_id: (payload as any)?.device_id,
+      nestedDataKeys:
+        (payload as any)?.data && typeof (payload as any).data === "object"
+          ? Object.keys((payload as any).data)
+          : undefined
+    });
+
     try {
       const livePayload = await historyService.buildBroadcastPayload(payload);
       io.to("all-devices").emit("device:data", livePayload);
