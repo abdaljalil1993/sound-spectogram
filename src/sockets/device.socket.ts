@@ -6,7 +6,7 @@ import { HistoryService } from "../services/history.service";
 import { TelemetryRecordInput, TelemetryService } from "../services/telemetry.service";
 import { HttpError } from "../utils/http-error";
 import { verifyJwt } from "../utils/jwt";
-import { CheckAiStatusRequestPayload } from "../utils/types";
+import { AuthorizedUser, CheckAiStatusRequestPayload } from "../utils/types";
 
 const historyService = new HistoryService();
 const deviceService = new DeviceService();
@@ -22,6 +22,11 @@ interface SocketAck {
 interface TelemetryStatusEntry {
   deviceIdentifier: number | string;
   telemetry: TelemetryRecordInput;
+}
+
+interface DeviceSocketData {
+  user?: User;
+  userLookup?: Promise<User | null>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -141,6 +146,33 @@ function extractAiStatusRange(payload: unknown): { startTime: string; endTime: s
   return { startTime, endTime };
 }
 
+function toAuthorizedUser(user: User): AuthorizedUser {
+  return {
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    allowedDeviceIds: Array.isArray(user.devices)
+      ? user.devices
+          .map((device) => Number(device.id))
+          .filter((deviceId) => Number.isInteger(deviceId) && deviceId > 0)
+      : []
+  };
+}
+
+function parseRequestedDeviceIds(payload: unknown): number[] | undefined {
+  if (!isRecord(payload) || !Array.isArray(payload.deviceIds)) {
+    return undefined;
+  }
+
+  return Array.from(
+    new Set(
+      payload.deviceIds
+        .map((deviceId) => Number(deviceId))
+        .filter((deviceId) => Number.isInteger(deviceId) && deviceId > 0)
+    )
+  );
+}
+
 async function handleIncomingDeviceData(
   io: Server,
   payload: unknown,
@@ -201,11 +233,12 @@ export function registerDeviceSocket(io: Server): void {
       try {
         const payload = verifyJwt(token);
         isAuthenticatedSocket = true;
-        void userRepo
+        const userLookup = userRepo
           .findOne({ where: { id: payload.userId, username: payload.username, role: payload.role }, relations: { devices: true } })
           .then((user) => {
+            (socket.data as DeviceSocketData).user = user || undefined;
             if (!user) {
-              return;
+              return null;
             }
 
             socket.join("dashboards");
@@ -216,10 +249,16 @@ export function registerDeviceSocket(io: Server): void {
             } else {
               socket.join("all-devices");
             }
+
+            return user;
           })
           .catch((error) => {
             console.error("Failed to join socket rooms", error);
+            (socket.data as DeviceSocketData).user = undefined;
+            return null;
           });
+
+        (socket.data as DeviceSocketData).userLookup = userLookup;
       } catch (_error) {
         socket.disconnect(true);
         return;
@@ -250,6 +289,46 @@ export function registerDeviceSocket(io: Server): void {
       }
 
       socket.join("mobile-clients");
+    });
+
+    socket.on("mobile:request_latest_telemetry", async (payload: unknown, ack?: (response: unknown) => void) => {
+      if (!isAuthenticatedSocket) {
+        if (typeof ack === "function") {
+          ack({ ok: false, error: "not authenticated" });
+        }
+        return;
+      }
+
+      try {
+        const socketData = socket.data as DeviceSocketData;
+        const user = socketData.user || (socketData.userLookup ? await socketData.userLookup : null);
+        if (!user) {
+          if (typeof ack === "function") {
+            ack({ ok: false, error: "user not resolved" });
+          }
+          return;
+        }
+
+        const authorizedUser = toAuthorizedUser(user);
+        const allowedDevices = await deviceService.getDevicesForUser(authorizedUser);
+        const allowedDeviceIds = allowedDevices.map((device) => Number(device.id)).filter((deviceId) => Number.isInteger(deviceId) && deviceId > 0);
+        const allowedDeviceIdSet = new Set<number>(allowedDeviceIds);
+
+        const requestedDeviceIds = parseRequestedDeviceIds(payload);
+        const deviceIds = Array.isArray(requestedDeviceIds)
+          ? requestedDeviceIds.filter((deviceId) => allowedDeviceIdSet.has(deviceId))
+          : allowedDeviceIds;
+
+        const snapshot = await telemetryService.getLatestSamplePerDevice(deviceIds, authorizedUser);
+        if (typeof ack === "function") {
+          ack({ ok: true, snapshot });
+        }
+      } catch (error) {
+        console.error("Failed to fetch latest telemetry snapshot for mobile", error);
+        if (typeof ack === "function") {
+          ack({ ok: false, error: "internal error" });
+        }
+      }
     });
 
     // const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => void): Promise<void> => {
