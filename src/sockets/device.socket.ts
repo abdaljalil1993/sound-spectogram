@@ -174,6 +174,36 @@ function parseRequestedDeviceIds(payload: unknown): number[] | undefined {
   );
 }
 
+function isMisroutedTelemetryPayload(raw: Record<string, unknown>): boolean {
+  const hasDeviceIdentifier = raw.device_id !== undefined || raw.deviceId !== undefined;
+  const hasStartTime = raw.start_time !== undefined || raw.startTime !== undefined;
+  const hasEndTime = raw.end_time !== undefined || raw.endTime !== undefined;
+
+  return hasDeviceIdentifier && !hasStartTime && !hasEndTime;
+}
+
+async function routeMisroutedTelemetryPayload(payload: unknown): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (!isRecord(payload)) {
+    return { ok: false, message: "misrouted telemetry payload must be an object" };
+  }
+
+  const entry = buildTelemetryStatusEntry(payload);
+  if (!entry) {
+    return { ok: false, message: "misrouted telemetry payload is missing a valid device identifier" };
+  }
+
+  try {
+    const device = await deviceService.resolveDeviceIdentifier(entry.deviceIdentifier);
+    await telemetryService.recordIfNeeded(device.id, entry.telemetry);
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Failed to record misrouted telemetry payload"
+    };
+  }
+}
+
 async function handleIncomingDeviceData(
   io: Server,
   payload: unknown,
@@ -439,11 +469,45 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
       confidence: raw.confidence
     });
 
+    if (isMisroutedTelemetryPayload(raw)) {
+      const result = await routeMisroutedTelemetryPayload(raw);
+      if (result.ok) {
+        if (typeof ack === "function") {
+          ack({ ok: true, message: "routed to telemetry" });
+        }
+      } else {
+        console.warn("Failed to route misrouted telemetry payload from send_data", {
+          message: result.message,
+          deviceId: raw.deviceId,
+          device_id: raw.device_id
+        });
+        if (typeof ack === "function") {
+          ack({ ok: false, message: result.message });
+        }
+      }
+      return;
+    }
+
     if (Array.isArray(raw.entries)) {
       let succeededCount = 0;
       let failedCount = 0;
 
       for (const entry of raw.entries) {
+        if (isRecord(entry) && isMisroutedTelemetryPayload(entry)) {
+          const telemetryResult = await routeMisroutedTelemetryPayload(entry);
+          if (telemetryResult.ok) {
+            succeededCount += 1;
+          } else {
+            failedCount += 1;
+            console.warn("Failed to route misrouted telemetry batch entry from send_data", {
+              message: telemetryResult.message,
+              deviceId: entry.deviceId,
+              device_id: entry.device_id
+            });
+          }
+          continue;
+        }
+
         const result = await processSingleDevicePacket(io, entry);
         if (result.ok) {
           succeededCount += 1;
