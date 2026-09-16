@@ -1931,6 +1931,120 @@ select:focus-visible {
 #statisticsPanel.statistics-panel-animated .statistics-grid > .statistics-card:nth-child(5) { animation-delay: 240ms; }
 #statisticsPanel.statistics-panel-animated .statistics-grid > .statistics-card:nth-child(6) { animation-delay: 280ms; }
 
+@media print {
+  body {
+    background: #fff !important;
+  }
+
+  header.topbar,
+  .top-nav,
+  .tab-btn,
+  #socketStatusBadge,
+  #userBadge,
+  #logoutBtn,
+  .right-panel,
+  .side-card,
+  .sidebar,
+  aside,
+  .dashboard-layout > :not(.left-panel),
+  .left-panel > :not(#statisticsPanel),
+  #statisticsPanel > :not(#statisticsHeroStrip):not(.statistics-grid),
+  #statisticsPanel .statistics-controls-card,
+  #statisticsPanel .statistics-jump-nav {
+    display: none !important;
+  }
+
+  .main-content,
+  .dashboard-layout,
+  .left-panel,
+  #statisticsPanel {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  #statisticsPanel {
+    color: #111 !important;
+    background: #fff !important;
+  }
+
+  #statisticsHeroStrip {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .statistics-hero-card {
+    background: #fff !important;
+    border: 1px solid #9aa0a6 !important;
+    box-shadow: none !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .statistics-hero-card--teal,
+  .statistics-hero-card--green,
+  .statistics-hero-card--red,
+  .statistics-hero-card--status,
+  .statistics-hero-card--status.statistics-hero-card--online,
+  .statistics-hero-card--status.statistics-hero-card--offline {
+    background: #fff !important;
+    border-color: #9aa0a6 !important;
+  }
+
+  .statistics-hero-card .statistics-hero-value,
+  .statistics-hero-card .statistics-hero-label,
+  .statistics-hero-icon {
+    color: #111 !important;
+    opacity: 1 !important;
+  }
+
+  .statistics-grid {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .statistics-card {
+    background: #fff !important;
+    border: 1px solid #b7b7b7 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .statistics-chart-wrap {
+    background: #fff !important;
+    border-color: #c7c7c7 !important;
+  }
+
+  #statisticsTelemetryRawTable .statistics-summary-table tbody {
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+
+  #statisticsTelemetryRawTable .statistics-summary-table thead,
+  #statisticsTelemetryRawTable .statistics-summary-table thead *,
+  #statisticsTelemetryRawTable .statistics-summary-table tbody,
+  #statisticsTelemetryRawTable .statistics-summary-table tbody * {
+    position: static !important;
+  }
+
+  #statisticsTelemetryRawTable .statistics-summary-table thead {
+    position: static !important;
+  }
+
+  .statistics-summary-table thead {
+    position: static !important;
+  }
+}
+
 @media (max-width: 1100px) {
   .statistics-range-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
