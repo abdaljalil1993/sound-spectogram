@@ -287,7 +287,7 @@ export function registerDeviceSocket(io: Server): void {
       try {
         const payload = verifyJwt(token);
         isAuthenticatedSocket = true;
-             
+           //   console.log("tokennnnnnnnn ",token);
         const userLookup = userRepo
           .findOne({ where: { id: payload.userId, username: payload.username, role: payload.role }, relations: { devices: true } })
           .then((user) => {

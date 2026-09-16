@@ -448,44 +448,65 @@
     return matchedEntry ? matchedEntry.value : null;
   }
 
-  function computeDeviceHealthScore(liveStatus) {
+  function computeDeviceHealthScore(liveStatus, latestStatusTimestamp) {
     if (!liveStatus || typeof liveStatus !== "object" || !Object.prototype.hasOwnProperty.call(liveStatus, "internet")) {
       return null;
     }
 
-    var score = 0;
     var internet = typeof liveStatus.internet === "string" ? liveStatus.internet.trim().toUpperCase() : "";
 
-    if (internet === "UP") {
-      score += 50;
-    }
+    var connectivityPoints = internet === "UP" ? 30 : 0;
 
+    var pingPoints = 0;
     if (internet === "UP" && Number.isFinite(Number(liveStatus.ping))) {
       var pingValue = Number(liveStatus.ping);
       if (pingValue < 100) {
-        score += 30;
+        pingPoints = 20;
       } else if (pingValue < 300) {
-        score += 20;
+        pingPoints = 13;
       } else if (pingValue < 600) {
-        score += 10;
+        pingPoints = 7;
       }
     }
 
+    var telemetryRecencyPoints = 0;
     var date = typeof liveStatus.date === "string" ? liveStatus.date.trim() : "";
     var time = typeof liveStatus.time === "string" ? liveStatus.time.trim() : "";
     if (date && time) {
-      var recencyMs = parseFlexibleTimeMs(date + "T" + time);
+      var recencyMs = parseFlexibleTimeMs(date + " " + time);
       if (Number.isFinite(recencyMs)) {
         var ageMs = Date.now() - recencyMs;
         if (ageMs <= 5 * 60 * 1000) {
-          score += 20;
+          telemetryRecencyPoints = 20;
         } else if (ageMs <= 30 * 60 * 1000) {
-          score += 10;
+          telemetryRecencyPoints = 10;
         }
       }
     }
 
-    return Math.max(0, Math.min(100, score));
+    var detectionRecencyPoints = 0;
+    var detectionTimestamp = typeof latestStatusTimestamp === "string" ? latestStatusTimestamp.trim() : "";
+    if (detectionTimestamp) {
+      var detectionMs = parseFlexibleTimeMs(detectionTimestamp);
+      if (Number.isFinite(detectionMs)) {
+        var detectionAgeMs = Date.now() - detectionMs;
+        if (detectionAgeMs <= 10 * 60 * 1000) {
+          detectionRecencyPoints = 30;
+        } else if (detectionAgeMs <= 60 * 60 * 1000) {
+          detectionRecencyPoints = 20;
+        } else if (detectionAgeMs <= 6 * 60 * 60 * 1000) {
+          detectionRecencyPoints = 10;
+        }
+      }
+    }
+
+    var score = Math.max(0, Math.min(100, connectivityPoints + pingPoints + telemetryRecencyPoints + detectionRecencyPoints));
+    var breakdown = "الاتصال: " + connectivityPoints + "/30 | الاستجابة: " + pingPoints + "/20 | حداثة القراءات: " + telemetryRecencyPoints + "/20 | حداثة الاكتشاف: " + detectionRecencyPoints + "/30";
+
+    return {
+      score: score,
+      breakdown: breakdown
+    };
   }
 
   function renderDevicesCards(devicesWithStatus) {
@@ -548,23 +569,29 @@
 
       var healthBadge = document.createElement("span");
       healthBadge.className = "statistics-badge";
-      var healthScore = computeDeviceHealthScore(liveStatus);
-      if (healthScore === null) {
+      var latestStatusTimestamp = device && device.latestStatusTimestamp ? device.latestStatusTimestamp : null;
+      var healthScoreInfo = computeDeviceHealthScore(liveStatus, latestStatusTimestamp);
+      if (healthScoreInfo === null) {
         healthBadge.textContent = "—";
         healthBadge.style.background = "#e5e7eb";
         healthBadge.style.color = "#475569";
-      } else if (healthScore >= 70) {
-        healthBadge.textContent = "الصحة: " + healthScore;
-        healthBadge.style.background = "#1f9d55";
-        healthBadge.style.color = "#ffffff";
-      } else if (healthScore >= 40) {
-        healthBadge.textContent = "الصحة: " + healthScore;
-        healthBadge.style.background = "#f59e0b";
-        healthBadge.style.color = "#ffffff";
+        healthBadge.title = "لا توجد بيانات كافية لحساب الصحة";
       } else {
-        healthBadge.textContent = "الصحة: " + healthScore;
-        healthBadge.style.background = "#d13438";
-        healthBadge.style.color = "#ffffff";
+        var healthScore = healthScoreInfo.score;
+        healthBadge.title = healthScoreInfo.breakdown;
+        if (healthScore >= 70) {
+          healthBadge.textContent = "الصحة: " + healthScore;
+          healthBadge.style.background = "#1f9d55";
+          healthBadge.style.color = "#ffffff";
+        } else if (healthScore >= 40) {
+          healthBadge.textContent = "الصحة: " + healthScore;
+          healthBadge.style.background = "#f59e0b";
+          healthBadge.style.color = "#ffffff";
+        } else {
+          healthBadge.textContent = "الصحة: " + healthScore;
+          healthBadge.style.background = "#d13438";
+          healthBadge.style.color = "#ffffff";
+        }
       }
       titleRow.appendChild(healthBadge);
       card.appendChild(titleRow);
@@ -4332,7 +4359,7 @@
           uptimeText = liveStatus.uptime.trim();
         }
 
-        var healthScore = computeDeviceHealthScore(liveStatus);
+        var healthScoreInfo = computeDeviceHealthScore(liveStatus, device && device.latestStatusTimestamp ? device.latestStatusTimestamp : null);
 
         return {
           الاسم: device ? device.name : card.dataset.deviceName || "-",
@@ -4342,7 +4369,7 @@
           الحرارة: temperatureText,
           Ping: pingText,
           "مدة التشغيل": uptimeText,
-          "نقاط الصحة": healthScore === null ? "—" : healthScore
+          "نقاط الصحة": healthScoreInfo === null ? "—" : healthScoreInfo.score
         };
       });
 
