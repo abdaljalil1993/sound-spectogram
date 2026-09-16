@@ -583,6 +583,14 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
       }
 
       io.to("dashboards").emit("ping", cleanedEntries);
+
+      const mobilePingUpdate = cleanedEntries.map((entry) => ({
+        deviceId: entry.deviceId,
+        device_id: entry.device_id,
+        status: entry.status,
+        ping: entry.ping
+      }));
+      io.to("mobile-clients").emit("device_ping_update", mobilePingUpdate);
     };
 
     const handleDeviceStatus = async (payload: unknown, ack?: (response: SocketAck) => void): Promise<void> => {
