@@ -4965,6 +4965,8 @@
     });
 
     socket.on("ping", function (entries) {
+      // TEMP DEBUG
+      console.log("[ping] raw entries received:", entries);
       if (!Array.isArray(entries)) {
         return;
       }
@@ -4979,12 +4981,17 @@
           return;
         }
         var existing = liveDeviceStatusMap[key] || {};
-        liveDeviceStatusMap[key] = Object.assign({}, existing, {
+        // TEMP DEBUG
+        console.log("[ping] device=" + key, "existing before merge:", existing);
+        var mergedResult = Object.assign({}, existing, {
           internet: entry.status,
           ping: entry.ping,
           date: entry.date || existing.date,
           time: entry.time || existing.time
         });
+        // TEMP DEBUG
+        console.log("[ping] device=" + key, "merged result:", mergedResult);
+        liveDeviceStatusMap[key] = mergedResult;
         changed = true;
       });
 
