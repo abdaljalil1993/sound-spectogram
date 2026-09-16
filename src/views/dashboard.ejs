@@ -381,7 +381,9 @@
           <section id="devicesPanel" class="tab-panel">
             <h2>إدارة الأجهزة</h2>
             <div class="device-admin-toolbar admin-only">
+              <input type="text" id="deviceSearchInput" placeholder="بحث عن جهاز بالاسم..." aria-label="بحث عن جهاز" />
               <button type="button" id="openDeviceModalBtn">إضافة جهاز</button>
+              <button type="button" id="exportDevicesBtn" class="ghost-btn">تصدير Excel</button>
             </div>
             <p id="deviceFormMessage" class="history-info"></p>
 
@@ -602,6 +604,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/public/vendor/pako.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="/public/js/frequency-mapping.js"></script>
     <script src="/public/js/spectrogram.js"></script>
     <script src="/public/js/dashboard.js"></script>

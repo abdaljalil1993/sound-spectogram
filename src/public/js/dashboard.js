@@ -448,6 +448,46 @@
     return matchedEntry ? matchedEntry.value : null;
   }
 
+  function computeDeviceHealthScore(liveStatus) {
+    if (!liveStatus || typeof liveStatus !== "object" || !Object.prototype.hasOwnProperty.call(liveStatus, "internet")) {
+      return null;
+    }
+
+    var score = 0;
+    var internet = typeof liveStatus.internet === "string" ? liveStatus.internet.trim().toUpperCase() : "";
+
+    if (internet === "UP") {
+      score += 50;
+    }
+
+    if (internet === "UP" && Number.isFinite(Number(liveStatus.ping))) {
+      var pingValue = Number(liveStatus.ping);
+      if (pingValue < 100) {
+        score += 30;
+      } else if (pingValue < 300) {
+        score += 20;
+      } else if (pingValue < 600) {
+        score += 10;
+      }
+    }
+
+    var date = typeof liveStatus.date === "string" ? liveStatus.date.trim() : "";
+    var time = typeof liveStatus.time === "string" ? liveStatus.time.trim() : "";
+    if (date && time) {
+      var recencyMs = parseFlexibleTimeMs(date + "T" + time);
+      if (Number.isFinite(recencyMs)) {
+        var ageMs = Date.now() - recencyMs;
+        if (ageMs <= 5 * 60 * 1000) {
+          score += 20;
+        } else if (ageMs <= 30 * 60 * 1000) {
+          score += 10;
+        }
+      }
+    }
+
+    return Math.max(0, Math.min(100, score));
+  }
+
   function renderDevicesCards(devicesWithStatus) {
     if (!devicesCardsGrid) {
       return;
@@ -478,6 +518,8 @@
 
       var card = document.createElement("article");
       card.className = "device-card";
+      card.dataset.deviceId = String(device.id);
+      card.dataset.deviceName = String(device.name || "");
 
       var liveStatus = getLiveDeviceStatusForCard(device, index, list.length);
       card.classList.remove("device-card--online", "device-card--offline");
@@ -493,10 +535,39 @@
         }
       }
 
+      var titleRow = document.createElement("div");
+      titleRow.style.display = "flex";
+      titleRow.style.alignItems = "center";
+      titleRow.style.justifyContent = "space-between";
+      titleRow.style.gap = "8px";
+
       var title = document.createElement("h3");
       title.className = "device-card-title";
       title.textContent = device.name;
-      card.appendChild(title);
+      titleRow.appendChild(title);
+
+      var healthBadge = document.createElement("span");
+      healthBadge.className = "statistics-badge";
+      var healthScore = computeDeviceHealthScore(liveStatus);
+      if (healthScore === null) {
+        healthBadge.textContent = "—";
+        healthBadge.style.background = "#e5e7eb";
+        healthBadge.style.color = "#475569";
+      } else if (healthScore >= 70) {
+        healthBadge.textContent = "الصحة: " + healthScore;
+        healthBadge.style.background = "#1f9d55";
+        healthBadge.style.color = "#ffffff";
+      } else if (healthScore >= 40) {
+        healthBadge.textContent = "الصحة: " + healthScore;
+        healthBadge.style.background = "#f59e0b";
+        healthBadge.style.color = "#ffffff";
+      } else {
+        healthBadge.textContent = "الصحة: " + healthScore;
+        healthBadge.style.background = "#d13438";
+        healthBadge.style.color = "#ffffff";
+      }
+      titleRow.appendChild(healthBadge);
+      card.appendChild(titleRow);
 
       var description = document.createElement("p");
       description.className = "device-card-meta";
@@ -661,6 +732,8 @@
   var deviceChangeRequestsMessage = document.getElementById("deviceChangeRequestsMessage");
 
   var devicesCardsGrid = document.getElementById("devicesCardsGrid");
+  var deviceSearchInput = document.getElementById("deviceSearchInput");
+  var exportDevicesBtn = document.getElementById("exportDevicesBtn");
   var openDeviceModalBtn = document.getElementById("openDeviceModalBtn");
   var deviceModal = document.getElementById("deviceModal");
   var deviceModalTitle = document.getElementById("deviceModalTitle");
@@ -684,6 +757,8 @@
     !statisticsPanel ||
     !usersPanel ||
     !devicesPanel ||
+    !deviceSearchInput ||
+    !exportDevicesBtn ||
     !globalMessageEl ||
     !userBadgeEl ||
     !socketStatusBadgeEl ||
@@ -4178,6 +4253,105 @@
       clearUserDeviceSelections();
     }
   });
+
+  function applyDeviceSearchFilter() {
+    if (!devicesCardsGrid || !deviceSearchInput) {
+      return;
+    }
+
+    var query = (deviceSearchInput.value || "").trim().toLowerCase();
+    var cards = devicesCardsGrid.querySelectorAll(".device-card");
+    cards.forEach(function (card) {
+      var deviceName = (card.dataset && card.dataset.deviceName ? card.dataset.deviceName : "").toLowerCase();
+      var isMatch = !query || deviceName.indexOf(query) !== -1;
+      card.style.display = isMatch ? "" : "none";
+    });
+  }
+
+  if (deviceSearchInput) {
+    deviceSearchInput.addEventListener("input", applyDeviceSearchFilter);
+  }
+
+  if (exportDevicesBtn) {
+    exportDevicesBtn.addEventListener("click", function () {
+      if (typeof XLSX === "undefined") {
+        setGlobalMessage("مكتبة Excel غير متاحة في المتصفح", true);
+        return;
+      }
+
+      if (!devicesCardsGrid) {
+        return;
+      }
+
+      var cards = Array.prototype.slice.call(devicesCardsGrid.querySelectorAll(".device-card"));
+      var visibleCards = cards.filter(function (card) {
+        return card.style.display !== "none";
+      });
+
+      var rows = visibleCards.map(function (card) {
+        var deviceId = Number(card.dataset.deviceId || 0);
+        var device = devicesStatusCache.find(function (item) {
+          return Number(item.id) === Number(deviceId);
+        });
+        var liveStatus = device ? getLiveDeviceStatusForCard(device) : null;
+
+        var internetValue = liveStatus && typeof liveStatus.internet === "string" ? liveStatus.internet.trim().toUpperCase() : "";
+        var stateText = "لا توجد بيانات";
+        if (internetValue === "UP") {
+          stateText = "متصل";
+        } else if (internetValue === "DOWN") {
+          stateText = "غير متصل";
+        }
+
+        var dateValue = liveStatus && typeof liveStatus.date === "string" ? liveStatus.date.trim() : "";
+        var timeValue = liveStatus && typeof liveStatus.time === "string" ? liveStatus.time.trim() : "";
+        var lastUpdateText = "-";
+        if (dateValue && timeValue) {
+          lastUpdateText = dateValue + " " + timeValue;
+        } else if (device && device.latestStatusTimestamp) {
+          lastUpdateText = device.latestStatusTimestamp;
+        }
+
+        var batteryText = "-";
+        if (liveStatus && Number.isFinite(Number(liveStatus.battery))) {
+          batteryText = Number(liveStatus.battery).toFixed(1) + "%";
+        }
+
+        var temperatureText = "-";
+        if (liveStatus && Number.isFinite(Number(liveStatus.temperature))) {
+          temperatureText = Number(liveStatus.temperature).toFixed(1) + "°";
+        }
+
+        var pingText = "-";
+        if (liveStatus && Number.isFinite(Number(liveStatus.ping))) {
+          pingText = Number(liveStatus.ping).toFixed(1) + " ms";
+        }
+
+        var uptimeText = "-";
+        if (liveStatus && typeof liveStatus.uptime === "string" && liveStatus.uptime.trim()) {
+          uptimeText = liveStatus.uptime.trim();
+        }
+
+        var healthScore = computeDeviceHealthScore(liveStatus);
+
+        return {
+          الاسم: device ? device.name : card.dataset.deviceName || "-",
+          الحالة: stateText,
+          "آخر تحديث": lastUpdateText,
+          البطارية: batteryText,
+          الحرارة: temperatureText,
+          Ping: pingText,
+          "مدة التشغيل": uptimeText,
+          "نقاط الصحة": healthScore === null ? "—" : healthScore
+        };
+      });
+
+      var wb = XLSX.utils.book_new();
+      var ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, "الأجهزة");
+      XLSX.writeFile(wb, "devices-" + formatDateOnly(new Date()) + ".xlsx");
+    });
+  }
 
   openDeviceModalBtn.addEventListener("click", function () {
     resetDeviceForm();
