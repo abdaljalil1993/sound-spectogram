@@ -280,11 +280,14 @@ export function registerDeviceSocket(io: Server): void {
     console.log(`Socket connected: ${socket.id}`);
     let isAuthenticatedSocket = false;
 
-    const token = String(socket.handshake.auth?.token || "").trim();
+    const token = String(socket.handshake.auth?.token || socket.handshake.query?.token || "").trim();
     if (token) {
+
+      
       try {
         const payload = verifyJwt(token);
         isAuthenticatedSocket = true;
+             
         const userLookup = userRepo
           .findOne({ where: { id: payload.userId, username: payload.username, role: payload.role }, relations: { devices: true } })
           .then((user) => {
