@@ -534,6 +534,57 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
     await handleIncomingDeviceData(io, data, ack);
 };
 
+    const handlePing = async (payload: unknown): Promise<void> => {
+      if (!Array.isArray(payload)) {
+        console.warn("Invalid ping payload received; expected array", payload);
+        return;
+      }
+
+      const cleanedEntries: Array<{
+        deviceId: number;
+        device_id: string;
+        status: string;
+        ping: number | null;
+        time: string;
+        date: string;
+      }> = [];
+
+      for (const entry of payload) {
+        if (!isRecord(entry)) {
+          console.warn("Skipping ping entry because it is not an object", entry);
+          continue;
+        }
+
+        const rawDeviceId = entry.device_id ?? entry.deviceId;
+        if (typeof rawDeviceId !== "string" && typeof rawDeviceId !== "number") {
+          console.warn("Skipping ping entry because device identifier is missing", entry);
+          continue;
+        }
+
+        try {
+          const device = await deviceService.resolveDeviceIdentifier(rawDeviceId);
+          const statusValue = typeof entry.status === "string" ? entry.status : "UNKNOWN";
+          const pingValue = entry.ping === null ? null : Number(entry.ping);
+
+          cleanedEntries.push({
+            deviceId: device.id,
+            device_id: typeof rawDeviceId === "string" ? rawDeviceId : String(rawDeviceId),
+            status: statusValue,
+            ping: Number.isFinite(pingValue) ? pingValue : null,
+            time: typeof entry.time === "string" ? entry.time : "",
+            date: typeof entry.date === "string" ? entry.date : ""
+          });
+        } catch (error) {
+          console.warn("Skipping ping payload for unknown device", {
+            deviceIdentifier: rawDeviceId,
+            message: error instanceof Error ? error.message : "unknown error"
+          });
+        }
+      }
+
+      io.to("dashboards").emit("ping", cleanedEntries);
+    };
+
     const handleDeviceStatus = async (payload: unknown, ack?: (response: SocketAck) => void): Promise<void> => {
       console.log("🚨 devices_status event received");
 
@@ -613,6 +664,7 @@ const handleSendData = async (payload: unknown, ack?: (response: SocketAck) => v
 
     socket.on("devices_status", handleDeviceStatus);
     socket.on("check_ai_status", handleCheckAiStatus);
+    socket.on("ping", handlePing);
     socket.on("send_data", handleSendData);
     socket.on("device:data", handleSendData);
   });

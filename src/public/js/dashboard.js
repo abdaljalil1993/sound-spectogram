@@ -4964,6 +4964,40 @@
       }
     });
 
+    socket.on("ping", function (entries) {
+      if (!Array.isArray(entries)) {
+        return;
+      }
+
+      var changed = false;
+      entries.forEach(function (entry) {
+        if (!entry) {
+          return;
+        }
+        var key = normalizeDeviceStatusKey(entry.device_id || entry.deviceId);
+        if (!key) {
+          return;
+        }
+        var existing = liveDeviceStatusMap[key] || {};
+        liveDeviceStatusMap[key] = Object.assign({}, existing, {
+          internet: entry.status,
+          ping: entry.ping,
+          date: entry.date || existing.date,
+          time: entry.time || existing.time
+        });
+        changed = true;
+      });
+
+      if (!changed) {
+        return;
+      }
+
+      saveStoredLiveDeviceStatus(liveDeviceStatusMap);
+      if (devicesCardsGrid) {
+        renderDevicesCards(devicesStatusCache);
+      }
+    });
+
     var heartbeatTimer = setInterval(function () {
       if (!socket.connected) {
         setSocketStatus(false, "جاري إعادة المحاولة");
