@@ -448,67 +448,6 @@
     return matchedEntry ? matchedEntry.value : null;
   }
 
-  function computeDeviceHealthScore(liveStatus, latestStatusTimestamp) {
-    if (!liveStatus || typeof liveStatus !== "object" || !Object.prototype.hasOwnProperty.call(liveStatus, "internet")) {
-      return null;
-    }
-
-    var internet = typeof liveStatus.internet === "string" ? liveStatus.internet.trim().toUpperCase() : "";
-
-    var connectivityPoints = internet === "UP" ? 30 : 0;
-
-    var pingPoints = 0;
-    if (internet === "UP" && Number.isFinite(Number(liveStatus.ping))) {
-      var pingValue = Number(liveStatus.ping);
-      if (pingValue < 100) {
-        pingPoints = 20;
-      } else if (pingValue < 300) {
-        pingPoints = 13;
-      } else if (pingValue < 600) {
-        pingPoints = 7;
-      }
-    }
-
-    var telemetryRecencyPoints = 0;
-    var date = typeof liveStatus.date === "string" ? liveStatus.date.trim() : "";
-    var time = typeof liveStatus.time === "string" ? liveStatus.time.trim() : "";
-    if (date && time) {
-      var recencyMs = parseFlexibleTimeMs(date + " " + time);
-      if (Number.isFinite(recencyMs)) {
-        var ageMs = Date.now() - recencyMs;
-        if (ageMs <= 5 * 60 * 1000) {
-          telemetryRecencyPoints = 20;
-        } else if (ageMs <= 30 * 60 * 1000) {
-          telemetryRecencyPoints = 10;
-        }
-      }
-    }
-
-    var detectionRecencyPoints = 0;
-    var detectionTimestamp = typeof latestStatusTimestamp === "string" ? latestStatusTimestamp.trim() : "";
-    if (detectionTimestamp) {
-      var detectionMs = parseFlexibleTimeMs(detectionTimestamp);
-      if (Number.isFinite(detectionMs)) {
-        var detectionAgeMs = Date.now() - detectionMs;
-        if (detectionAgeMs <= 10 * 60 * 1000) {
-          detectionRecencyPoints = 30;
-        } else if (detectionAgeMs <= 60 * 60 * 1000) {
-          detectionRecencyPoints = 20;
-        } else if (detectionAgeMs <= 6 * 60 * 60 * 1000) {
-          detectionRecencyPoints = 10;
-        }
-      }
-    }
-
-    var score = Math.max(0, Math.min(100, connectivityPoints + pingPoints + telemetryRecencyPoints + detectionRecencyPoints));
-    var breakdown = "الاتصال: " + connectivityPoints + "/30 | الاستجابة: " + pingPoints + "/20 | حداثة القراءات: " + telemetryRecencyPoints + "/20 | حداثة الاكتشاف: " + detectionRecencyPoints + "/30";
-
-    return {
-      score: score,
-      breakdown: breakdown
-    };
-  }
-
   function renderDevicesCards(devicesWithStatus) {
     if (!devicesCardsGrid) {
       return;
@@ -525,15 +464,24 @@
       return;
     }
 
+    var onlineCards = [];
+    var offlineCards = [];
+
     list.forEach(function (item, index) {
       var device = devicesCache.find(function (cached) {
         return Number(cached.id) === Number(item.id);
       }) || item;
 
-      function appendMetaLine(parent, label, value) {
+      function appendMetaLine(parent, label, value, valueClassName) {
         var line = document.createElement("p");
         line.className = "device-card-meta";
-        line.textContent = label + value;
+        line.appendChild(document.createTextNode(label));
+        var valueSpan = document.createElement("span");
+        if (valueClassName) {
+          valueSpan.className = valueClassName;
+        }
+        valueSpan.textContent = value;
+        line.appendChild(valueSpan);
         parent.appendChild(line);
       }
 
@@ -566,34 +514,6 @@
       title.className = "device-card-title";
       title.textContent = device.name;
       titleRow.appendChild(title);
-
-      var healthBadge = document.createElement("span");
-      healthBadge.className = "statistics-badge";
-      var latestStatusTimestamp = device && device.latestStatusTimestamp ? device.latestStatusTimestamp : null;
-      var healthScoreInfo = computeDeviceHealthScore(liveStatus, latestStatusTimestamp);
-      if (healthScoreInfo === null) {
-        healthBadge.textContent = "—";
-        healthBadge.style.background = "#e5e7eb";
-        healthBadge.style.color = "#475569";
-        healthBadge.title = "لا توجد بيانات كافية لحساب الصحة";
-      } else {
-        var healthScore = healthScoreInfo.score;
-        healthBadge.title = healthScoreInfo.breakdown;
-        if (healthScore >= 70) {
-          healthBadge.textContent = "الصحة: " + healthScore;
-          healthBadge.style.background = "#1f9d55";
-          healthBadge.style.color = "#ffffff";
-        } else if (healthScore >= 40) {
-          healthBadge.textContent = "الصحة: " + healthScore;
-          healthBadge.style.background = "#f59e0b";
-          healthBadge.style.color = "#ffffff";
-        } else {
-          healthBadge.textContent = "الصحة: " + healthScore;
-          healthBadge.style.background = "#d13438";
-          healthBadge.style.color = "#ffffff";
-        }
-      }
-      titleRow.appendChild(healthBadge);
       card.appendChild(titleRow);
 
       var description = document.createElement("p");
@@ -632,7 +552,13 @@
         }
 
         if (Number.isFinite(Number(liveStatus.temperature))) {
-          appendMetaLine(liveMeta, "درجة الحرارة: ", Number(liveStatus.temperature).toFixed(1) + "°");
+          var temperatureValue = Number(liveStatus.temperature);
+          appendMetaLine(
+            liveMeta,
+            "درجة الحرارة: ",
+            temperatureValue.toFixed(1) + "°",
+            temperatureValue > 70 ? "device-card-temp-warning" : ""
+          );
           hasLiveTelemetry = true;
         }
 
@@ -706,6 +632,24 @@
         card.appendChild(actions);
       }
 
+      if (card.classList.contains("device-card--online")) {
+        onlineCards.push(card);
+      } else {
+        offlineCards.push(card);
+      }
+    });
+
+    onlineCards.forEach(function (card) {
+      devicesCardsGrid.appendChild(card);
+    });
+
+    if (onlineCards.length && offlineCards.length) {
+      var divider = document.createElement("hr");
+      divider.className = "devices-cards-divider";
+      devicesCardsGrid.appendChild(divider);
+    }
+
+    offlineCards.forEach(function (card) {
       devicesCardsGrid.appendChild(card);
     });
   }
@@ -4359,8 +4303,6 @@
           uptimeText = liveStatus.uptime.trim();
         }
 
-        var healthScoreInfo = computeDeviceHealthScore(liveStatus, device && device.latestStatusTimestamp ? device.latestStatusTimestamp : null);
-
         return {
           الاسم: device ? device.name : card.dataset.deviceName || "-",
           الحالة: stateText,
@@ -4368,8 +4310,7 @@
           البطارية: batteryText,
           الحرارة: temperatureText,
           Ping: pingText,
-          "مدة التشغيل": uptimeText,
-          "نقاط الصحة": healthScoreInfo === null ? "—" : healthScoreInfo.score
+          "مدة التشغيل": uptimeText
         };
       });
 
