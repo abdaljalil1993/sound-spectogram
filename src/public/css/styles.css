@@ -900,7 +900,7 @@ select:focus-visible {
 
 .devices-cards-divider {
   grid-column: 1 / -1;
-  margin: 4px 0;
+  margin: 10px 0;
   border: 0;
   border-top: 1px solid var(--line);
 }
@@ -926,7 +926,7 @@ select:focus-visible {
 }
 
 .device-card.device-card--offline {
-  background: linear-gradient(180deg, #f1ecec 0%, #ddd4d4 100%);
+  background: linear-gradient(180deg, #f7e6e6 0%, #a98a8a 100%);
   border-color: #c8b9b9;
   box-shadow: 0 6px 14px rgba(106, 89, 89, 0.10);
 }
@@ -1033,7 +1033,7 @@ select:focus-visible {
 
 .device-card-temp-warning {
   color: #d13438;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 1.05em;
 }
 
