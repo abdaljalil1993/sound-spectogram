@@ -73,6 +73,7 @@
   var devicesOverviewMapInstance = null;
   var devicesOverviewLayerGroup = null;
   var hasFitInitialOverviewBounds = false;
+  var lastKnownDeviceBounds = [];
   var lastPersistenceWarningAt = 0;
   var liveTraceEl = null;
   var expectingLiveRender = false;
@@ -590,15 +591,7 @@
       bounds.push([latitude, longitude]);
     });
 
-    if (!hasFitInitialOverviewBounds) {
-      if (bounds.length > 0) {
-        devicesOverviewMapInstance.fitBounds(L.latLngBounds(bounds), { padding: [40, 40] });
-      } else {
-        var syriaBounds = L.latLngBounds([[32.0, 35.5], [37.5, 42.5]]);
-        devicesOverviewMapInstance.fitBounds(syriaBounds);
-      }
-      hasFitInitialOverviewBounds = true;
-    }
+    lastKnownDeviceBounds = bounds.slice();
   }
 
   function renderDevicesViews(devicesWithStatus) {
@@ -5668,6 +5661,15 @@
         devicesOverviewMapInstance
       ) {
         devicesOverviewMapInstance.invalidateSize();
+        if (!hasFitInitialOverviewBounds) {
+          if (lastKnownDeviceBounds.length > 0) {
+            devicesOverviewMapInstance.fitBounds(L.latLngBounds(lastKnownDeviceBounds), { padding: [40, 40] });
+          } else {
+            var syriaBounds = L.latLngBounds([[32.0, 35.5], [37.5, 42.5]]);
+            devicesOverviewMapInstance.fitBounds(syriaBounds);
+          }
+          hasFitInitialOverviewBounds = true;
+        }
       }
     });
   });
