@@ -13,6 +13,7 @@
       <div class="topbar-actions">
         <nav class="top-nav" id="topNav">
           <button type="button" class="tab-btn active" data-tab="history">السجل</button>
+          <button type="button" class="tab-btn" data-tab="map">خريطة</button>
           <button type="button" class="tab-btn" data-tab="statistics">الإحصائيات</button>
           <button type="button" class="tab-btn" data-tab="users">المستخدمون</button>
           <button type="button" class="tab-btn" data-tab="devices">الأجهزة</button>
@@ -85,6 +86,10 @@
               <canvas id="spectrogramLegend" width="560" height="46"></canvas>
             </div>
             <div id="historyInfo" class="history-info hidden">لا توجد بيانات محمّلة.</div>
+          </section>
+
+          <section id="mapPanel" class="tab-panel">
+            <div id="topLevelDevicesMapContainer" class="top-level-devices-map-container"></div>
           </section>
 
           <section id="statisticsPanel" class="tab-panel">
@@ -445,7 +450,6 @@
             </div>
 
             <div id="devicesCardsGrid" class="devices-cards-grid"></div>
-            <div id="devicesOverviewMapContainer" class="devices-overview-map-container"></div>
           </section>
         </section>
 

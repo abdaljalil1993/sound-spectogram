@@ -906,18 +906,14 @@ select:focus-visible {
   margin-top: 8px;
 }
 
-.devices-overview-map-container {
-  width: 100%;
-  height: 500px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  margin-top: 12px;
-  overflow: hidden;
+#mapPanel {
+  height: calc(100vh - 170px);
 }
 
-#devicesOverviewMapContainer {
-  height: 500px;
+.top-level-devices-map-container {
   width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
 }

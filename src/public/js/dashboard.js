@@ -108,6 +108,7 @@
   var dashboardLayoutEl = document.getElementById("dashboardLayout");
   var tabButtons = document.querySelectorAll(".tab-btn");
   var historyPanel = document.getElementById("historyPanel");
+  var mapPanel = document.getElementById("mapPanel");
   var statisticsPanel = document.getElementById("statisticsPanel");
   var usersPanel = document.getElementById("usersPanel");
   var devicesPanel = document.getElementById("devicesPanel");
@@ -493,12 +494,12 @@
   }
 
   function renderDevicesOverviewMap(devicesWithStatus) {
-    if (!devicesOverviewMapContainer || !window.L) {
+    if (!topLevelDevicesMapContainer || !window.L) {
       return;
     }
 
     if (!devicesOverviewMapInstance) {
-      devicesOverviewMapInstance = L.map(devicesOverviewMapContainer).setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
+      devicesOverviewMapInstance = L.map(topLevelDevicesMapContainer).setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
       var terrainLayer = createTerrainTileLayer();
       var satelliteLayer = createSatelliteTileLayer();
       terrainLayer.addTo(devicesOverviewMapInstance);
@@ -567,6 +568,7 @@
         fillColor: isOnline ? "#21a366" : "#8a8a8a",
         fillOpacity: 1
       })
+        .bindTooltip("<strong>" + (device.name || "جهاز") + "</strong><br>الحالة: " + statusText, { sticky: true })
         .bindPopup("<strong>" + (device.name || "جهاز") + "</strong><br>الحالة: " + statusText)
         .addTo(devicesOverviewLayerGroup);
 
@@ -871,7 +873,7 @@
   var deviceLocationMessage = document.getElementById("deviceLocationMessage");
   var saveDeviceLocationBtn = document.getElementById("saveDeviceLocationBtn");
   var cancelDeviceLocationBtn = document.getElementById("cancelDeviceLocationBtn");
-  var devicesOverviewMapContainer = document.getElementById("devicesOverviewMapContainer");
+  var topLevelDevicesMapContainer = document.getElementById("topLevelDevicesMapContainer");
 
   var logoutBtn = document.getElementById("logoutBtn");
 
@@ -879,6 +881,7 @@
     !topNav ||
     !dashboardLayoutEl ||
     !historyPanel ||
+    !mapPanel ||
     !statisticsPanel ||
     !usersPanel ||
     !devicesPanel ||
@@ -983,7 +986,7 @@
     !deviceLocationMessage ||
     !saveDeviceLocationBtn ||
     !cancelDeviceLocationBtn ||
-    !devicesOverviewMapContainer ||
+    !topLevelDevicesMapContainer ||
     !logoutBtn
   ) {
     return;
@@ -1783,6 +1786,7 @@
     });
 
     historyPanel.classList.toggle("active", tabName === "history");
+    mapPanel.classList.toggle("active", tabName === "map");
     statisticsPanel.classList.toggle("active", tabName === "statistics");
     usersPanel.classList.toggle("active", tabName === "users");
     devicesPanel.classList.toggle("active", tabName === "devices");
@@ -5636,12 +5640,12 @@
     scheduleRender({ skipTable: false });
   });
 
-  var devicesPanelObserver = new MutationObserver(function (mutations) {
+  var mapPanelObserver = new MutationObserver(function (mutations) {
     mutations.forEach(function (mutation) {
       if (
         mutation.type === "attributes" &&
         mutation.attributeName === "class" &&
-        devicesPanel.classList.contains("active") &&
+        mapPanel.classList.contains("active") &&
         devicesOverviewMapInstance
       ) {
         devicesOverviewMapInstance.invalidateSize();
@@ -5649,7 +5653,7 @@
     });
   });
 
-  devicesPanelObserver.observe(devicesPanel, {
+  mapPanelObserver.observe(mapPanel, {
     attributes: true,
     attributeFilter: ["class"]
   });
