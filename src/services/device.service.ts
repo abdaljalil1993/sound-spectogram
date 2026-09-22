@@ -21,6 +21,8 @@ interface UpdateDeviceInput {
   description?: string | null;
   minFrequency?: number | null;
   maxFrequency?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface DeviceWithLatestStatus extends Device {
@@ -162,6 +164,14 @@ export class DeviceService {
 
     if (input.maxFrequency !== undefined) {
       device.maxFrequency = input.maxFrequency;
+    }
+
+    if (input.latitude !== undefined) {
+      device.latitude = input.latitude;
+    }
+
+    if (input.longitude !== undefined) {
+      device.longitude = input.longitude;
     }
 
     return this.deviceRepo.save(device);

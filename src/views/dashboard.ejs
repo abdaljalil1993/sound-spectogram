@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>لوحة التحكم</title>
     <link rel="stylesheet" href="/public/css/styles.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   </head>
   <body>
     <header class="topbar">
@@ -417,7 +418,34 @@
               </div>
             </div>
 
+            <div
+              id="deviceLocationModal"
+              class="hidden"
+              aria-hidden="true"
+              style="position: fixed; inset: 0; z-index: 1002; background: rgba(9, 12, 18, 0.55); padding: 20px;"
+            >
+              <div class="side-card" style="max-width: 760px; margin: 0 auto; max-height: calc(100vh - 40px); overflow: auto;">
+                <h3 id="deviceLocationModalTitle" style="margin-bottom: 8px;">تحديد موقع الجهاز</h3>
+                <div class="crud-form admin-only">
+                  <label for="deviceLocationSearchInput">بحث عن مكان</label>
+                  <input
+                    id="deviceLocationSearchInput"
+                    name="deviceLocationSearchInput"
+                    type="text"
+                    placeholder="ابحث عن مكان (قرية، مدينة...)"
+                  />
+                  <div id="deviceLocationMapContainer" class="device-location-map-container"></div>
+                  <p id="deviceLocationMessage" class="history-info"></p>
+                  <div class="form-actions">
+                    <button type="button" id="saveDeviceLocationBtn">حفظ الموقع</button>
+                    <button type="button" id="cancelDeviceLocationBtn" class="ghost-btn">إلغاء</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div id="devicesCardsGrid" class="devices-cards-grid"></div>
+            <div id="devicesOverviewMapContainer" class="devices-overview-map-container"></div>
           </section>
         </section>
 
@@ -606,6 +634,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/public/vendor/pako.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="/public/js/frequency-mapping.js"></script>
     <script src="/public/js/spectrogram.js"></script>
     <script src="/public/js/dashboard.js"></script>

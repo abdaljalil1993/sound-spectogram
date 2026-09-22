@@ -53,6 +53,23 @@ function parseOptionalString(value: unknown): string | null | undefined {
   return trimmed ? trimmed : null;
 }
 
+function parseOptionalLocationCoordinate(value: unknown, fieldName: string): number | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new HttpError(400, `${fieldName} must be a finite number or null`);
+  }
+
+  return parsed;
+}
+
 export const deviceController = {
   createDevice: async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -162,10 +179,14 @@ export const deviceController = {
         description?: string | null;
         minFrequency?: unknown;
         maxFrequency?: unknown;
+        latitude?: unknown;
+        longitude?: unknown;
       };
       const externalDeviceId = parseOptionalString((req.body as { externalDeviceId?: unknown }).externalDeviceId);
       const minFrequency = parseOptionalFrequency((req.body as { minFrequency?: unknown }).minFrequency, "minFrequency");
       const maxFrequency = parseOptionalFrequency((req.body as { maxFrequency?: unknown }).maxFrequency, "maxFrequency");
+      const latitude = parseOptionalLocationCoordinate((req.body as { latitude?: unknown }).latitude, "latitude");
+      const longitude = parseOptionalLocationCoordinate((req.body as { longitude?: unknown }).longitude, "longitude");
 
       if (
         minFrequency !== undefined &&
@@ -177,7 +198,15 @@ export const deviceController = {
         throw new HttpError(400, "maxFrequency must be greater than minFrequency");
       }
 
-      const updated = await deviceService.updateDevice(id, { name, externalDeviceId, description, minFrequency, maxFrequency });
+      const updated = await deviceService.updateDevice(id, {
+        name,
+        externalDeviceId,
+        description,
+        minFrequency,
+        maxFrequency,
+        latitude,
+        longitude
+      });
       res.json(updated);
     } catch (error) {
       next(error);

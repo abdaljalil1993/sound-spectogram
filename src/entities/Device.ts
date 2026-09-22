@@ -23,6 +23,12 @@ export class Device {
   @Column({ type: "double", nullable: true })
   maxFrequency!: number | null;
 
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  latitude!: number | null;
+
+  @Column({ type: "decimal", precision: 10, scale: 7, nullable: true })
+  longitude!: number | null;
+
   @OneToMany(() => DeviceHistory, (history) => history.device)
   histories!: DeviceHistory[];
 

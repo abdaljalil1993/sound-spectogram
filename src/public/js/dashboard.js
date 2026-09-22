@@ -19,6 +19,15 @@
     return;
   }
 
+  if (window.L) {
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+      iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+      shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png"
+    });
+  }
+
   var selectedDeviceId = null;
   var selectedDeviceName = "";
   var selectedDeviceKey = "";
@@ -58,6 +67,11 @@
   var deviceStatusStorageKey = "device-live-status-cache";
   var editingUserId = null;
   var editingDeviceId = null;
+  var editingDeviceForLocation = null;
+  var deviceLocationMap = null;
+  var deviceLocationMarker = null;
+  var devicesOverviewMap = null;
+  var devicesOverviewLayerGroup = null;
   var lastPersistenceWarningAt = 0;
   var liveTraceEl = null;
   var expectingLiveRender = false;
@@ -87,6 +101,8 @@
   var MULTI_VIEW_PANEL_BUFFER_SIZE = 5;
   var multiViewOpen = false;
   var multiViewPanels = {};
+  var DEFAULT_LOCATION_LAT = 35.5;
+  var DEFAULT_LOCATION_LNG = 35.8;
 
   var topNav = document.getElementById("topNav");
   var dashboardLayoutEl = document.getElementById("dashboardLayout");
@@ -132,7 +148,7 @@
   async function loadDevicesWithStatus() {
     if (!isAdmin) {
       devicesStatusCache = [];
-      renderDevicesCards([]);
+      renderDevicesViews([]);
       return;
     }
 
@@ -148,7 +164,14 @@
     if (seededFromSnapshot) {
       saveStoredLiveDeviceStatus(liveDeviceStatusMap);
     }
-    renderDevicesCards(devicesStatusCache);
+    renderDevicesViews(devicesStatusCache);
+  }
+
+  function createTerrainTileLayer() {
+    return L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+      maxZoom: 17,
+      attribution: "Map data: © OpenStreetMap contributors, SRTM | Map style: © OpenTopoMap (CC-BY-SA)"
+    });
   }
 
   function normalizeDeviceStatusKey(value) {
@@ -448,6 +471,100 @@
     return matchedEntry ? matchedEntry.value : null;
   }
 
+  function parseDeviceCoordinate(value) {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    var parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function renderDevicesOverviewMap(devicesWithStatus) {
+    if (!devicesOverviewMapContainer || !window.L) {
+      return;
+    }
+
+    if (!devicesOverviewMap) {
+      devicesOverviewMap = L.map(devicesOverviewMapContainer).setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
+      createTerrainTileLayer().addTo(devicesOverviewMap);
+      devicesOverviewLayerGroup = L.layerGroup().addTo(devicesOverviewMap);
+    }
+
+    if (!devicesOverviewLayerGroup) {
+      devicesOverviewLayerGroup = L.layerGroup().addTo(devicesOverviewMap);
+    }
+
+    devicesOverviewLayerGroup.clearLayers();
+
+    var list = Array.isArray(devicesWithStatus) ? devicesWithStatus : [];
+    var bounds = [];
+
+    list.forEach(function (item, index) {
+      var device = devicesCache.find(function (cached) {
+        return Number(cached.id) === Number(item.id);
+      }) || item;
+
+      var latitude = parseDeviceCoordinate(device.latitude);
+      var longitude = parseDeviceCoordinate(device.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return;
+      }
+
+      var liveStatus = getLiveDeviceStatusForCard(device, index, list.length);
+      var internetValue = liveStatus && typeof liveStatus.internet === "string" ? liveStatus.internet.trim().toUpperCase() : "";
+      var isOnline = internetValue === "UP";
+      var statusText = isOnline ? "متصل" : internetValue === "DOWN" ? "غير متصل" : "غير معروف";
+
+      L.circle([latitude, longitude], {
+        radius: 5000,
+        color: "#7f1d1d",
+        fillColor: "#7f1d1d",
+        fillOpacity: 0.35,
+        weight: 1
+      }).addTo(devicesOverviewLayerGroup);
+
+      L.circle([latitude, longitude], {
+        radius: 10000,
+        color: "#b91c1c",
+        fillColor: "#b91c1c",
+        fillOpacity: 0.18,
+        weight: 1
+      }).addTo(devicesOverviewLayerGroup);
+
+      L.circle([latitude, longitude], {
+        radius: 15000,
+        color: "#f87171",
+        fillColor: "#f87171",
+        fillOpacity: 0.08,
+        weight: 1
+      }).addTo(devicesOverviewLayerGroup);
+
+      L.circleMarker([latitude, longitude], {
+        radius: 8,
+        color: "#ffffff",
+        weight: 1,
+        fillColor: isOnline ? "#21a366" : "#8a8a8a",
+        fillOpacity: 1
+      })
+        .bindPopup("<strong>" + (device.name || "جهاز") + "</strong><br>الحالة: " + statusText)
+        .addTo(devicesOverviewLayerGroup);
+
+      bounds.push([latitude, longitude]);
+    });
+
+    if (bounds.length) {
+      devicesOverviewMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 12 });
+    } else {
+      devicesOverviewMap.setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
+    }
+  }
+
+  function renderDevicesViews(devicesWithStatus) {
+    renderDevicesCards(devicesWithStatus);
+    renderDevicesOverviewMap(devicesWithStatus);
+  }
+
   function renderDevicesCards(devicesWithStatus) {
     if (!devicesCardsGrid) {
       return;
@@ -600,6 +717,14 @@
           startEditingDevice(device);
         });
 
+        var locationBtn = document.createElement("button");
+        locationBtn.type = "button";
+        locationBtn.className = "ghost-btn";
+        locationBtn.textContent = "📍 الموقع";
+        locationBtn.addEventListener("click", function () {
+          openDeviceLocationModal(device);
+        });
+
         var deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
         deleteBtn.className = "danger-btn";
@@ -628,6 +753,7 @@
         });
 
         actions.appendChild(editBtn);
+        actions.appendChild(locationBtn);
         actions.appendChild(deleteBtn);
         card.appendChild(actions);
       }
@@ -718,6 +844,14 @@
   var deviceSaveBtn = document.getElementById("deviceSaveBtn");
   var deviceCancelBtn = document.getElementById("deviceCancelBtn");
   var deviceFormMessage = document.getElementById("deviceFormMessage");
+  var deviceLocationModal = document.getElementById("deviceLocationModal");
+  var deviceLocationModalTitle = document.getElementById("deviceLocationModalTitle");
+  var deviceLocationSearchInput = document.getElementById("deviceLocationSearchInput");
+  var deviceLocationMapContainer = document.getElementById("deviceLocationMapContainer");
+  var deviceLocationMessage = document.getElementById("deviceLocationMessage");
+  var saveDeviceLocationBtn = document.getElementById("saveDeviceLocationBtn");
+  var cancelDeviceLocationBtn = document.getElementById("cancelDeviceLocationBtn");
+  var devicesOverviewMapContainer = document.getElementById("devicesOverviewMapContainer");
 
   var logoutBtn = document.getElementById("logoutBtn");
 
@@ -822,6 +956,14 @@
     !deviceSaveBtn ||
     !deviceCancelBtn ||
     !deviceFormMessage ||
+    !deviceLocationModal ||
+    !deviceLocationModalTitle ||
+    !deviceLocationSearchInput ||
+    !deviceLocationMapContainer ||
+    !deviceLocationMessage ||
+    !saveDeviceLocationBtn ||
+    !cancelDeviceLocationBtn ||
+    !devicesOverviewMapContainer ||
     !logoutBtn
   ) {
     return;
@@ -3969,6 +4111,84 @@
     deviceModal.setAttribute("aria-hidden", "true");
   }
 
+  function openDeviceLocationModalOverlay() {
+    deviceLocationModal.classList.remove("hidden");
+    deviceLocationModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeDeviceLocationModalOverlay() {
+    deviceLocationModal.classList.add("hidden");
+    deviceLocationModal.setAttribute("aria-hidden", "true");
+  }
+
+  function clearDeviceLocationMessage() {
+    deviceLocationMessage.textContent = "";
+    deviceLocationMessage.style.color = "";
+  }
+
+  function setDeviceLocationMessage(message, isError) {
+    deviceLocationMessage.textContent = message || "";
+    deviceLocationMessage.style.color = isError ? "#8a1c18" : "#1f6f53";
+  }
+
+  function setDeviceLocationMarker(lat, lng) {
+    if (!deviceLocationMap || !window.L) {
+      return;
+    }
+
+    if (deviceLocationMarker) {
+      deviceLocationMap.removeLayer(deviceLocationMarker);
+      deviceLocationMarker = null;
+    }
+
+    deviceLocationMarker = L.marker([lat, lng], { draggable: true }).addTo(deviceLocationMap);
+  }
+
+  function openDeviceLocationModal(device) {
+    if (!device || !window.L) {
+      setGlobalMessage("تعذر تحميل خريطة الموقع", true);
+      return;
+    }
+
+    editingDeviceForLocation = device;
+    deviceLocationModalTitle.textContent = "تحديد موقع الجهاز: " + (device.name || "-");
+    deviceLocationSearchInput.value = "";
+    clearDeviceLocationMessage();
+    openDeviceLocationModalOverlay();
+
+    if (deviceLocationMap) {
+      deviceLocationMap.remove();
+      deviceLocationMap = null;
+      deviceLocationMarker = null;
+    }
+
+    var latitude = parseDeviceCoordinate(device.latitude);
+    var longitude = parseDeviceCoordinate(device.longitude);
+    var hasSavedLocation = Number.isFinite(latitude) && Number.isFinite(longitude);
+
+    // Default center is around Syria and can be adjusted based on deployment region.
+    var initialLat = hasSavedLocation ? latitude : DEFAULT_LOCATION_LAT;
+    var initialLng = hasSavedLocation ? longitude : DEFAULT_LOCATION_LNG;
+    var initialZoom = hasSavedLocation ? 13 : 7;
+
+    deviceLocationMap = L.map(deviceLocationMapContainer).setView([initialLat, initialLng], initialZoom);
+    createTerrainTileLayer().addTo(deviceLocationMap);
+    setTimeout(function () {
+      if (deviceLocationMap) {
+        deviceLocationMap.invalidateSize();
+      }
+    }, 0);
+
+    if (hasSavedLocation) {
+      setDeviceLocationMarker(latitude, longitude);
+    }
+
+    deviceLocationMap.on("click", function (event) {
+      setDeviceLocationMarker(event.latlng.lat, event.latlng.lng);
+      clearDeviceLocationMessage();
+    });
+  }
+
   function resolveAiStatusLabelForCards(statusValue) {
     var normalized = Number(statusValue);
     if (normalized === 2) {
@@ -4330,6 +4550,95 @@
     if (event.target === deviceModal) {
       closeDeviceModal();
       resetDeviceForm();
+    }
+  });
+
+  deviceLocationModal.addEventListener("click", function (event) {
+    if (event.target === deviceLocationModal) {
+      closeDeviceLocationModalOverlay();
+      editingDeviceForLocation = null;
+    }
+  });
+
+  cancelDeviceLocationBtn.addEventListener("click", function () {
+    closeDeviceLocationModalOverlay();
+    clearDeviceLocationMessage();
+    editingDeviceForLocation = null;
+  });
+
+  deviceLocationSearchInput.addEventListener("keypress", async function (event) {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    if (!deviceLocationMap) {
+      return;
+    }
+
+    var query = String(deviceLocationSearchInput.value || "").trim();
+    if (!query) {
+      setDeviceLocationMessage("أدخل اسم مكان للبحث", true);
+      return;
+    }
+
+    try {
+      setDeviceLocationMessage("جاري البحث...", false);
+      var response = await fetch(
+        "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query)
+      );
+      var results = await response.json();
+      if (!Array.isArray(results) || !results.length) {
+        setDeviceLocationMessage("لم يتم العثور على نتائج", true);
+        return;
+      }
+
+      var lat = Number(results[0].lat);
+      var lon = Number(results[0].lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        setDeviceLocationMessage("نتيجة الموقع غير صالحة", true);
+        return;
+      }
+
+      deviceLocationMap.setView([lat, lon], 13);
+      setDeviceLocationMessage("تم نقل الخريطة، اضغط على النقطة المطلوبة للحفظ", false);
+    } catch (_error) {
+      setDeviceLocationMessage("فشل البحث عن المكان", true);
+    }
+  });
+
+  saveDeviceLocationBtn.addEventListener("click", async function () {
+    if (!editingDeviceForLocation) {
+      setDeviceLocationMessage("تعذر تحديد الجهاز المطلوب", true);
+      return;
+    }
+
+    if (!deviceLocationMarker) {
+      setDeviceLocationMessage("اختر موقعاً على الخريطة أولاً", true);
+      return;
+    }
+
+    var markerLatLng = deviceLocationMarker.getLatLng();
+    var lat = Number(markerLatLng.lat);
+    var lng = Number(markerLatLng.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setDeviceLocationMessage("إحداثيات الموقع غير صالحة", true);
+      return;
+    }
+
+    try {
+      await apiRequest("/api/devices/" + editingDeviceForLocation.id, {
+        method: "PUT",
+        body: JSON.stringify({ latitude: lat, longitude: lng })
+      });
+      closeDeviceLocationModalOverlay();
+      editingDeviceForLocation = null;
+      clearDeviceLocationMessage();
+      await loadDevices();
+      setGlobalMessage("تم حفظ موقع الجهاز بنجاح", false);
+    } catch (error) {
+      setDeviceLocationMessage(error instanceof Error ? error.message : "فشل حفظ الموقع", true);
     }
   });
 
@@ -5102,7 +5411,7 @@
       liveDeviceStatusMap = Object.assign({}, liveDeviceStatusMap, normalizedPayload);
       saveStoredLiveDeviceStatus(liveDeviceStatusMap);
       if (devicesCardsGrid) {
-        renderDevicesCards(devicesStatusCache);
+        renderDevicesViews(devicesStatusCache);
       }
     });
 
@@ -5143,7 +5452,7 @@
 
       saveStoredLiveDeviceStatus(liveDeviceStatusMap);
       if (devicesCardsGrid) {
-        renderDevicesCards(devicesStatusCache);
+        renderDevicesViews(devicesStatusCache);
       }
     });
 
