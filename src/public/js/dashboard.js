@@ -72,6 +72,7 @@
   var deviceLocationMarker = null;
   var devicesOverviewMapInstance = null;
   var devicesOverviewLayerGroup = null;
+  var hasFitInitialOverviewBounds = false;
   var lastPersistenceWarningAt = 0;
   var liveTraceEl = null;
   var expectingLiveRender = false;
@@ -536,6 +537,20 @@
       var internetValue = liveStatus && typeof liveStatus.internet === "string" ? liveStatus.internet.trim().toUpperCase() : "";
       var isOnline = internetValue === "UP";
       var statusText = isOnline ? "متصل" : internetValue === "DOWN" ? "غير متصل" : "غير معروف";
+      var tooltipLines = ["<strong>" + (device.name || "جهاز") + "</strong>", "الحالة: " + statusText];
+      if (liveStatus && Number.isFinite(Number(liveStatus.ping))) {
+        tooltipLines.push("زمن الاستجابة: " + Number(liveStatus.ping).toFixed(1) + " ms");
+      }
+      if (liveStatus && Number.isFinite(Number(liveStatus.temperature))) {
+        tooltipLines.push("درجة الحرارة: " + Number(liveStatus.temperature).toFixed(1) + "°");
+      }
+      if (liveStatus && Number.isFinite(Number(liveStatus.battery))) {
+        tooltipLines.push("البطارية: " + Number(liveStatus.battery).toFixed(1) + "%");
+      }
+      if (liveStatus && liveStatus.uptime) {
+        tooltipLines.push("مدة التشغيل: " + liveStatus.uptime);
+      }
+      var tooltipHtml = tooltipLines.join("<br>");
 
       L.circle([latitude, longitude], {
         radius: 5000,
@@ -568,17 +583,21 @@
         fillColor: isOnline ? "#21a366" : "#8a8a8a",
         fillOpacity: 1
       })
-        .bindTooltip("<strong>" + (device.name || "جهاز") + "</strong><br>الحالة: " + statusText, { sticky: true })
-        .bindPopup("<strong>" + (device.name || "جهاز") + "</strong><br>الحالة: " + statusText)
+        .bindTooltip(tooltipHtml, { sticky: true })
+        .bindPopup(tooltipHtml)
         .addTo(devicesOverviewLayerGroup);
 
       bounds.push([latitude, longitude]);
     });
 
-    if (bounds.length) {
-      devicesOverviewMapInstance.fitBounds(bounds, { padding: [24, 24], maxZoom: 12 });
-    } else {
-      devicesOverviewMapInstance.setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
+    if (!hasFitInitialOverviewBounds) {
+      if (bounds.length > 0) {
+        devicesOverviewMapInstance.fitBounds(L.latLngBounds(bounds), { padding: [40, 40] });
+      } else {
+        var syriaBounds = L.latLngBounds([[32.0, 35.5], [37.5, 42.5]]);
+        devicesOverviewMapInstance.fitBounds(syriaBounds);
+      }
+      hasFitInitialOverviewBounds = true;
     }
   }
 
