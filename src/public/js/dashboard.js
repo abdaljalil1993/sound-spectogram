@@ -501,10 +501,14 @@
     }
 
     if (!devicesOverviewMapInstance) {
-      devicesOverviewMapInstance = L.map(topLevelDevicesMapContainer).setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
+      devicesOverviewMapInstance = L.map(topLevelDevicesMapContainer, { attributionControl: false }).setView([
+        DEFAULT_LOCATION_LAT,
+        DEFAULT_LOCATION_LNG
+      ], 7);
       var terrainLayer = createTerrainTileLayer();
       var satelliteLayer = createSatelliteTileLayer();
       terrainLayer.addTo(devicesOverviewMapInstance);
+      L.control.attribution({ prefix: false, position: "bottomright" }).addTo(devicesOverviewMapInstance);
       L.control.layers(
         { "تضاريس": terrainLayer, "قمر صناعي": satelliteLayer },
         null,
@@ -4207,10 +4211,14 @@
     var initialLng = hasSavedLocation ? longitude : DEFAULT_LOCATION_LNG;
     var initialZoom = hasSavedLocation ? 13 : 7;
 
-    deviceLocationMap = L.map(deviceLocationMapContainer).setView([initialLat, initialLng], initialZoom);
+    deviceLocationMap = L.map(deviceLocationMapContainer, { attributionControl: false }).setView(
+      [initialLat, initialLng],
+      initialZoom
+    );
     var terrainLayer = createTerrainTileLayer();
     var satelliteLayer = createSatelliteTileLayer();
     terrainLayer.addTo(deviceLocationMap);
+    L.control.attribution({ prefix: false, position: "bottomright" }).addTo(deviceLocationMap);
     L.control.layers(
       { "تضاريس": terrainLayer, "قمر صناعي": satelliteLayer },
       null,

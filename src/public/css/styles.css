@@ -918,6 +918,12 @@ select:focus-visible {
   overflow: hidden;
 }
 
+.leaflet-control-attribution {
+  font-size: 9px;
+  opacity: 0.55;
+  padding: 1px 4px;
+}
+
 .devices-cards-divider {
   grid-column: 1 / -1;
   margin: 10px 0;
