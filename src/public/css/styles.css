@@ -915,6 +915,13 @@ select:focus-visible {
   overflow: hidden;
 }
 
+#devicesOverviewMapContainer {
+  height: 500px;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
 .devices-cards-divider {
   grid-column: 1 / -1;
   margin: 10px 0;

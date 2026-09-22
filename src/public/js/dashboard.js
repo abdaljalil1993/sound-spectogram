@@ -70,7 +70,7 @@
   var editingDeviceForLocation = null;
   var deviceLocationMap = null;
   var deviceLocationMarker = null;
-  var devicesOverviewMap = null;
+  var devicesOverviewMapInstance = null;
   var devicesOverviewLayerGroup = null;
   var lastPersistenceWarningAt = 0;
   var liveTraceEl = null;
@@ -172,6 +172,18 @@
       maxZoom: 17,
       attribution: "Map data: © OpenStreetMap contributors, SRTM | Map style: © OpenTopoMap (CC-BY-SA)"
     });
+  }
+
+  function createSatelliteTileLayer() {
+    var imagery = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, attribution: "Tiles © Esri" }
+    );
+    var labels = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, attribution: "Labels © Esri" }
+    );
+    return L.layerGroup([imagery, labels]);
   }
 
   function normalizeDeviceStatusKey(value) {
@@ -485,14 +497,22 @@
       return;
     }
 
-    if (!devicesOverviewMap) {
-      devicesOverviewMap = L.map(devicesOverviewMapContainer).setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
-      createTerrainTileLayer().addTo(devicesOverviewMap);
-      devicesOverviewLayerGroup = L.layerGroup().addTo(devicesOverviewMap);
+    if (!devicesOverviewMapInstance) {
+      devicesOverviewMapInstance = L.map(devicesOverviewMapContainer).setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
+      var terrainLayer = createTerrainTileLayer();
+      var satelliteLayer = createSatelliteTileLayer();
+      terrainLayer.addTo(devicesOverviewMapInstance);
+      L.control.layers(
+        { "تضاريس": terrainLayer, "قمر صناعي": satelliteLayer },
+        null,
+        { position: "topright" }
+      ).addTo(devicesOverviewMapInstance);
+      devicesOverviewLayerGroup = L.layerGroup().addTo(devicesOverviewMapInstance);
+      devicesOverviewMapInstance.invalidateSize();
     }
 
     if (!devicesOverviewLayerGroup) {
-      devicesOverviewLayerGroup = L.layerGroup().addTo(devicesOverviewMap);
+      devicesOverviewLayerGroup = L.layerGroup().addTo(devicesOverviewMapInstance);
     }
 
     devicesOverviewLayerGroup.clearLayers();
@@ -554,9 +574,9 @@
     });
 
     if (bounds.length) {
-      devicesOverviewMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 12 });
+      devicesOverviewMapInstance.fitBounds(bounds, { padding: [24, 24], maxZoom: 12 });
     } else {
-      devicesOverviewMap.setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
+      devicesOverviewMapInstance.setView([DEFAULT_LOCATION_LAT, DEFAULT_LOCATION_LNG], 7);
     }
   }
 
@@ -4172,7 +4192,14 @@
     var initialZoom = hasSavedLocation ? 13 : 7;
 
     deviceLocationMap = L.map(deviceLocationMapContainer).setView([initialLat, initialLng], initialZoom);
-    createTerrainTileLayer().addTo(deviceLocationMap);
+    var terrainLayer = createTerrainTileLayer();
+    var satelliteLayer = createSatelliteTileLayer();
+    terrainLayer.addTo(deviceLocationMap);
+    L.control.layers(
+      { "تضاريس": terrainLayer, "قمر صناعي": satelliteLayer },
+      null,
+      { position: "topright" }
+    ).addTo(deviceLocationMap);
     setTimeout(function () {
       if (deviceLocationMap) {
         deviceLocationMap.invalidateSize();
@@ -5607,6 +5634,24 @@
 
   window.addEventListener("resize", function () {
     scheduleRender({ skipTable: false });
+  });
+
+  var devicesPanelObserver = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+      if (
+        mutation.type === "attributes" &&
+        mutation.attributeName === "class" &&
+        devicesPanel.classList.contains("active") &&
+        devicesOverviewMapInstance
+      ) {
+        devicesOverviewMapInstance.invalidateSize();
+      }
+    });
+  });
+
+  devicesPanelObserver.observe(devicesPanel, {
+    attributes: true,
+    attributeFilter: ["class"]
   });
 
   window.Spectrogram.configure({
