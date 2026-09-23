@@ -560,8 +560,8 @@
       var sensitivityCircles = isOnline
         ? [
             { radius: 5000, color: "#7f1d1d", fillColor: "#7f1d1d", fillOpacity: 0.35 },
-            { radius: 10000, color: "#b91c1c", fillColor: "#b91c1c", fillOpacity: 0.19 },
-            { radius: 15000, color: "#f87171", fillColor: "#f87171", fillOpacity: 0.11 }
+            { radius: 10000, color: "#b91c1c", fillColor: "#b91c1c", fillOpacity: 0.20 },
+            { radius: 15000, color: "#f87171", fillColor: "#f87171", fillOpacity: 0.13 }
           ]
         : [
             { radius: 5000, color: "#6f1d1d", fillColor: "#6f1d1d", fillOpacity: 0.12 },
