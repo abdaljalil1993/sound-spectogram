@@ -557,35 +557,33 @@
       }
       var tooltipHtml = tooltipLines.join("<br>");
 
-      L.circle([latitude, longitude], {
-        radius: 5000,
-        color: "#7f1d1d",
-        fillColor: "#7f1d1d",
-        fillOpacity: 0.35,
-        weight: 1
-      }).addTo(devicesOverviewLayerGroup);
+      var sensitivityCircles = isOnline
+        ? [
+            { radius: 5000, color: "#7f1d1d", fillColor: "#7f1d1d", fillOpacity: 0.35 },
+            { radius: 10000, color: "#b91c1c", fillColor: "#b91c1c", fillOpacity: 0.18 },
+            { radius: 15000, color: "#f87171", fillColor: "#f87171", fillOpacity: 0.08 }
+          ]
+        : [
+            { radius: 5000, color: "#6f1d1d", fillColor: "#6f1d1d", fillOpacity: 0.12 },
+            { radius: 10000, color: "#6f1d1d", fillColor: "#6f1d1d", fillOpacity: 0.08 },
+            { radius: 15000, color: "#6f1d1d", fillColor: "#6f1d1d", fillOpacity: 0.04 }
+          ];
 
-      L.circle([latitude, longitude], {
-        radius: 10000,
-        color: "#b91c1c",
-        fillColor: "#b91c1c",
-        fillOpacity: 0.18,
-        weight: 1
-      }).addTo(devicesOverviewLayerGroup);
-
-      L.circle([latitude, longitude], {
-        radius: 15000,
-        color: "#f87171",
-        fillColor: "#f87171",
-        fillOpacity: 0.08,
-        weight: 1
-      }).addTo(devicesOverviewLayerGroup);
+      sensitivityCircles.forEach(function (circleConfig) {
+        L.circle([latitude, longitude], {
+          radius: circleConfig.radius,
+          color: circleConfig.color,
+          fillColor: circleConfig.fillColor,
+          fillOpacity: circleConfig.fillOpacity,
+          weight: 1
+        }).addTo(devicesOverviewLayerGroup);
+      });
 
       L.circleMarker([latitude, longitude], {
         radius: 8,
         color: "#ffffff",
         weight: 1,
-        fillColor: isOnline ? "#21a366" : "#8a8a8a",
+        fillColor: isOnline ? "#21a366" : "#6f1d1d",
         fillOpacity: 1
       })
         .bindTooltip(tooltipHtml, { sticky: true })
