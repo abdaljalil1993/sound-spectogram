@@ -1886,57 +1886,77 @@
     var minFrequency = null;
     var maxFrequency = null;
     var frequencyBins = null;
+    var effectivePacketBins = null;
     var intensityType = null;
-    for (var i = 0; i < visiblePackets.length; i += 1) {
-      var packet = visiblePackets[i];
-      if (!intensityType && typeof packet.intensityType === "string") {
-        intensityType = packet.intensityType;
-      }
-      var packetBins = getPacketFrequencyBins(packet);
-      if (packetBins && packetBins.length > 1) {
-        frequencyBins = packetBins;
-        minFrequency = packetBins[0];
-        maxFrequency = packetBins[packetBins.length - 1];
-        if (maxFrequency > minFrequency) {
+
+    var hasConfiguredDeviceRange =
+      Number.isFinite(selectedDeviceMinFrequency) &&
+      Number.isFinite(selectedDeviceMaxFrequency) &&
+      selectedDeviceMaxFrequency > selectedDeviceMinFrequency;
+
+    if (hasConfiguredDeviceRange) {
+      minFrequency = selectedDeviceMinFrequency;
+      maxFrequency = selectedDeviceMaxFrequency;
+      effectivePacketBins = null;
+    } else {
+      for (var i = 0; i < visiblePackets.length; i += 1) {
+        var packet = visiblePackets[i];
+        var packetBins = getPacketFrequencyBins(packet);
+        if (packetBins && packetBins.length > 1) {
+          frequencyBins = packetBins;
+          minFrequency = packetBins[0];
+          maxFrequency = packetBins[packetBins.length - 1];
+          if (maxFrequency > minFrequency) {
+            effectivePacketBins = frequencyBins;
+            break;
+          }
+        }
+
+        if (
+          Number.isFinite(packet.minFrequency) &&
+          Number.isFinite(packet.maxFrequency) &&
+          packet.maxFrequency > packet.minFrequency
+        ) {
+          minFrequency = packet.minFrequency;
+          maxFrequency = packet.maxFrequency;
+          break;
+        }
+        if (
+          Number.isFinite(packet.frequencyMin) &&
+          Number.isFinite(packet.frequencyMax) &&
+          packet.frequencyMax > packet.frequencyMin
+        ) {
+          minFrequency = packet.frequencyMin;
+          maxFrequency = packet.frequencyMax;
+          break;
+        }
+
+        var packetSampleRate = Number(packet.sampleRate || packet.sample_rate);
+        if (Number.isFinite(packetSampleRate) && packetSampleRate > 0) {
+          minFrequency = 0;
+          maxFrequency = packetSampleRate / 2;
           break;
         }
       }
 
       if (
-        Number.isFinite(packet.minFrequency) &&
-        Number.isFinite(packet.maxFrequency) &&
-        packet.maxFrequency > packet.minFrequency
+        (!Number.isFinite(minFrequency) || !Number.isFinite(maxFrequency) || maxFrequency <= minFrequency) &&
+        Number.isFinite(selectedDeviceMinFrequency) &&
+        Number.isFinite(selectedDeviceMaxFrequency) &&
+        selectedDeviceMaxFrequency > selectedDeviceMinFrequency
       ) {
-        minFrequency = packet.minFrequency;
-        maxFrequency = packet.maxFrequency;
-        break;
-      }
-      if (
-        Number.isFinite(packet.frequencyMin) &&
-        Number.isFinite(packet.frequencyMax) &&
-        packet.frequencyMax > packet.frequencyMin
-      ) {
-        minFrequency = packet.frequencyMin;
-        maxFrequency = packet.frequencyMax;
-        break;
+        minFrequency = selectedDeviceMinFrequency;
+        maxFrequency = selectedDeviceMaxFrequency;
       }
 
-      var packetSampleRate = Number(packet.sampleRate || packet.sample_rate);
-      if (Number.isFinite(packetSampleRate) && packetSampleRate > 0) {
-        minFrequency = 0;
-        maxFrequency = packetSampleRate / 2;
-        break;
-      }
+      effectivePacketBins = frequencyBins;
     }
 
-    if (
-      (!Number.isFinite(minFrequency) || !Number.isFinite(maxFrequency) || maxFrequency <= minFrequency) &&
-      Number.isFinite(selectedDeviceMinFrequency) &&
-      Number.isFinite(selectedDeviceMaxFrequency) &&
-      selectedDeviceMaxFrequency > selectedDeviceMinFrequency
-    ) {
-      minFrequency = selectedDeviceMinFrequency;
-      maxFrequency = selectedDeviceMaxFrequency;
+    for (var j = 0; j < visiblePackets.length; j += 1) {
+      if (typeof visiblePackets[j].intensityType === "string") {
+        intensityType = visiblePackets[j].intensityType;
+        break;
+      }
     }
 
     var renderResult = window.Spectrogram.renderSpectrogram({
@@ -1963,7 +1983,7 @@
       debugStatsEnabled: activeDebugStatsEnabled,
       intensityType: intensityType,
       displayGainDb: activeDisplayGainDb,
-      frequencyBins: frequencyBins,
+      frequencyBins: effectivePacketBins,
       minFrequency: minFrequency,
       maxFrequency: maxFrequency,
       displayMinFrequency: displayFrequencyRange ? displayFrequencyRange.min : null,
