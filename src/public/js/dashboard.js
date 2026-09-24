@@ -183,7 +183,7 @@
       { maxZoom: 19, attribution: "Tiles © Esri" }
     );
     var labels = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+      "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
       { maxZoom: 19, attribution: "Labels © Esri" }
     );
     return L.layerGroup([imagery, labels]);
