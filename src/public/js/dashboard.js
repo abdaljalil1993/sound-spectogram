@@ -509,6 +509,7 @@
       var satelliteLayer = createSatelliteTileLayer();
       terrainLayer.addTo(devicesOverviewMapInstance);
       L.control.attribution({ prefix: false, position: "bottomright" }).addTo(devicesOverviewMapInstance);
+      L.control.ruler({ position: "topleft" }).addTo(devicesOverviewMapInstance);
       L.control.layers(
         { "تضاريس": terrainLayer, "قمر صناعي": satelliteLayer },
         null,
