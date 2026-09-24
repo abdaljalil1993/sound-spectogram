@@ -908,6 +908,7 @@ select:focus-visible {
 
 #mapPanel {
   height: calc(100vh - 170px);
+  position: relative;
 }
 
 .top-level-devices-map-container {
@@ -916,6 +917,15 @@ select:focus-visible {
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
+}
+
+.map-fullscreen-btn {
+  position: absolute;
+  top: 12px;
+  left: 58px;
+  z-index: 820;
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
 .leaflet-control-attribution {

@@ -509,6 +509,7 @@
       var satelliteLayer = createSatelliteTileLayer();
       terrainLayer.addTo(devicesOverviewMapInstance);
       L.control.attribution({ prefix: false, position: "bottomright" }).addTo(devicesOverviewMapInstance);
+      L.control.scale({ position: "bottomleft", metric: true, imperial: false }).addTo(devicesOverviewMapInstance);
       L.control.ruler({ position: "topleft" }).addTo(devicesOverviewMapInstance);
       L.control.layers(
         { "تضاريس": terrainLayer, "قمر صناعي": satelliteLayer },
@@ -889,6 +890,7 @@
   var saveDeviceLocationBtn = document.getElementById("saveDeviceLocationBtn");
   var cancelDeviceLocationBtn = document.getElementById("cancelDeviceLocationBtn");
   var topLevelDevicesMapContainer = document.getElementById("topLevelDevicesMapContainer");
+  var toggleMapFullscreenBtn = document.getElementById("toggleMapFullscreenBtn");
 
   var logoutBtn = document.getElementById("logoutBtn");
 
@@ -1002,6 +1004,7 @@
     !saveDeviceLocationBtn ||
     !cancelDeviceLocationBtn ||
     !topLevelDevicesMapContainer ||
+    !toggleMapFullscreenBtn ||
     !logoutBtn
   ) {
     return;
@@ -5677,6 +5680,24 @@
 
   window.addEventListener("resize", function () {
     scheduleRender({ skipTable: false });
+  });
+
+  toggleMapFullscreenBtn.addEventListener("click", function () {
+    var container = document.getElementById("topLevelDevicesMapContainer");
+    if (!container) {
+      return;
+    }
+    if (!document.fullscreenElement) {
+      container.requestFullscreen().catch(function () {});
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener("fullscreenchange", function () {
+    if (devicesOverviewMapInstance) {
+      devicesOverviewMapInstance.invalidateSize();
+    }
   });
 
   var mapPanelObserver = new MutationObserver(function (mutations) {
