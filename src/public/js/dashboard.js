@@ -183,7 +183,7 @@
       { maxZoom: 19, attribution: "Tiles © Esri" }
     );
     var labels = L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png?api_key=" + encodeURIComponent(window.cartoApiKey || ""),
+      "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png?key=" + encodeURIComponent(window.cartoApiKey || ""),
       {
         maxZoom: 20,
         subdomains: "abcd",
