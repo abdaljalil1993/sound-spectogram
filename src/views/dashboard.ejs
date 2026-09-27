@@ -644,6 +644,11 @@
     <script src="/public/vendor/leaflet-ruler/leaflet-ruler.js"></script>
     <script src="/public/js/frequency-mapping.js"></script>
     <script src="/public/js/spectrogram.js"></script>
+    <script>
+      window.__APP_CONFIG__ = {
+        cartoApiKey: <%- JSON.stringify(cartoApiKey || "") %>
+      };
+    </script>
     <script src="/public/js/dashboard.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <script src="/public/js/statistics.js"></script>

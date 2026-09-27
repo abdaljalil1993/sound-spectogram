@@ -41,7 +41,9 @@ export function createApp() {
   });
 
   app.get("/dashboard", (_req, res) => {
-    res.render("dashboard");
+    res.render("dashboard", {
+      cartoApiKey: process.env.CARTO_API_KEY || ""
+    });
   });
 
   app.use("/api", userRoutes);
