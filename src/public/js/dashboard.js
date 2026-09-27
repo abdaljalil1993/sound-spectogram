@@ -105,8 +105,6 @@
   var multiViewPanels = {};
   var DEFAULT_LOCATION_LAT = 35.5;
   var DEFAULT_LOCATION_LNG = 35.8;
-  var appConfig = window.__APP_CONFIG__ && typeof window.__APP_CONFIG__ === "object" ? window.__APP_CONFIG__ : {};
-  var cartoApiKey = typeof appConfig.cartoApiKey === "string" ? appConfig.cartoApiKey.trim() : "";
 
   var topNav = document.getElementById("topNav");
   var dashboardLayoutEl = document.getElementById("dashboardLayout");
@@ -185,7 +183,7 @@
       { maxZoom: 19, attribution: "Tiles © Esri" }
     );
     var labels = L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png?api_key=" + encodeURIComponent(cartoApiKey),
+      "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png?api_key=" + encodeURIComponent(window.cartoApiKey || ""),
       {
         maxZoom: 20,
         subdomains: "abcd",
