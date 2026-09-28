@@ -54,22 +54,6 @@
   var markerDragHasMoved = false;
   var skipMarkerRemovalClick = false;
   var panHasMoved = false;
-  var PROBE_AUTO_HIDE_MS = 4000;
-  var probeAutoHideTimerId = null;
-
-  function scheduleProbeAutoHide() {
-    if (probeAutoHideTimerId !== null) {
-      clearTimeout(probeAutoHideTimerId);
-    }
-    probeAutoHideTimerId = setTimeout(function () {
-      probeAutoHideTimerId = null;
-      probeTooltipEl.classList.add("hidden");
-    }, PROBE_AUTO_HIDE_MS);
-  }
-  var suppressNextProbeClick = false;
-  var pressStartedAtMs = 0;
-  var PAN_MOVE_THRESHOLD_PX = 5;
-  var CLICK_MAX_DURATION_MS = 400;
   var panStartClientX = 0;
   var panStartFromMs = 0;
   var panStartToMs = 0;
@@ -5066,9 +5050,6 @@
       return;
     }
 
-    suppressNextProbeClick = false;
-    pressStartedAtMs = Date.now();
-
     var markerHit = findMarkerHitAtCanvasPoint(event);
     if (markerHit && markerHit.markerIndex >= 0 && markerHit.markerIndex < timeMarkers.length) {
       isDraggingMarker = true;
@@ -5142,7 +5123,7 @@
     var canvasWidth = Math.max(1, canvas.clientWidth || 1);
     var dx = event.clientX - panStartClientX;
 
-    if (!panHasMoved && Math.abs(dx) >= PAN_MOVE_THRESHOLD_PX) {
+    if (!panHasMoved && Math.abs(dx) >= 3) {
       panHasMoved = true;
       liveManualBrowseActive = true;
     }
@@ -5170,8 +5151,6 @@
       return;
     }
     var didPan = panHasMoved;
-    var heldTooLong = pressStartedAtMs > 0 && Date.now() - pressStartedAtMs > CLICK_MAX_DURATION_MS;
-    suppressNextProbeClick = didPan || heldTooLong;
     isPanning = false;
     panHasMoved = false;
     canvas.style.cursor = "grab";
@@ -5529,11 +5508,6 @@
   });
 
   canvas.addEventListener("click", function (event) {
-    if (suppressNextProbeClick) {
-      suppressNextProbeClick = false;
-      return;
-    }
-
     if (isPanning) {
       return;
     }
@@ -5543,22 +5517,7 @@
       return;
     }
 
-    if (removeTimeMarkerAtCanvasPoint(event)) {
-      probeTooltipEl.classList.add("hidden");
-      return;
-    }
-
-    var info = buildProbeInfo(event);
-    if (!info) {
-      probeTooltipEl.classList.add("hidden");
-      return;
-    }
-
-    probeTooltipEl.innerHTML = formatProbeTooltip(info);
-    probeTooltipEl.style.left = event.clientX + 14 + "px";
-    probeTooltipEl.style.top = event.clientY + 14 + "px";
-    probeTooltipEl.classList.remove("hidden");
-    scheduleProbeAutoHide();
+    removeTimeMarkerAtCanvasPoint(event);
   });
 
   function setupSocket() {
