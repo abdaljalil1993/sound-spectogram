@@ -54,6 +54,10 @@
   var markerDragHasMoved = false;
   var skipMarkerRemovalClick = false;
   var panHasMoved = false;
+  var suppressNextProbeClick = false;
+  var pressStartedAtMs = 0;
+  var PAN_MOVE_THRESHOLD_PX = 5;
+  var CLICK_MAX_DURATION_MS = 400;
   var panStartClientX = 0;
   var panStartFromMs = 0;
   var panStartToMs = 0;
@@ -5050,6 +5054,9 @@
       return;
     }
 
+    suppressNextProbeClick = false;
+    pressStartedAtMs = Date.now();
+
     var markerHit = findMarkerHitAtCanvasPoint(event);
     if (markerHit && markerHit.markerIndex >= 0 && markerHit.markerIndex < timeMarkers.length) {
       isDraggingMarker = true;
@@ -5123,7 +5130,7 @@
     var canvasWidth = Math.max(1, canvas.clientWidth || 1);
     var dx = event.clientX - panStartClientX;
 
-    if (!panHasMoved && Math.abs(dx) >= 3) {
+    if (!panHasMoved && Math.abs(dx) >= PAN_MOVE_THRESHOLD_PX) {
       panHasMoved = true;
       liveManualBrowseActive = true;
     }
@@ -5150,10 +5157,15 @@
     if (!isPanning) {
       return;
     }
+    var didPan = panHasMoved;
+    var heldTooLong = pressStartedAtMs > 0 && Date.now() - pressStartedAtMs > CLICK_MAX_DURATION_MS;
+    suppressNextProbeClick = didPan || heldTooLong;
     isPanning = false;
     panHasMoved = false;
     canvas.style.cursor = "grab";
-    scheduleRender({ skipTable: false });
+    if (didPan) {
+      scheduleRender({ skipTable: false });
+    }
   });
 
   canvas.addEventListener(
@@ -5403,6 +5415,30 @@
     var timeMs = lastRenderMeta.fromMs + xFrac * (lastRenderMeta.toMs - lastRenderMeta.fromMs);
     var rowIndex = Math.round((1 - yFrac) * Math.max(0, lastRenderMeta.binCount - 1));
 
+    if (
+      activeLogFrequencyView &&
+      window.LogSpectrogram &&
+      typeof window.LogSpectrogram.getLastRenderInfo === "function" &&
+      typeof window.LogSpectrogram.positionToFrequency === "function"
+    ) {
+      var logInfo = window.LogSpectrogram.getLastRenderInfo();
+      if (
+        logInfo &&
+        Number.isFinite(logInfo.viewMinHz) &&
+        Number.isFinite(logInfo.viewMaxHz) &&
+        logInfo.viewMaxHz > logInfo.viewMinHz
+      ) {
+        var positionFromLow = logInfo.lowAtTop ? yFrac : 1 - yFrac;
+        var probeHz = window.LogSpectrogram.positionToFrequency(positionFromLow);
+        if (Number.isFinite(probeHz)) {
+          var hzRatio = (probeHz - logInfo.viewMinHz) / (logInfo.viewMaxHz - logInfo.viewMinHz);
+          rowIndex = Math.round(
+            Math.min(1, Math.max(0, hzRatio)) * Math.max(0, lastRenderMeta.binCount - 1)
+          );
+        }
+      }
+    }
+
     var sample = findProbeSample(timeMs, rowIndex);
     if (!sample) {
       return null;
@@ -5481,6 +5517,11 @@
   });
 
   canvas.addEventListener("click", function (event) {
+    if (suppressNextProbeClick) {
+      suppressNextProbeClick = false;
+      return;
+    }
+
     if (isPanning) {
       return;
     }

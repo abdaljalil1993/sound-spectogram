@@ -260,6 +260,27 @@
     return Math.min(Math.max(position, 0), 1);
   }
 
+  // Inverse of frequencyToPosition: 0..1 position measured from the LOW-frequency edge of the
+  // plot -> frequency in Hz. Used by the click probe so it reports the correct frequency.
+  function positionToFrequency(position) {
+    var axis = lastRenderInfo && lastRenderInfo.axis;
+    if (!axis) {
+      return null;
+    }
+    var p = Math.min(Math.max(Number(position), 0), 1);
+    if (!Number.isFinite(p)) {
+      return null;
+    }
+    if (p <= axis.share) {
+      return axis.minHz + (p / axis.share) * (axis.focusHz - axis.minHz);
+    }
+    var u = (p - axis.share) / (1 - axis.share);
+    if (axis.topLinear) {
+      return axis.focusHz + u * axis.dHz;
+    }
+    return axis.focusHz + axis.k2 * (Math.exp(u * Math.log(1 + axis.dHz / axis.k2)) - 1);
+  }
+
   // ---------- WebGL setup ----------
 
   function createShader(gl, type, source) {
@@ -544,6 +565,7 @@
   window.LogSpectrogram = {
     renderLogSpectrogram: renderLogSpectrogram,
     getLastRenderInfo: getLastRenderInfo,
-    frequencyToPosition: frequencyToPosition
+    frequencyToPosition: frequencyToPosition,
+    positionToFrequency: positionToFrequency
   };
 })();
