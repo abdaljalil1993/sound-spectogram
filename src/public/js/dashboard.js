@@ -1880,6 +1880,9 @@
         historyTableBody.innerHTML = "";
       }
       lastRenderMeta = null;
+      if (window.HarmonicCursor) {
+        window.HarmonicCursor.redraw();
+      }
       renderedTimeMarkerHits = [];
       gapTooltipEl.classList.add("hidden");
       clearSpectrogramCanvas("لا توجد بيانات للجهاز المحدد.");
@@ -2052,6 +2055,9 @@
     }
 
     lastRenderMeta = renderResult || null;
+    if (window.HarmonicCursor) {
+      window.HarmonicCursor.redraw();
+    }
     drawTimeMarkersOverlay();
 
     if (renderResult) {
@@ -5042,6 +5048,18 @@
   logFrequencyViewToggle.addEventListener("change", function () {
     applyLogFrequencyViewSettings();
   });
+
+  if (window.HarmonicCursor) {
+    window.HarmonicCursor.init({
+      canvas: canvas,
+      getMeta: function () {
+        return lastRenderMeta;
+      },
+      isLogView: function () {
+        return activeLogFrequencyView;
+      }
+    });
+  }
 
   canvas.style.cursor = "grab";
 
