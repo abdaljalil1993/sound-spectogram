@@ -54,6 +54,18 @@
   var markerDragHasMoved = false;
   var skipMarkerRemovalClick = false;
   var panHasMoved = false;
+  var PROBE_AUTO_HIDE_MS = 4000;
+  var probeAutoHideTimerId = null;
+
+  function scheduleProbeAutoHide() {
+    if (probeAutoHideTimerId !== null) {
+      clearTimeout(probeAutoHideTimerId);
+    }
+    probeAutoHideTimerId = setTimeout(function () {
+      probeAutoHideTimerId = null;
+      probeTooltipEl.classList.add("hidden");
+    }, PROBE_AUTO_HIDE_MS);
+  }
   var suppressNextProbeClick = false;
   var pressStartedAtMs = 0;
   var PAN_MOVE_THRESHOLD_PX = 5;
@@ -5546,6 +5558,7 @@
     probeTooltipEl.style.left = event.clientX + 14 + "px";
     probeTooltipEl.style.top = event.clientY + 14 + "px";
     probeTooltipEl.classList.remove("hidden");
+    scheduleProbeAutoHide();
   });
 
   function setupSocket() {
