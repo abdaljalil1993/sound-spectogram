@@ -525,6 +525,12 @@
               <button id="applyFreqRangeBtn" type="button" class="ghost-btn">تطبيق</button>
               <button id="clearFreqRangeBtn" type="button" class="ghost-btn">مسح</button>
             </div>
+            <hr>
+            <label class="toolbar-check" title="عرض المحور الترددي اللوغاريتمي الحقيقي">
+              <input id="logFrequencyViewToggle" type="checkbox" /> عرض لوغاريتمي 
+            </label>
+
+        
           </div>
 
           <div class="side-card">
@@ -644,6 +650,8 @@
     <script src="/public/vendor/leaflet-ruler/leaflet-ruler.js"></script>
     <script src="/public/js/frequency-mapping.js"></script>
     <script src="/public/js/spectrogram.js"></script>
+    <script src="/public/js/log-spectrogram.js"></script>
+    <script src="/public/js/log-frequency-labels.js"></script>
     <script>
       window.cartoApiKey = <%- JSON.stringify(cartoApiKey || "") %>;
     </script>

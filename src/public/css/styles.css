@@ -710,6 +710,7 @@ select:focus-visible {
   background: #fff;
   color: var(--ink);
   font-size: 12px;
+  margin-right: 11px;
 }
 
 .toolbar-check input {

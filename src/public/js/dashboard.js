@@ -847,6 +847,7 @@
   var neighborhoodSizeSelect = document.getElementById("neighborhoodSizeSelect");
   var bucketAggregationSelect = document.getElementById("bucketAggregationSelect");
   var debugStatsEnabledInput = document.getElementById("debugStatsEnabledInput");
+  var logFrequencyViewToggle = document.getElementById("logFrequencyViewToggle");
   var applyNoiseBtn = document.getElementById("applyNoiseBtn");
 
   var usersTableBody = document.getElementById("usersTableBody");
@@ -965,6 +966,7 @@
     !neighborhoodSizeSelect ||
     !bucketAggregationSelect ||
     !debugStatsEnabledInput ||
+    !logFrequencyViewToggle ||
     !applyNoiseBtn ||
     !usersTableBody ||
     !userForm ||
@@ -1288,6 +1290,32 @@
   var activeNeighborhoodSize = 3;
   var activeBucketAggregation = "max";
   var activeDebugStatsEnabled = false;
+  var activeLogFrequencyView = false;
+  var logFrequencyViewStorageKey = "logFrequencyView";
+
+  function readStoredLogFrequencyView() {
+    try {
+      return localStorage.getItem(logFrequencyViewStorageKey) === "1";
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function saveStoredLogFrequencyView(value) {
+    try {
+      localStorage.setItem(logFrequencyViewStorageKey, value ? "1" : "0");
+    } catch (_error) {
+      // ignore storage failures
+    }
+  }
+
+  function applyLogFrequencyViewSettings() {
+    activeLogFrequencyView = parseBoolInput(logFrequencyViewToggle, false);
+    logFrequencyViewToggle.checked = activeLogFrequencyView;
+    saveStoredLogFrequencyView(activeLogFrequencyView);
+    scheduleRender({ skipTable: true });
+    setGlobalMessage(activeLogFrequencyView ? "تم تفعيل العرض اللوغاريتمي" : "تم تفعيل العرض الخطي", false);
+  }
 
   function parseBoolInput(input, fallback) {
     if (!(input instanceof HTMLInputElement)) {
@@ -1967,7 +1995,14 @@
       }
     }
 
-    var renderResult = window.Spectrogram.renderSpectrogram({
+    var renderFn =
+      activeLogFrequencyView &&
+      window.LogSpectrogram &&
+      typeof window.LogSpectrogram.renderLogSpectrogram === "function"
+        ? window.LogSpectrogram.renderLogSpectrogram
+        : window.Spectrogram.renderSpectrogram;
+
+    var renderOptionsPayload = {
       canvas: canvas,
       legendCanvas: legendCanvas,
       blocks: visiblePackets,
@@ -1996,7 +2031,26 @@
       maxFrequency: maxFrequency,
       displayMinFrequency: displayFrequencyRange ? displayFrequencyRange.min : null,
       displayMaxFrequency: displayFrequencyRange ? displayFrequencyRange.max : null
-    });
+    };
+
+    var renderResult = renderFn(renderOptionsPayload);
+
+    var drawFrequencyAxisLabelsFn =
+      activeLogFrequencyView &&
+      window.LogFrequencyLabels &&
+      typeof window.LogFrequencyLabels.drawLogFrequencyAxisLabels === "function"
+        ? window.LogFrequencyLabels.drawLogFrequencyAxisLabels
+        : null;
+
+    if (drawFrequencyAxisLabelsFn && renderResult && renderResult.layout) {
+      var labelMinFrequency = displayFrequencyRange ? displayFrequencyRange.min : minFrequency;
+      var labelMaxFrequency = displayFrequencyRange ? displayFrequencyRange.max : maxFrequency;
+      if (Number.isFinite(labelMinFrequency) && Number.isFinite(labelMaxFrequency) && labelMaxFrequency > labelMinFrequency) {
+        var canvasContext = canvas.getContext("2d");
+        drawFrequencyAxisLabelsFn(canvasContext, labelMinFrequency, labelMaxFrequency, renderResult.layout);
+      }
+    }
+
     lastRenderMeta = renderResult || null;
     drawTimeMarkersOverlay();
 
@@ -4985,6 +5039,10 @@
     });
   });
 
+  logFrequencyViewToggle.addEventListener("change", function () {
+    applyLogFrequencyViewSettings();
+  });
+
   canvas.style.cursor = "grab";
 
   canvas.addEventListener("mousedown", function (event) {
@@ -5770,6 +5828,8 @@
   neighborhoodSizeSelect.value = String(activeNeighborhoodSize);
   bucketAggregationSelect.value = activeBucketAggregation;
   debugStatsEnabledInput.checked = activeDebugStatsEnabled;
+  activeLogFrequencyView = readStoredLogFrequencyView();
+  logFrequencyViewToggle.checked = activeLogFrequencyView;
   updateIntensityControlsState();
   applyNoiseSettings();
   updateFollowLiveButtonState();
