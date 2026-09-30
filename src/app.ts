@@ -17,6 +17,7 @@ export function createApp() {
     helmet({
       contentSecurityPolicy: {
         directives: {
+          upgradeInsecureRequests: null,
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
           scriptSrcAttr: ["'unsafe-inline'"],
