@@ -134,6 +134,7 @@
   var sideDeviceInfoEl = document.getElementById("sideDeviceInfo");
   var processingStatusEl = document.getElementById("processingStatus");
   var canvas = document.getElementById("spectrogramCanvas");
+  var markersOverlayCanvas = null;
   var spectrogramLoaderEl = document.getElementById("spectrogramLoader");
   var legendCanvas = document.getElementById("spectrogramLegend");
   var gapTooltipEl = document.getElementById("gapTooltip");
@@ -147,6 +148,15 @@
   var clearMarkersBtn = document.getElementById("clearMarkersBtn");
   var panLeftBtn = document.getElementById("panLeftBtn");
   var panRightBtn = document.getElementById("panRightBtn");
+
+  if (canvas && canvas.parentElement) {
+    markersOverlayCanvas = document.createElement("canvas");
+    markersOverlayCanvas.setAttribute("aria-hidden", "true");
+    markersOverlayCanvas.style.position = "absolute";
+    markersOverlayCanvas.style.pointerEvents = "none";
+    markersOverlayCanvas.style.zIndex = "2";
+    canvas.parentElement.appendChild(markersOverlayCanvas);
+  }
 
   async function loadDevicesWithStatus() {
     if (!isAdmin) {
@@ -1886,6 +1896,7 @@
       renderedTimeMarkerHits = [];
       gapTooltipEl.classList.add("hidden");
       clearSpectrogramCanvas("لا توجد بيانات للجهاز المحدد.");
+      drawTimeMarkersOverlay();
       return;
     }
 
@@ -1916,6 +1927,7 @@
       renderedTimeMarkerHits = [];
       gapTooltipEl.classList.add("hidden");
       clearSpectrogramCanvas("لا توجد بيانات للجهاز المحدد.");
+      drawTimeMarkersOverlay();
       return;
     }
 
@@ -2183,8 +2195,42 @@
     return formatNaiveDateTimeMs(timeMs, true);
   }
 
+  function syncMarkersOverlayGeometry() {
+    if (!canvas || !markersOverlayCanvas) {
+      return false;
+    }
+
+    var rect = canvas.getBoundingClientRect();
+    if (!(rect.width > 0) || !(rect.height > 0) || !(canvas.width > 0) || !(canvas.height > 0)) {
+      return false;
+    }
+
+    markersOverlayCanvas.style.left = canvas.offsetLeft + "px";
+    markersOverlayCanvas.style.top = canvas.offsetTop + "px";
+    markersOverlayCanvas.style.width = rect.width + "px";
+    markersOverlayCanvas.style.height = rect.height + "px";
+    if (markersOverlayCanvas.width !== canvas.width || markersOverlayCanvas.height !== canvas.height) {
+      markersOverlayCanvas.width = canvas.width;
+      markersOverlayCanvas.height = canvas.height;
+    }
+
+    return { scaleX: markersOverlayCanvas.width / rect.width, scaleY: markersOverlayCanvas.height / rect.height };
+  }
+
   function drawTimeMarkersOverlay() {
     renderedTimeMarkerHits = [];
+    var overlayScale = syncMarkersOverlayGeometry();
+    if (!overlayScale) {
+      return;
+    }
+
+    var ctx = markersOverlayCanvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+
+    ctx.clearRect(0, 0, markersOverlayCanvas.width, markersOverlayCanvas.height);
+
     if (!lastRenderMeta || !lastRenderMeta.layout) {
       return;
     }
@@ -2199,12 +2245,8 @@
       return;
     }
 
-    var ctx = canvas.getContext("2d");
-    if (!ctx) {
-      return;
-    }
-
     ctx.save();
+    ctx.setTransform(overlayScale.scaleX, 0, 0, overlayScale.scaleY, 0, 0);
     ctx.strokeStyle = "rgba(255, 214, 10, 0.95)";
     ctx.fillStyle = "rgba(255, 214, 10, 0.95)";
     ctx.lineWidth = 1.2;
@@ -5125,7 +5167,7 @@
         markerDragHasMoved = true;
       }
 
-      scheduleRender({ skipTable: true });
+      drawTimeMarkersOverlay();
       return;
     }
 
@@ -5161,7 +5203,6 @@
       skipMarkerRemovalClick = markerDragHasMoved;
       markerDragHasMoved = false;
       canvas.style.cursor = "grab";
-      scheduleRender({ skipTable: false });
       return;
     }
 

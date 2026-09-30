@@ -294,7 +294,7 @@
   }
 
   function scheduleDraw() {
-    if (!state.initialised || state.rafId !== null) {
+    if (!state.initialised || !state.active || state.rafId !== null) {
       return;
     }
     state.rafId = window.requestAnimationFrame(drawNow);
