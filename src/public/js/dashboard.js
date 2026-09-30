@@ -4993,14 +4993,17 @@
     resetViewport();
   });
 
-  clearMarkersBtn.addEventListener("click", function () {
+  function clearAllTimeMarkers() {
     if (!timeMarkers.length) {
       return;
     }
-
     timeMarkers = [];
     renderedTimeMarkerHits = [];
-    scheduleRender({ skipTable: true });
+    drawTimeMarkersOverlay();
+  }
+
+  clearMarkersBtn.addEventListener("click", function () {
+    clearAllTimeMarkers();
   });
 
   bindHoldAction(panLeftBtn, function () {
@@ -5251,18 +5254,80 @@
     { passive: false }
   );
 
-  canvas.addEventListener("dblclick", function (event) {
-    if (event.button !== 0) {
-      event.preventDefault();
-      return;
+  var canvasContextMenuEl = null;
+
+  function closeCanvasContextMenu() {
+    if (canvasContextMenuEl && canvasContextMenuEl.parentElement) {
+      canvasContextMenuEl.parentElement.removeChild(canvasContextMenuEl);
     }
-    addTimeMarkerFromEvent(event);
-    event.preventDefault();
-  });
+    canvasContextMenuEl = null;
+    document.removeEventListener("click", closeCanvasContextMenu, true);
+    document.removeEventListener("keydown", handleCanvasContextMenuEscape, true);
+  }
+
+  function handleCanvasContextMenuEscape(event) {
+    if (event.key === "Escape") {
+      closeCanvasContextMenu();
+    }
+  }
+
+  function addCanvasContextMenuItem(menuEl, label, onSelect) {
+    var item = document.createElement("button");
+    item.type = "button";
+    item.className = "ghost-btn";
+    item.style.display = "block";
+    item.style.width = "100%";
+    item.style.textAlign = "right";
+    item.style.marginBottom = "4px";
+    item.textContent = label;
+    item.addEventListener("click", function (clickEvent) {
+      clickEvent.stopPropagation();
+      closeCanvasContextMenu();
+      onSelect();
+    });
+    menuEl.appendChild(item);
+  }
 
   canvas.addEventListener("contextmenu", function (event) {
-    // Disable right-click zoom interaction on the canvas.
     event.preventDefault();
+    closeCanvasContextMenu();
+
+    var menu = document.createElement("div");
+    menu.style.position = "fixed";
+    menu.style.left = event.clientX + "px";
+    menu.style.top = event.clientY + "px";
+    menu.style.zIndex = "1003";
+    menu.style.background = "#141a2a";
+    menu.style.border = "1px solid rgba(255,255,255,0.15)";
+    menu.style.borderRadius = "8px";
+    menu.style.padding = "6px";
+    menu.style.minWidth = "180px";
+    menu.style.boxShadow = "0 8px 24px rgba(0,0,0,0.35)";
+
+    addCanvasContextMenuItem(menu, "إنشاء علامة هنا", function () {
+      addTimeMarkerFromEvent(event);
+    });
+
+    addCanvasContextMenuItem(menu, "إزالة كل العلامات", function () {
+      clearAllTimeMarkers();
+    });
+
+    if (window.HarmonicCursor) {
+      var cursorLabel = window.HarmonicCursor.isActive()
+        ? "إيقاف مؤشر التوافقيات"
+        : "تفعيل مؤشر التوافقيات";
+      addCanvasContextMenuItem(menu, cursorLabel, function () {
+        window.HarmonicCursor.setActive(!window.HarmonicCursor.isActive());
+      });
+    }
+
+    document.body.appendChild(menu);
+    canvasContextMenuEl = menu;
+
+    window.setTimeout(function () {
+      document.addEventListener("click", closeCanvasContextMenu, true);
+      document.addEventListener("keydown", handleCanvasContextMenuEscape, true);
+    }, 0);
   });
 
   window.addEventListener("keydown", function (event) {
