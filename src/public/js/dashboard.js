@@ -2373,7 +2373,7 @@
 
     if (hit.markerIndex >= 0 && hit.markerIndex < timeMarkers.length) {
       timeMarkers.splice(hit.markerIndex, 1);
-      scheduleRender({ skipTable: true });
+      drawTimeMarkersOverlay();
       return true;
     }
 
@@ -2404,7 +2404,7 @@
     var xFrac = (x - layout.plotLeft) / Math.max(1e-9, layout.plotRight - layout.plotLeft);
     var timeMs = lastRenderMeta.fromMs + xFrac * span;
     timeMarkers.push({ timeMs: timeMs });
-    scheduleRender({ skipTable: true });
+    drawTimeMarkersOverlay();
     return true;
   }
 
