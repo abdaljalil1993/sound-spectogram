@@ -1047,6 +1047,18 @@ select:focus-visible {
   cursor: pointer;
 }
 
+.reports-view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 6px 10px;
+  margin-bottom: 10px;
+}
+
+#reportViewContent {
+  direction: rtl;
+  text-align: right;
+}
+
 .devices-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

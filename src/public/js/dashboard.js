@@ -944,6 +944,15 @@
   var reportFormMessage = document.getElementById("reportFormMessage");
   var reportSaveBtn = document.getElementById("reportSaveBtn");
   var reportCancelBtn = document.getElementById("reportCancelBtn");
+  var reportViewModal = document.getElementById("reportViewModal");
+  var reportViewModalTitle = document.getElementById("reportViewModalTitle");
+  var reportViewId = document.getElementById("reportViewId");
+  var reportViewAuthor = document.getElementById("reportViewAuthor");
+  var reportViewUserId = document.getElementById("reportViewUserId");
+  var reportViewCreatedAt = document.getElementById("reportViewCreatedAt");
+  var reportViewUpdatedAt = document.getElementById("reportViewUpdatedAt");
+  var reportViewContent = document.getElementById("reportViewContent");
+  var reportViewCloseBtn = document.getElementById("reportViewCloseBtn");
 
   var devicesCardsGrid = document.getElementById("devicesCardsGrid");
   var deviceSearchInput = document.getElementById("deviceSearchInput");
@@ -1091,6 +1100,15 @@
     !reportFormMessage ||
     !reportSaveBtn ||
     !reportCancelBtn ||
+    !reportViewModal ||
+    !reportViewModalTitle ||
+    !reportViewId ||
+    !reportViewAuthor ||
+    !reportViewUserId ||
+    !reportViewCreatedAt ||
+    !reportViewUpdatedAt ||
+    !reportViewContent ||
+    !reportViewCloseBtn ||
     !devicesCardsGrid ||
     !openDeviceModalBtn ||
     !deviceModal ||
@@ -4445,6 +4463,31 @@
     reportModal.setAttribute("aria-hidden", "true");
   }
 
+  function openReportViewModal(report) {
+    if (!report) {
+      return;
+    }
+
+    reportViewModalTitle.textContent = "عرض التقرير #" + String(report.id || "-");
+    reportViewId.textContent = String(report.id || "-");
+    reportViewAuthor.textContent = report.createdByNameSnapshot || "-";
+    reportViewUserId.textContent = report.createdByUserId === null || report.createdByUserId === undefined
+      ? "-"
+      : String(report.createdByUserId);
+    reportViewCreatedAt.textContent = report.createdAt ? formatLocalDateTime(report.createdAt) : "-";
+    reportViewUpdatedAt.textContent = report.updatedAt ? formatLocalDateTime(report.updatedAt) : "-";
+    reportViewContent.value = report.content || "";
+
+    reportViewModal.classList.remove("hidden");
+    reportViewModal.setAttribute("aria-hidden", "false");
+    reportViewCloseBtn.focus();
+  }
+
+  function closeReportViewModal() {
+    reportViewModal.classList.add("hidden");
+    reportViewModal.setAttribute("aria-hidden", "true");
+  }
+
   async function loadReports() {
     try {
       setReportsMessage("جاري تحميل التقارير...", false);
@@ -4540,6 +4583,15 @@
 
         var actionsTd = document.createElement("td");
         actionsTd.className = "action-buttons";
+
+        var viewBtn = document.createElement("button");
+        viewBtn.type = "button";
+        viewBtn.className = "ghost-btn";
+        viewBtn.textContent = "عرض";
+        viewBtn.addEventListener("click", function () {
+          openReportViewModal(item);
+        });
+        actionsTd.appendChild(viewBtn);
 
         if (isAdmin || Number(item.createdByUserId) === Number(user.id)) {
           var editBtn = document.createElement("button");
@@ -5039,6 +5091,16 @@
     if (event.target === reportModal) {
       closeReportModal();
       resetReportForm();
+    }
+  });
+
+  reportViewCloseBtn.addEventListener("click", function () {
+    closeReportViewModal();
+  });
+
+  reportViewModal.addEventListener("click", function (event) {
+    if (event.target === reportViewModal) {
+      closeReportViewModal();
     }
   });
 

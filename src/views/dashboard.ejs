@@ -530,6 +530,29 @@
               </div>
             </div>
           </div>
+
+          <div
+            id="reportViewModal"
+            class="hidden"
+            aria-hidden="true"
+            style="position: fixed; inset: 0; z-index: 1002; background: rgba(9, 12, 18, 0.55); padding: 20px;"
+          >
+            <div class="side-card" style="max-width: 760px; margin: 0 auto; max-height: calc(100vh - 40px); overflow: auto;">
+              <h3 id="reportViewModalTitle" style="margin-bottom: 8px;">عرض التقرير</h3>
+              <div class="reports-view-grid">
+                <p><strong>المعرّف:</strong> <span id="reportViewId">-</span></p>
+                <p><strong>المستخدم:</strong> <span id="reportViewAuthor">-</span></p>
+                <p><strong>معرّف المستخدم:</strong> <span id="reportViewUserId">-</span></p>
+                <p><strong>تاريخ التقديم:</strong> <span id="reportViewCreatedAt">-</span></p>
+                <p><strong>آخر تعديل:</strong> <span id="reportViewUpdatedAt">-</span></p>
+              </div>
+              <label for="reportViewContent">محتوى التقرير</label>
+              <textarea id="reportViewContent" rows="12" readonly disabled aria-disabled="true" style="width: 100%; resize: vertical;"></textarea>
+              <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" id="reportViewCloseBtn" class="ghost-btn">إغلاق</button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <aside id="rightPanel" class="right-panel">
