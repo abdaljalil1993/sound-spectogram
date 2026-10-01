@@ -63,11 +63,17 @@
   var lastRenderMeta = null;
   var devicesCache = [];
   var devicesStatusCache = [];
+  var usersCache = [];
   var liveDeviceStatusMap = {};
   var deviceStatusStorageKey = "device-live-status-cache";
   var editingUserId = null;
   var editingDeviceId = null;
   var editingDeviceForLocation = null;
+  var reportsCurrentPage = 1;
+  var reportsPageSize = 20;
+  var reportsSelectedIds = [];
+  var reportsFilterUserId = "";
+  var reportsFilterDate = "";
   var deviceLocationMap = null;
   var deviceLocationMarker = null;
   var devicesOverviewMapInstance = null;
@@ -114,6 +120,7 @@
   var statisticsPanel = document.getElementById("statisticsPanel");
   var usersPanel = document.getElementById("usersPanel");
   var devicesPanel = document.getElementById("devicesPanel");
+  var reportsPanel = document.getElementById("reportsPanel");
   var globalMessageEl = document.getElementById("globalMessage");
   var userBadgeEl = document.getElementById("userBadge");
   var socketStatusBadgeEl = document.getElementById("socketStatusBadge");
@@ -908,6 +915,34 @@
   var pendingDevicesMessage = document.getElementById("pendingDevicesMessage");
   var deviceChangeRequestsTableBody = document.getElementById("deviceChangeRequestsTableBody");
   var deviceChangeRequestsMessage = document.getElementById("deviceChangeRequestsMessage");
+  var reportsNavDropdown = document.getElementById("reportsNavDropdown");
+  var reportsNavToggleBtn = document.getElementById("reportsNavToggleBtn");
+  var reportsNavMenu = document.getElementById("reportsNavMenu");
+  var reportsNavAddBtn = document.getElementById("reportsNavAddBtn");
+  var reportsNavViewBtn = document.getElementById("reportsNavViewBtn");
+  var openAddReportModalBtn = document.getElementById("openAddReportModalBtn");
+  var refreshReportsBtn = document.getElementById("refreshReportsBtn");
+  var bulkDeleteReportsBtn = document.getElementById("bulkDeleteReportsBtn");
+  var reportsFiltersRow = document.getElementById("reportsFiltersRow");
+  var reportsFilterUserSelect = document.getElementById("reportsFilterUserSelect");
+  var reportsFilterDateInput = document.getElementById("reportsFilterDateInput");
+  var applyReportsFilterBtn = document.getElementById("applyReportsFilterBtn");
+  var clearReportsFilterBtn = document.getElementById("clearReportsFilterBtn");
+  var reportsMessage = document.getElementById("reportsMessage");
+  var reportsSelectAllHeaderCell = document.getElementById("reportsSelectAllHeaderCell");
+  var reportsSelectAllCheckbox = document.getElementById("reportsSelectAllCheckbox");
+  var reportsTableBody = document.getElementById("reportsTableBody");
+  var reportsPaginationRow = document.getElementById("reportsPaginationRow");
+  var reportsPrevPageBtn = document.getElementById("reportsPrevPageBtn");
+  var reportsPageIndicator = document.getElementById("reportsPageIndicator");
+  var reportsNextPageBtn = document.getElementById("reportsNextPageBtn");
+  var reportModal = document.getElementById("reportModal");
+  var reportModalTitle = document.getElementById("reportModalTitle");
+  var reportIdInput = document.getElementById("reportId");
+  var reportContentInput = document.getElementById("reportContentInput");
+  var reportFormMessage = document.getElementById("reportFormMessage");
+  var reportSaveBtn = document.getElementById("reportSaveBtn");
+  var reportCancelBtn = document.getElementById("reportCancelBtn");
 
   var devicesCardsGrid = document.getElementById("devicesCardsGrid");
   var deviceSearchInput = document.getElementById("deviceSearchInput");
@@ -945,6 +980,7 @@
     !statisticsPanel ||
     !usersPanel ||
     !devicesPanel ||
+    !reportsPanel ||
     !deviceSearchInput ||
     !exportDevicesBtn ||
     !globalMessageEl ||
@@ -1026,6 +1062,34 @@
     !pendingDevicesMessage ||
     !deviceChangeRequestsTableBody ||
     !deviceChangeRequestsMessage ||
+    !reportsNavDropdown ||
+    !reportsNavToggleBtn ||
+    !reportsNavMenu ||
+    !reportsNavAddBtn ||
+    !reportsNavViewBtn ||
+    !openAddReportModalBtn ||
+    !refreshReportsBtn ||
+    !bulkDeleteReportsBtn ||
+    !reportsFiltersRow ||
+    !reportsFilterUserSelect ||
+    !reportsFilterDateInput ||
+    !applyReportsFilterBtn ||
+    !clearReportsFilterBtn ||
+    !reportsMessage ||
+    !reportsSelectAllHeaderCell ||
+    !reportsSelectAllCheckbox ||
+    !reportsTableBody ||
+    !reportsPaginationRow ||
+    !reportsPrevPageBtn ||
+    !reportsPageIndicator ||
+    !reportsNextPageBtn ||
+    !reportModal ||
+    !reportModalTitle ||
+    !reportIdInput ||
+    !reportContentInput ||
+    !reportFormMessage ||
+    !reportSaveBtn ||
+    !reportCancelBtn ||
     !devicesCardsGrid ||
     !openDeviceModalBtn ||
     !deviceModal ||
@@ -1062,11 +1126,25 @@
     document.querySelectorAll(".admin-only").forEach(function (el) {
       el.classList.add("hidden");
     });
+  } else {
+    reportsFiltersRow.classList.remove("hidden");
+    reportsSelectAllHeaderCell.classList.remove("hidden");
+    bulkDeleteReportsBtn.disabled = true;
   }
 
   function setGlobalMessage(message, isError) {
     globalMessageEl.textContent = message || "";
     globalMessageEl.style.color = isError ? "#8a1c18" : "#1f6f53";
+  }
+
+  function setReportsMessage(message, isError) {
+    reportsMessage.textContent = message || "";
+    reportsMessage.style.color = isError ? "#8a1c18" : "";
+  }
+
+  function setReportFormMessage(message, isError) {
+    reportFormMessage.textContent = message || "";
+    reportFormMessage.style.color = isError ? "#8a1c18" : "#1f6f53";
   }
 
   function setSocketStatus(isConnected, detail) {
@@ -1878,6 +1956,7 @@
     statisticsPanel.classList.toggle("active", tabName === "statistics");
     usersPanel.classList.toggle("active", tabName === "users");
     devicesPanel.classList.toggle("active", tabName === "devices");
+    reportsPanel.classList.toggle("active", tabName === "reports");
     rightPanel.classList.toggle("right-panel--hidden", tabName !== "history");
     setGlobalMessage("", false);
   }
@@ -4226,6 +4305,34 @@
     updateUserDeviceAssignmentVisibility();
   }
 
+  function populateReportsFilterUserOptions(users) {
+    if (!isAdmin || !(reportsFilterUserSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    var selectedValue = reportsFilterUserId || reportsFilterUserSelect.value || "";
+    reportsFilterUserSelect.innerHTML = "";
+
+    var allOption = document.createElement("option");
+    allOption.value = "";
+    allOption.textContent = "كل الموظفين";
+    reportsFilterUserSelect.appendChild(allOption);
+
+    (Array.isArray(users) ? users : []).forEach(function (userEntry) {
+      if (!userEntry || userEntry.role !== "emp") {
+        return;
+      }
+
+      var option = document.createElement("option");
+      option.value = String(userEntry.id);
+      option.textContent = userEntry.name;
+      option.selected = String(userEntry.id) === String(selectedValue);
+      reportsFilterUserSelect.appendChild(option);
+    });
+
+    reportsFilterUserSelect.value = selectedValue;
+  }
+
   function getSelectedUserDeviceIds() {
     if (!(userDeviceIdsInput instanceof HTMLSelectElement)) {
       return [];
@@ -4259,6 +4366,239 @@
     }
 
     return names.join("، ");
+  }
+
+  function toggleBulkDeleteReportsButtonState() {
+    if (!isAdmin) {
+      bulkDeleteReportsBtn.classList.add("hidden");
+      bulkDeleteReportsBtn.disabled = true;
+      return;
+    }
+
+    var hasSelection = reportsSelectedIds.length > 0;
+    bulkDeleteReportsBtn.classList.toggle("hidden", !hasSelection);
+    bulkDeleteReportsBtn.disabled = !hasSelection;
+  }
+
+  function syncReportsSelectAllState() {
+    if (!(reportsSelectAllCheckbox instanceof HTMLInputElement)) {
+      return;
+    }
+
+    var rowCheckboxes = Array.prototype.slice.call(
+      reportsTableBody.querySelectorAll('input[type="checkbox"][data-report-select="1"]')
+    );
+    var selectedCount = rowCheckboxes.filter(function (checkbox) {
+      return checkbox.checked;
+    }).length;
+
+    reportsSelectAllCheckbox.checked = rowCheckboxes.length > 0 && selectedCount === rowCheckboxes.length;
+    reportsSelectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < rowCheckboxes.length;
+  }
+
+  function closeReportsNavMenu() {
+    reportsNavMenu.classList.add("hidden");
+    reportsNavToggleBtn.setAttribute("aria-expanded", "false");
+    document.removeEventListener("click", handleReportsNavOutsideClick, true);
+  }
+
+  function handleReportsNavOutsideClick(event) {
+    if (reportsNavDropdown.contains(event.target)) {
+      return;
+    }
+
+    closeReportsNavMenu();
+  }
+
+  function resetReportForm() {
+    reportIdInput.value = "";
+    reportContentInput.value = "";
+    reportSaveBtn.dataset.mode = "create";
+    reportSaveBtn.textContent = "حفظ";
+    reportModalTitle.textContent = "إضافة تقرير";
+    setReportFormMessage("", false);
+  }
+
+  function openReportModal(reportOrNull) {
+    if (reportOrNull) {
+      reportModalTitle.textContent = "تعديل تقرير";
+      reportIdInput.value = String(reportOrNull.id || "");
+      reportContentInput.value = reportOrNull.content || "";
+      reportSaveBtn.dataset.mode = "edit";
+      reportSaveBtn.textContent = "تحديث";
+      setReportFormMessage("", false);
+    } else {
+      resetReportForm();
+      reportModalTitle.textContent = "إضافة تقرير";
+      reportSaveBtn.dataset.mode = "create";
+      reportSaveBtn.textContent = "حفظ";
+    }
+
+    reportModal.classList.remove("hidden");
+    reportModal.setAttribute("aria-hidden", "false");
+    reportContentInput.focus();
+  }
+
+  function closeReportModal() {
+    reportModal.classList.add("hidden");
+    reportModal.setAttribute("aria-hidden", "true");
+  }
+
+  async function loadReports() {
+    try {
+      setReportsMessage("جاري تحميل التقارير...", false);
+
+      var params = new URLSearchParams();
+      params.set("page", String(reportsCurrentPage));
+      params.set("pageSize", String(reportsPageSize));
+      if (isAdmin) {
+        if (reportsFilterUserId) {
+          params.set("userId", reportsFilterUserId);
+        }
+        if (reportsFilterDate) {
+          params.set("date", reportsFilterDate);
+        }
+      }
+
+      var response = await apiRequest("/api/reports?" + params.toString());
+      var items = Array.isArray(response && response.items) ? response.items : [];
+      var total = Number(response && response.total) || 0;
+      var page = Number(response && response.page) || reportsCurrentPage;
+      var pageSize = Number(response && response.pageSize) || reportsPageSize;
+      var visibleIds = items.map(function (item) {
+        return Number(item.id);
+      });
+
+      reportsCurrentPage = page;
+      reportsPageSize = pageSize;
+      reportsSelectedIds = reportsSelectedIds.filter(function (id) {
+        return visibleIds.indexOf(Number(id)) !== -1;
+      });
+
+      reportsTableBody.innerHTML = "";
+
+      if (!items.length) {
+        var emptyTr = document.createElement("tr");
+        var emptyTd = document.createElement("td");
+        emptyTd.colSpan = isAdmin ? 6 : 5;
+        emptyTd.textContent = "لا توجد تقارير لعرضها.";
+        emptyTr.appendChild(emptyTd);
+        reportsTableBody.appendChild(emptyTr);
+      }
+
+      items.forEach(function (item) {
+        var tr = document.createElement("tr");
+        var selectTd = document.createElement("td");
+        selectTd.className = isAdmin ? "admin-only" : "admin-only hidden";
+
+        var checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.setAttribute("data-report-select", "1");
+        checkbox.value = String(item.id);
+        checkbox.checked = reportsSelectedIds.indexOf(Number(item.id)) !== -1;
+        checkbox.addEventListener("change", function () {
+          var reportId = Number(item.id);
+          if (checkbox.checked) {
+            if (reportsSelectedIds.indexOf(reportId) === -1) {
+              reportsSelectedIds.push(reportId);
+            }
+          } else {
+            reportsSelectedIds = reportsSelectedIds.filter(function (id) {
+              return Number(id) !== reportId;
+            });
+          }
+
+          syncReportsSelectAllState();
+          toggleBulkDeleteReportsButtonState();
+        });
+        selectTd.appendChild(checkbox);
+        tr.appendChild(selectTd);
+
+        var contentTd = document.createElement("td");
+        contentTd.className = "report-content-cell";
+        contentTd.textContent = item.content || "";
+        contentTd.title = item.content || "";
+        tr.appendChild(contentTd);
+
+        var nameTd = document.createElement("td");
+        nameTd.textContent = item.createdByNameSnapshot || "-";
+        tr.appendChild(nameTd);
+
+        var createdAtTd = document.createElement("td");
+        createdAtTd.textContent = item.createdAt ? formatLocalDateTime(item.createdAt) : "-";
+        tr.appendChild(createdAtTd);
+
+        var updatedAtTd = document.createElement("td");
+        var createdAtMs = new Date(item.createdAt).getTime();
+        var updatedAtMs = new Date(item.updatedAt).getTime();
+        updatedAtTd.textContent =
+          Number.isFinite(createdAtMs) && Number.isFinite(updatedAtMs) && Math.abs(updatedAtMs - createdAtMs) > 5000
+            ? formatLocalDateTime(item.updatedAt)
+            : "—";
+        tr.appendChild(updatedAtTd);
+
+        var actionsTd = document.createElement("td");
+        actionsTd.className = "action-buttons";
+
+        if (isAdmin || Number(item.createdByUserId) === Number(user.id)) {
+          var editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.className = "ghost-btn";
+          editBtn.textContent = "تعديل";
+          editBtn.addEventListener("click", function () {
+            openReportModal(item);
+          });
+          actionsTd.appendChild(editBtn);
+        }
+
+        if (isAdmin) {
+          var deleteBtn = document.createElement("button");
+          deleteBtn.type = "button";
+          deleteBtn.className = isAdmin ? "danger-btn admin-only" : "danger-btn admin-only hidden";
+          deleteBtn.textContent = "حذف";
+          deleteBtn.addEventListener("click", async function () {
+            if (!window.confirm("هل تريد حذف هذا التقرير؟")) {
+              return;
+            }
+
+            try {
+              await apiRequest("/api/reports/" + item.id, { method: "DELETE" });
+              reportsSelectedIds = reportsSelectedIds.filter(function (id) {
+                return Number(id) !== Number(item.id);
+              });
+              await loadReports();
+            } catch (error) {
+              setReportsMessage(error instanceof Error ? error.message : "فشل حذف التقرير", true);
+            }
+          });
+          actionsTd.appendChild(deleteBtn);
+        }
+
+        if (!actionsTd.childNodes.length) {
+          actionsTd.textContent = "-";
+        }
+
+        tr.appendChild(actionsTd);
+        reportsTableBody.appendChild(tr);
+      });
+
+      reportsPageIndicator.textContent = "صفحة " + reportsCurrentPage;
+      reportsPrevPageBtn.disabled = reportsCurrentPage <= 1;
+      reportsNextPageBtn.disabled = reportsCurrentPage * reportsPageSize >= total;
+      syncReportsSelectAllState();
+      toggleBulkDeleteReportsButtonState();
+      setReportsMessage(items.length ? "" : "لا توجد تقارير لعرضها.", false);
+    } catch (error) {
+      reportsTableBody.innerHTML = "";
+      reportsPageIndicator.textContent = "صفحة " + reportsCurrentPage;
+      reportsPrevPageBtn.disabled = reportsCurrentPage <= 1;
+      reportsNextPageBtn.disabled = true;
+      reportsSelectAllCheckbox.checked = false;
+      reportsSelectAllCheckbox.indeterminate = false;
+      reportsSelectedIds = [];
+      toggleBulkDeleteReportsButtonState();
+      setReportsMessage(error instanceof Error ? error.message : "فشل تحميل التقارير", true);
+    }
   }
 
   function resetDeviceForm() {
@@ -4433,9 +4773,11 @@
   async function loadUsers() {
     try {
       var users = await apiRequest("/api/users");
+      usersCache = Array.isArray(users) ? users : [];
+      populateReportsFilterUserOptions(usersCache);
       usersTableBody.innerHTML = "";
 
-      users.forEach(function (u) {
+      usersCache.forEach(function (u) {
         var tr = document.createElement("tr");
         var deviceSummary = formatUserDeviceSummary(u.deviceIds);
         var devicePills =
@@ -4602,6 +4944,163 @@
     closeUserModal();
     resetUserForm();
   });
+
+  reportsNavToggleBtn.addEventListener("click", function (event) {
+    event.stopPropagation();
+    var willOpen = reportsNavMenu.classList.contains("hidden");
+    if (!willOpen) {
+      closeReportsNavMenu();
+      return;
+    }
+
+    reportsNavMenu.classList.remove("hidden");
+    reportsNavToggleBtn.setAttribute("aria-expanded", "true");
+    window.setTimeout(function () {
+      document.addEventListener("click", handleReportsNavOutsideClick, true);
+    }, 0);
+  });
+
+  reportsNavAddBtn.addEventListener("click", function () {
+    closeReportsNavMenu();
+    openReportModal(null);
+  });
+
+  reportsNavViewBtn.addEventListener("click", function () {
+    closeReportsNavMenu();
+    activateTab("reports");
+    loadReports().catch(function (error) {
+      setReportsMessage(error instanceof Error ? error.message : "فشل تحميل التقارير", true);
+    });
+  });
+
+  openAddReportModalBtn.addEventListener("click", function () {
+    openReportModal(null);
+  });
+
+  refreshReportsBtn.addEventListener("click", function () {
+    loadReports().catch(function (error) {
+      setReportsMessage(error instanceof Error ? error.message : "فشل تحميل التقارير", true);
+    });
+  });
+
+  reportsPrevPageBtn.addEventListener("click", function () {
+    if (reportsCurrentPage <= 1) {
+      return;
+    }
+
+    reportsCurrentPage -= 1;
+    loadReports().catch(function (error) {
+      setReportsMessage(error instanceof Error ? error.message : "فشل تحميل التقارير", true);
+    });
+  });
+
+  reportsNextPageBtn.addEventListener("click", function () {
+    reportsCurrentPage += 1;
+    loadReports().catch(function (error) {
+      setReportsMessage(error instanceof Error ? error.message : "فشل تحميل التقارير", true);
+    });
+  });
+
+  reportSaveBtn.addEventListener("click", async function () {
+    var content = reportContentInput.value.trim();
+    if (!content) {
+      setReportFormMessage("نص التقرير مطلوب", true);
+      return;
+    }
+
+    try {
+      if (!reportIdInput.value) {
+        await apiRequest("/api/reports", {
+          method: "POST",
+          body: JSON.stringify({ content: content })
+        });
+      } else {
+        await apiRequest("/api/reports/" + reportIdInput.value, {
+          method: "PUT",
+          body: JSON.stringify({ content: content })
+        });
+      }
+
+      closeReportModal();
+      resetReportForm();
+      await loadReports();
+    } catch (error) {
+      setReportFormMessage(error instanceof Error ? error.message : "فشل حفظ التقرير", true);
+    }
+  });
+
+  reportCancelBtn.addEventListener("click", function () {
+    closeReportModal();
+    resetReportForm();
+  });
+
+  reportModal.addEventListener("click", function (event) {
+    if (event.target === reportModal) {
+      closeReportModal();
+      resetReportForm();
+    }
+  });
+
+  if (isAdmin) {
+    applyReportsFilterBtn.addEventListener("click", function () {
+      reportsFilterUserId = reportsFilterUserSelect.value;
+      reportsFilterDate = reportsFilterDateInput.value;
+      reportsCurrentPage = 1;
+      loadReports().catch(function (error) {
+        setReportsMessage(error instanceof Error ? error.message : "فشل تحميل التقارير", true);
+      });
+    });
+
+    clearReportsFilterBtn.addEventListener("click", function () {
+      reportsFilterUserId = "";
+      reportsFilterDate = "";
+      reportsCurrentPage = 1;
+      reportsFilterUserSelect.value = "";
+      reportsFilterDateInput.value = "";
+      loadReports().catch(function (error) {
+        setReportsMessage(error instanceof Error ? error.message : "فشل تحميل التقارير", true);
+      });
+    });
+
+    reportsSelectAllCheckbox.addEventListener("change", function () {
+      var rowCheckboxes = Array.prototype.slice.call(
+        reportsTableBody.querySelectorAll('input[type="checkbox"][data-report-select="1"]')
+      );
+      var nextIds = [];
+
+      rowCheckboxes.forEach(function (checkbox) {
+        checkbox.checked = reportsSelectAllCheckbox.checked;
+        if (checkbox.checked) {
+          nextIds.push(Number(checkbox.value));
+        }
+      });
+
+      reportsSelectedIds = Array.from(new Set(nextIds));
+      syncReportsSelectAllState();
+      toggleBulkDeleteReportsButtonState();
+    });
+
+    bulkDeleteReportsBtn.addEventListener("click", async function () {
+      if (!reportsSelectedIds.length) {
+        return;
+      }
+
+      if (!window.confirm("هل تريد حذف " + reportsSelectedIds.length + " تقرير/تقارير محددة؟")) {
+        return;
+      }
+
+      try {
+        await apiRequest("/api/reports", {
+          method: "DELETE",
+          body: JSON.stringify({ ids: reportsSelectedIds })
+        });
+        reportsSelectedIds = [];
+        await loadReports();
+      } catch (error) {
+        setReportsMessage(error instanceof Error ? error.message : "فشل حذف التقارير", true);
+      }
+    });
+  }
 
   openUserModalBtn.addEventListener("click", function () {
     resetUserForm();

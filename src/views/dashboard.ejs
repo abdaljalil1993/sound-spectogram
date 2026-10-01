@@ -13,6 +13,15 @@
       <div class="topbar-actions">
         <nav class="top-nav" id="topNav">
           <button type="button" class="tab-btn active" data-tab="history">السجل</button>
+          <div class="reports-nav-dropdown" id="reportsNavDropdown">
+            <button type="button" class="tab-btn" id="reportsNavToggleBtn" aria-expanded="false">
+              التقارير ▾
+            </button>
+            <div class="reports-nav-menu hidden" id="reportsNavMenu">
+              <button type="button" class="reports-nav-menu-item" id="reportsNavAddBtn">إضافة تقرير</button>
+              <button type="button" class="reports-nav-menu-item" id="reportsNavViewBtn">عرض التقارير</button>
+            </div>
+          </div>
           <button type="button" class="tab-btn" data-tab="map">خريطة</button>
           <button type="button" class="tab-btn" data-tab="statistics">الإحصائيات</button>
           <button type="button" class="tab-btn" data-tab="users">المستخدمون</button>
@@ -452,6 +461,75 @@
 
             <div id="devicesCardsGrid" class="devices-cards-grid"></div>
           </section>
+
+          <section id="reportsPanel" class="tab-panel">
+            <h2>التقارير</h2>
+            <div class="device-admin-toolbar">
+              <button type="button" id="openAddReportModalBtn">إضافة تقرير</button>
+              <button type="button" id="refreshReportsBtn" class="ghost-btn">تحديث</button>
+              <button type="button" id="bulkDeleteReportsBtn" class="ghost-btn admin-only hidden">حذف المحدد</button>
+            </div>
+
+            <div class="reports-filters-row admin-only hidden" id="reportsFiltersRow">
+              <label>
+                الموظف
+                <select id="reportsFilterUserSelect" class="device-select-dropdown">
+                  <option value="">كل الموظفين</option>
+                </select>
+              </label>
+              <label>
+                التاريخ
+                <input id="reportsFilterDateInput" type="date" />
+              </label>
+              <button type="button" id="applyReportsFilterBtn" class="ghost-btn">تطبيق</button>
+              <button type="button" id="clearReportsFilterBtn" class="ghost-btn">مسح</button>
+            </div>
+
+            <p id="reportsMessage" class="history-info"></p>
+
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th class="admin-only hidden" id="reportsSelectAllHeaderCell">
+                      <input type="checkbox" id="reportsSelectAllCheckbox" />
+                    </th>
+                    <th>المحتوى</th>
+                    <th>المستخدم</th>
+                    <th>تاريخ التقديم</th>
+                    <th>آخر تعديل</th>
+                    <th>إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody id="reportsTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="quick-range-grid" id="reportsPaginationRow">
+              <button type="button" id="reportsPrevPageBtn" class="ghost-btn">السابق</button>
+              <span id="reportsPageIndicator" class="history-info">صفحة 1</span>
+              <button type="button" id="reportsNextPageBtn" class="ghost-btn">التالي</button>
+            </div>
+          </section>
+
+          <div
+            id="reportModal"
+            class="hidden"
+            aria-hidden="true"
+            style="position: fixed; inset: 0; z-index: 1002; background: rgba(9, 12, 18, 0.55); padding: 20px;"
+          >
+            <div class="side-card" style="max-width: 640px; margin: 0 auto; max-height: calc(100vh - 40px); overflow: auto;">
+              <h3 id="reportModalTitle" style="margin-bottom: 8px;">إضافة تقرير</h3>
+              <input type="hidden" id="reportId" />
+              <label for="reportContentInput">نص التقرير</label>
+              <textarea id="reportContentInput" rows="8" style="width: 100%; resize: vertical;"></textarea>
+              <p id="reportFormMessage" class="history-info"></p>
+              <div class="form-actions">
+                <button type="button" id="reportSaveBtn">حفظ</button>
+                <button type="button" id="reportCancelBtn" class="ghost-btn">إلغاء</button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <aside id="rightPanel" class="right-panel">

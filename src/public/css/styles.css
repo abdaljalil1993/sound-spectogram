@@ -53,6 +53,50 @@ html {
   gap: 8px;
 }
 
+.reports-nav-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.reports-nav-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  min-width: 180px;
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--panel, #141a2a);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reports-nav-menu.hidden {
+  display: none;
+}
+
+.reports-nav-menu-item {
+  display: block;
+  width: 100%;
+  text-align: right;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--ink, #e6e9f2);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.reports-nav-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .tab-btn {
   border: 1px solid var(--line);
   background: #f7f9f8;
@@ -931,6 +975,45 @@ select:focus-visible {
   display: flex;
   justify-content: flex-start;
   margin-bottom: 8px;
+}
+
+.reports-filters-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.reports-filters-row.hidden {
+  display: none;
+}
+
+.reports-filters-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reports-filters-row input {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.report-content-cell {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .devices-cards-grid {
