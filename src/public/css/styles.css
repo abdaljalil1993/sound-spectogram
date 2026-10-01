@@ -339,6 +339,8 @@ select:focus-visible {
 }
 
 .side-card {
+  direction: rtl;
+  text-align: right;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -627,6 +629,8 @@ select:focus-visible {
 }
 
 .history-info {
+  direction: rtl;
+  text-align: right;
   margin-top: 12px;
   color: var(--muted);
   font-size: 13px;
@@ -966,6 +970,14 @@ select:focus-visible {
   text-align: right;
 }
 
+#historyPanel,
+#statisticsPanel,
+#usersPanel,
+#reportsPanel {
+  direction: rtl;
+  text-align: right;
+}
+
 #devicesPanel > h2 {
   text-align: right;
   width: 100%;
@@ -974,6 +986,7 @@ select:focus-visible {
 .device-admin-toolbar {
   display: flex;
   justify-content: flex-start;
+  gap: 10px;
   margin-bottom: 8px;
 }
 
@@ -1006,6 +1019,11 @@ select:focus-visible {
   background: #fff;
   color: var(--ink);
   font-size: 13px;
+}
+
+#reportContentInput {
+  direction: rtl;
+  text-align: right;
 }
 
 .reports-pagination-row {
@@ -1045,6 +1063,8 @@ select:focus-visible {
 }
 
 #mapPanel {
+  direction: rtl;
+  text-align: right;
   height: calc(100vh - 170px);
   position: relative;
 }
@@ -1247,6 +1267,8 @@ select:focus-visible {
 }
 
 .data-table {
+  direction: rtl;
+  text-align: right;
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
@@ -1255,7 +1277,6 @@ select:focus-visible {
 .data-table th,
 .data-table td {
   border-bottom: 1px solid #ecece5;
-  text-align: left;
   padding: 9px 8px;
   vertical-align: top;
 }
@@ -1619,12 +1640,21 @@ select:focus-visible {
 }
 
 .statistics-card {
+  direction: rtl;
+  text-align: right;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
   padding: 12px;
   box-shadow: 0 1px 3px rgba(27, 31, 36, 0.06), 0 1px 2px rgba(27, 31, 36, 0.04);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+input[type="date"],
+input[type="time"],
+input[type="number"] {
+  direction: ltr;
+  text-align: right;
 }
 
 .statistics-card:hover {
