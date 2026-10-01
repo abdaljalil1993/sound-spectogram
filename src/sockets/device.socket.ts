@@ -149,6 +149,8 @@ function extractAiStatusRange(payload: unknown): { startTime: string; endTime: s
 
 function toAuthorizedUser(user: User): AuthorizedUser {
   return {
+    id: user.id,
+    name: user.name,
     userId: user.id,
     username: user.username,
     role: user.role,

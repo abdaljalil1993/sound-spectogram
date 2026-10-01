@@ -29,6 +29,8 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
         }
 
         const authorizedUser: AuthorizedUser = {
+          id: user.id,
+          name: user.name,
           userId: user.id,
           username: user.username,
           role: user.role,

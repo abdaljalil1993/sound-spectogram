@@ -5,6 +5,7 @@ import compression from "compression";
 import helmet from "helmet";
 import deviceRoutes from "./routes/device.routes";
 import historyRoutes from "./routes/history.routes";
+import reportRoutes from "./routes/report.routes";
 import statisticsRoutes from "./routes/statistics.routes";
 import telemetryRoutes from "./routes/telemetry.routes";
 import userRoutes from "./routes/user.routes";
@@ -84,6 +85,7 @@ export function createApp() {
   app.use("/api", userRoutes);
   app.use("/api", deviceRoutes);
   app.use("/api", historyRoutes);
+  app.use("/api", reportRoutes);
   app.use("/api", statisticsRoutes);
   app.use("/api", telemetryRoutes);
 

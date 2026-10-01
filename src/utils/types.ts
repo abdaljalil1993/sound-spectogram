@@ -65,6 +65,8 @@ export interface JwtUserPayload {
 }
 
 export interface AuthorizedUser {
+  id: number;
+  name: string;
   userId: number;
   username: string;
   role: UserRole;
