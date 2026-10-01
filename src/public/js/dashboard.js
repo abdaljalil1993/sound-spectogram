@@ -2664,6 +2664,7 @@
     }
 
     liveManualBrowseActive = true;
+    liveFollowEnabled = false;
     var padding = Math.max(60 * 1000, Math.round((maxEnd - minStart) * 0.04));
     viewportFromMs = minStart - padding;
     viewportToMs = maxEnd + padding;
@@ -2679,6 +2680,7 @@
     }
 
     liveManualBrowseActive = true;
+    liveFollowEnabled = false;
     var panRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 0.2;
     var shift = Math.max(30 * 1000, Math.round(span * panRatio));
     viewportFromMs += direction * shift;
@@ -2732,6 +2734,7 @@
     }
 
     liveManualBrowseActive = true;
+    liveFollowEnabled = false;
     var anchor = clamp(anchorFraction, 0, 1);
     var anchorTime = viewportFromMs + span * anchor;
     var newSpan = Math.round(span * factor);
@@ -5191,6 +5194,7 @@
     if (!panHasMoved && Math.abs(dx) >= 3) {
       panHasMoved = true;
       liveManualBrowseActive = true;
+      liveFollowEnabled = false;
     }
 
     var shiftMs = Math.round((-dx / canvasWidth) * span);
