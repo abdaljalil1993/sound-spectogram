@@ -102,6 +102,7 @@
   };
   var DEFAULT_LIVE_WINDOW_MS = 30 * 60 * 1000;
   var ONE_HOUR_WINDOW_MS = 60 * 60 * 1000;
+  var EDGE_TRACK_TOLERANCE_MS = 5000;
   var currentLiveWindowMs = DEFAULT_LIVE_WINDOW_MS;
   var LIVE_WINDOW_LABEL = "آخر 30 دقيقة";
   var MAX_LOAD_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -6258,6 +6259,8 @@
         return;
       }
 
+      var previousLatestPacket = currentPackets.length ? currentPackets[currentPackets.length - 1] : null;
+      var previousLatestEndMs = previousLatestPacket ? getPacketEndMs(previousLatestPacket) : null;
       var inserted = insertPacketSorted(payload);
       if (!inserted) {
         markLiveTrace("duplicate", { packetTimeMs: payloadTime });
@@ -6268,6 +6271,26 @@
       if (liveFollowEnabled) {
         liveManualBrowseActive = false;
         syncLatestLiveViewport(getPacketEndMs(payload));
+      } else if (
+        Number.isFinite(previousLatestEndMs) &&
+        Number.isFinite(viewportFromMs) &&
+        Number.isFinite(viewportToMs) &&
+        previousLatestEndMs >= viewportFromMs - EDGE_TRACK_TOLERANCE_MS &&
+        previousLatestEndMs <= viewportToMs + EDGE_TRACK_TOLERANCE_MS
+      ) {
+        var newPacketStartMs = getPacketStartMs(payload);
+        var newPacketEndMs = getPacketEndMs(payload);
+        if (
+          Number.isFinite(newPacketStartMs) &&
+          Number.isFinite(newPacketEndMs) &&
+          Math.abs(newPacketStartMs - previousLatestEndMs) <= EDGE_TRACK_TOLERANCE_MS
+        ) {
+          var edgeShiftMs = newPacketEndMs - previousLatestEndMs;
+          if (edgeShiftMs > 0) {
+            viewportFromMs += edgeShiftMs;
+            viewportToMs += edgeShiftMs;
+          }
+        }
       }
       scheduleRender({ skipTable: false });
 
