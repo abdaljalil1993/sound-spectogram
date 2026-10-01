@@ -1008,6 +1008,19 @@ select:focus-visible {
   font-size: 13px;
 }
 
+.reports-pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.reports-pagination-row .ghost-btn {
+  min-width: 90px;
+  padding: 8px 16px;
+}
+
 .report-content-cell {
   max-width: 360px;
   overflow: hidden;

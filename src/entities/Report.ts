@@ -9,7 +9,7 @@ export class Report {
   @Column({ type: "text" })
   content!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "int", nullable: true })
   createdByUserId!: number | null;
 
   @Column({ type: "varchar", length: 255 })
